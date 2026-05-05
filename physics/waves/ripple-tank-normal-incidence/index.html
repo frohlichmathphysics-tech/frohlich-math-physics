@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ripple Tank — Normal Incidence</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --accent: #1e40af;
+    --rule: #d4d4d4;
+    --panel: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    margin: 0;
+    padding: 16px;
+    line-height: 1.4;
+  }
+  .app { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.25rem; margin: 0 0 0.25rem; font-weight: 600; }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: flex-end;
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+  }
+  .ctrl-buttons { display: flex; gap: 8px; }
+  .ctrl-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 200px;
+    flex: 1;
+  }
+  .ctrl-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .ctrl-value { font-variant-numeric: tabular-nums; color: var(--ink); }
+  input[type=range] { width: 100%; margin: 0; }
+  button {
+    font-family: inherit;
+    font-size: 0.9rem;
+    padding: 7px 16px;
+    border: 1px solid var(--rule);
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  button:hover { background: #f0f0f0; }
+  button.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  button.primary:hover { background: #1e3a8a; }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: white;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+  }
+
+  .readouts {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 12px 14px;
+  }
+  .panel h2 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 10px;
+    font-weight: 600;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 2.6em 1fr;
+    align-items: baseline;
+    gap: 6px;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.95rem;
+    padding: 3px 0;
+  }
+  .row .quantity { font-weight: 600; }
+  .row .annot { color: var(--muted); font-size: 0.82rem; margin-left: 6px; }
+
+  .cmp-row {
+    display: grid;
+    grid-template-columns: 1.6em 2.5em 1.6em 2.5em;
+    align-items: center;
+    gap: 4px;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.98rem;
+    padding: 3px 0;
+  }
+  .cmp-row .quantity { font-weight: 600; }
+  .sym { font-weight: 700; text-align: center; font-size: 1.15rem; }
+  .sym.eq { color: var(--muted); }
+  .sym.gt, .sym.lt { color: var(--accent); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 99px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .badge.same      { background: #e5e5e5; color: #4a4a4a; }
+  .badge.shallower { background: #fef3c7; color: #92400e; }
+  .badge.deeper    { background: #dbeafe; color: #1e3a8a; }
+
+  .note { color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
+
+  footer {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-align: center;
+  }
+
+  @media (max-width: 600px) {
+    .readouts { grid-template-columns: 1fr; }
+    .ctrl-group { min-width: 140px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Ripple Tank — Normal Incidence</h1>
+  <div class="subtitle">Plane waves cross a depth boundary head-on. Frequency stays constant in both regions; speed and wavelength scale together with √(h₂ ⁄ h₁).</div>
+
+  <div class="controls">
+    <div class="ctrl-buttons">
+      <button id="startBtn" class="primary">Start</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Frequency: <span id="freqVal" class="ctrl-value">4.0 Hz</span></span>
+      <input type="range" id="freq" min="1" max="8" step="0.1" value="4">
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Depth ratio h₁ ⁄ h₂: <span id="depthVal" class="ctrl-value">1.00</span></span>
+      <input type="range" id="depth" min="-1" max="0.69897" step="0.01" value="0">
+    </div>
+  </div>
+
+  <canvas id="tank" width="600" height="300"></canvas>
+
+  <div class="readouts">
+    <div class="panel">
+      <h2>Region values</h2>
+      <div class="row"><span class="quantity">λ₁</span><span><span id="lam1">1.88</span> cm <span class="annot">top half + source</span></span></div>
+      <div class="row"><span class="quantity">λ₂</span><span><span id="lam2">1.88</span> cm <span class="annot">bottom half (Region 3)</span></span></div>
+      <div class="row"><span class="quantity">v₁</span><span><span id="v1d">7.50</span> cm⁄s</span></div>
+      <div class="row"><span class="quantity">v₂</span><span><span id="v2d">7.50</span> cm⁄s</span></div>
+      <div style="margin-top:10px;">
+        Region 3 is <span id="depthBadge" class="badge same">Same depth</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Comparison: top vs bottom</h2>
+      <div class="cmp-row"><span class="quantity">v</span><span>v₁</span><span class="sym eq" id="symV">=</span><span>v₂</span></div>
+      <div class="cmp-row"><span class="quantity">λ</span><span>λ₁</span><span class="sym eq" id="symL">=</span><span>λ₂</span></div>
+      <div class="cmp-row"><span class="quantity">f</span><span>f₁</span><span class="sym eq">=</span><span>f₂</span></div>
+      <div class="note">Frequency is set by the source — it cannot change at a boundary.</div>
+    </div>
+  </div>
+
+  <footer>Mr. Frohlich Math and Physics &middot; physics ⁄ waves ⁄ ripple-tank-normal-incidence</footer>
+</div>
+
+<script>
+'use strict';
+
+// ===== Constants =====
+const CANVAS_W   = 600;
+const CANVAS_H   = 300;
+const PX_PER_CM  = 20;          // 600 px = 30 cm tank width
+const X_BOUND_PX = 200;         // vertical boundary at 1/3 width
+const Y_MID_PX   = 150;         // horizontal mid-line on right side
+const V1_CM_S    = 7.5;         // baseline wave speed (cm/s)
+const V1_PX_S    = V1_CM_S * PX_PER_CM;  // 150 px/s
+
+// ===== State =====
+const state = {
+  frequency: 4.0,    // Hz
+  ratio: 1.0,        // h1/h2
+  running: false,    // is animation advancing?
+  started: false,    // has Start ever been clicked since last Reset?
+  tSim: 0,           // simulation time (s)
+  lastFrame: null,   // wall-clock timestamp of previous frame
+};
+
+// ===== DOM refs =====
+const canvas      = document.getElementById('tank');
+const ctx         = canvas.getContext('2d');
+const startBtn    = document.getElementById('startBtn');
+const resetBtn    = document.getElementById('resetBtn');
+const freqSlider  = document.getElementById('freq');
+const depthSlider = document.getElementById('depth');
+const freqVal     = document.getElementById('freqVal');
+const depthVal    = document.getElementById('depthVal');
+const lam1El      = document.getElementById('lam1');
+const lam2El      = document.getElementById('lam2');
+const v1El        = document.getElementById('v1d');
+const v2El        = document.getElementById('v2d');
+const symV        = document.getElementById('symV');
+const symL        = document.getElementById('symL');
+const depthBadge  = document.getElementById('depthBadge');
+
+// ===== Physics helpers =====
+// Slider stores log10(ratio). ratio = 10^slider, so slider in [-1, log10(5)] gives ratio in [0.1, 5].
+// Physics: v = sqrt(g*h)  =>  v2/v1 = sqrt(h2/h1) = 1/sqrt(ratio)
+//                         =>  v2  = v1 / sqrt(ratio)
+//          f is invariant =>  lambda2 = v2/f = lambda1 / sqrt(ratio)
+function lambda1Cm() { return V1_CM_S / state.frequency; }
+function v2CmS()     { return V1_CM_S / Math.sqrt(state.ratio); }
+function lambda2Cm() { return v2CmS() / state.frequency; }
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// Region 3 tint: ratio<1 -> bottom deeper -> darker; ratio>1 -> bottom shallower -> lighter.
+function waterColor(ratio) {
+  const logR = Math.log10(ratio);            // [-1, 0.699]
+  const lightness = clamp(80 + logR * 14, 60, 92);
+  return `hsl(205, 70%, ${lightness.toFixed(1)}%)`;
+}
+const WATER_BASE = 'hsl(205, 70%, 80%)';
+
+// ===== Drawing =====
+function draw() {
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // 1) Region tints
+  ctx.fillStyle = WATER_BASE;
+  ctx.fillRect(0, 0, X_BOUND_PX, CANVAS_H);                                          // Region 1 (full height, left third)
+  ctx.fillRect(X_BOUND_PX, 0, CANVAS_W - X_BOUND_PX, Y_MID_PX);                      // Region 2 (top right)
+  ctx.fillStyle = waterColor(state.ratio);
+  ctx.fillRect(X_BOUND_PX, Y_MID_PX, CANVAS_W - X_BOUND_PX, CANVAS_H - Y_MID_PX);    // Region 3 (bottom right)
+
+  // 2) Boundary lines (drawn under wavefronts)
+  ctx.strokeStyle = '#6b6b6b';
+  ctx.lineWidth = 1.25;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.moveTo(X_BOUND_PX, 0);
+  ctx.lineTo(X_BOUND_PX, CANVAS_H);
+  ctx.moveTo(X_BOUND_PX, Y_MID_PX);
+  ctx.lineTo(CANVAS_W, Y_MID_PX);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 3) Source bar
+  ctx.fillStyle = '#555';
+  ctx.fillRect(0, 0, 4, CANVAS_H);
+
+  // 4) Wavefronts
+  if (state.started) drawWavefronts();
+
+  // 5) Region labels
+  ctx.fillStyle = '#1a1a1a';
+  ctx.font = '600 12px -apple-system, system-ui, sans-serif';
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'start';
+  ctx.fillText('Region 1', 8, 8);
+  ctx.fillText('h = h₁',  8, 24);
+  ctx.fillText('Region 2', X_BOUND_PX + 8, 8);
+  ctx.fillText('h = h₁',  X_BOUND_PX + 8, 24);
+  ctx.fillText('Region 3', X_BOUND_PX + 8, Y_MID_PX + 8);
+  ctx.fillText('h = h₂',  X_BOUND_PX + 8, Y_MID_PX + 24);
+
+  // 6) One-wavelength scale bars (one in top-right of Region 2, one in bottom-right of Region 3)
+  drawScaleBar(CANVAS_W - 12, 12 + 14, lambda1Cm() * PX_PER_CM, 'λ₁');
+  drawScaleBar(CANVAS_W - 12, CANVAS_H - 14, lambda2Cm() * PX_PER_CM, 'λ₂');
+}
+
+function drawScaleBar(rightX, y, lengthPx, label) {
+  // Place bar with right edge at rightX. If too wide for the right two-thirds, skip it.
+  const maxLen = CANVAS_W - X_BOUND_PX - 16;
+  if (lengthPx > maxLen || lengthPx < 6) return;
+  const x1 = rightX - lengthPx;
+  const x2 = rightX;
+
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x1, y);     ctx.lineTo(x2, y);
+  ctx.moveTo(x1, y - 4); ctx.lineTo(x1, y + 4);
+  ctx.moveTo(x2, y - 4); ctx.lineTo(x2, y + 4);
+  ctx.stroke();
+
+  ctx.fillStyle = '#1a1a1a';
+  ctx.font = '11px -apple-system, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(label, (x1 + x2) / 2, y - 5);
+  ctx.textAlign = 'start';
+}
+
+function drawWavefronts() {
+  const lam1Px = lambda1Cm() * PX_PER_CM;
+  const v2Px   = v2CmS()    * PX_PER_CM;
+  const f      = state.frequency;
+  const t      = state.tSim;
+  const tBound = X_BOUND_PX / V1_PX_S;                // time for a crest to travel from source to vertical boundary
+  const tThru  = (CANVAS_W - X_BOUND_PX) / v2Px;      // time for a crest to traverse Region 3
+
+  ctx.strokeStyle = 'rgba(30, 64, 175, 0.85)';
+  ctx.lineWidth = 2;
+
+  // ---- TOP HALF (Region 1 + Region 2): wavefronts at x = V1*t - k*lambda1 ----
+  // Crest k was emitted at t_emit = k/f.  At time t, position in top half = V1*(t - k/f) = V1*t - k*lambda1.
+  const xLead   = V1_PX_S * t;                                  // position of leading (k=0) crest
+  const kEmitted = Math.floor(t * f);                           // largest k that has been emitted
+  const kMaxTop  = Math.min(kEmitted, Math.floor(xLead / lam1Px));
+  const kMinTop  = Math.max(0, Math.ceil((xLead - CANVAS_W) / lam1Px));
+
+  ctx.beginPath();
+  for (let k = kMinTop; k <= kMaxTop; k++) {
+    const x = xLead - k * lam1Px;
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, Y_MID_PX);
+  }
+  ctx.stroke();
+
+  // ---- BOTTOM HALF ----
+  // (a) Region 1 portion (x < X_BOUND_PX): same depth h1, so wavefronts continue straight down at the same x.
+  // (b) Region 3 portion (x ≥ X_BOUND_PX): wavefront crossed boundary at t_at_b = k/f + tBound,
+  //     then traveled at v2 for (t - t_at_b) seconds  =>  x = X_BOUND_PX + (t - k/f - tBound) * v2.
+  ctx.beginPath();
+
+  // (a) Region 1 lower-half lines
+  for (let k = kMinTop; k <= kMaxTop; k++) {
+    const x = xLead - k * lam1Px;
+    if (x < X_BOUND_PX) {
+      ctx.moveTo(x, Y_MID_PX);
+      ctx.lineTo(x, CANVAS_H);
+    }
+  }
+
+  // (b) Region 3 lines
+  // Visible iff X_BOUND_PX ≤ x ≤ CANVAS_W
+  //   k must satisfy:  k ≤ f*(t - tBound)            (wave has reached boundary)
+  //                    k ≥ f*(t - tBound - tThru)   (wave hasn't exited canvas yet)
+  const kMaxBot = Math.min(kEmitted, Math.floor(f * (t - tBound)));
+  const kMinBot = Math.max(0,        Math.ceil (f * (t - tBound - tThru)));
+  for (let k = kMinBot; k <= kMaxBot; k++) {
+    const x = X_BOUND_PX + (t - k / f - tBound) * v2Px;
+    if (x >= X_BOUND_PX && x <= CANVAS_W) {
+      ctx.moveTo(x, Y_MID_PX);
+      ctx.lineTo(x, CANVAS_H);
+    }
+  }
+  ctx.stroke();
+}
+
+// ===== Readouts =====
+function updateReadouts() {
+  const lam1 = lambda1Cm();
+  const lam2 = lambda2Cm();
+  const v2   = v2CmS();
+  lam1El.textContent = lam1.toFixed(2);
+  lam2El.textContent = lam2.toFixed(2);
+  v1El.textContent   = V1_CM_S.toFixed(2);
+  v2El.textContent   = v2.toFixed(2);
+
+  // v-comparison
+  const vEps = 0.005;
+  if      (V1_CM_S > v2 + vEps) { symV.textContent = '>'; symV.className = 'sym gt'; }
+  else if (V1_CM_S < v2 - vEps) { symV.textContent = '<'; symV.className = 'sym lt'; }
+  else                          { symV.textContent = '='; symV.className = 'sym eq'; }
+
+  // λ-comparison
+  const lEps = 0.005;
+  if      (lam1 > lam2 + lEps) { symL.textContent = '>'; symL.className = 'sym gt'; }
+  else if (lam1 < lam2 - lEps) { symL.textContent = '<'; symL.className = 'sym lt'; }
+  else                          { symL.textContent = '='; symL.className = 'sym eq'; }
+
+  // Depth badge
+  if (state.ratio > 1.05) {
+    depthBadge.textContent = 'Shallower';
+    depthBadge.className = 'badge shallower';
+  } else if (state.ratio < 0.95) {
+    depthBadge.textContent = 'Deeper';
+    depthBadge.className = 'badge deeper';
+  } else {
+    depthBadge.textContent = 'Same depth';
+    depthBadge.className = 'badge same';
+  }
+
+  freqVal.textContent  = state.frequency.toFixed(1) + ' Hz';
+  depthVal.textContent = state.ratio.toFixed(2);
+}
+
+// ===== Frame loop =====
+function frame(timestamp) {
+  if (state.lastFrame === null) state.lastFrame = timestamp;
+  // Cap dt to handle tab-switch / sleep cleanly.
+  const dt = Math.min(0.1, (timestamp - state.lastFrame) / 1000);
+  state.lastFrame = timestamp;
+
+  if (state.running) state.tSim += dt;
+
+  draw();
+  updateReadouts();
+  requestAnimationFrame(frame);
+}
+
+// ===== Event handlers =====
+startBtn.addEventListener('click', () => {
+  if (!state.started) {
+    state.started = true;
+    state.running = true;
+    state.lastFrame = null;     // reset frame-time anchor so dt for the first frame is 0
+    startBtn.textContent = 'Pause';
+  } else if (state.running) {
+    state.running = false;
+    startBtn.textContent = 'Resume';
+  } else {
+    state.running = true;
+    state.lastFrame = null;
+    startBtn.textContent = 'Pause';
+  }
+});
+
+resetBtn.addEventListener('click', () => {
+  state.tSim     = 0;
+  state.started  = false;
+  state.running  = false;
+  state.lastFrame = null;
+  startBtn.textContent = 'Start';
+});
+
+freqSlider.addEventListener('input', e => {
+  state.frequency = parseFloat(e.target.value);
+});
+
+depthSlider.addEventListener('input', e => {
+  // Slider stores log10(ratio); convert to actual ratio.
+  state.ratio = Math.pow(10, parseFloat(e.target.value));
+});
+
+// ===== Init =====
+draw();
+updateReadouts();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
