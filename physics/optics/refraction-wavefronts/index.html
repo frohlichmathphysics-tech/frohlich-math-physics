@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Refraction at a Boundary — IBPHYS C1.3</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<main class="applet">
+
+  <header class="applet__header">
+    <h1>Refraction at a Boundary</h1>
+    <p class="applet__caption">
+      Frequency is the identity of a light wave — it sets the color and is
+      conserved across the boundary between media. Wavelength and speed
+      change between media; frequency does not.
+    </p>
+  </header>
+
+  <section class="controls" aria-label="Wave controls">
+
+    <div class="control">
+      <div class="control__row">
+        <label for="slider-n1">Index n<sub>1</sub></label>
+        <output id="readout-n1" for="slider-n1">1.00</output>
+      </div>
+      <input type="range" id="slider-n1" min="1.00" max="2.50" step="0.01" value="1.00"
+             aria-label="Index of refraction of medium 1">
+    </div>
+
+    <div class="control">
+      <div class="control__row">
+        <label for="slider-f">Frequency&nbsp;f&nbsp;(×10<sup>14</sup>&nbsp;Hz)</label>
+        <output id="readout-f" for="slider-f">5.45</output>
+      </div>
+      <input type="range" id="slider-f" min="4.00" max="7.90" step="0.05" value="5.45"
+             aria-label="Frequency of the light wave">
+    </div>
+
+    <div class="control">
+      <div class="control__row">
+        <label for="slider-n2">Index n<sub>2</sub></label>
+        <output id="readout-n2" for="slider-n2">1.50</output>
+      </div>
+      <input type="range" id="slider-n2" min="1.00" max="2.50" step="0.01" value="1.50"
+             aria-label="Index of refraction of medium 2">
+    </div>
+
+  </section>
+
+  <section class="stage" aria-label="Wave visualization">
+    <canvas id="wave" width="900" height="360" aria-hidden="true"></canvas>
+  </section>
+
+  <div class="toolbar">
+    <button id="btn-pause" type="button" aria-pressed="false" aria-label="Pause wave animation">
+      <span class="toolbar__icon" aria-hidden="true">❚❚</span>
+      <span class="toolbar__label">Pause</span>
+    </button>
+  </div>
+
+  <section class="readouts" aria-label="Numerical results">
+
+    <div class="medium medium--1">
+      <h2>Medium 1</h2>
+      <dl>
+        <dt>v<sub>1</sub></dt><dd id="readout-v1">3.00 × 10⁸ m/s</dd>
+        <dt>f<sub>1</sub></dt><dd id="readout-f1">5.45 × 10¹⁴ Hz</dd>
+        <dt>λ<sub>1</sub></dt><dd id="readout-lambda1">550 nm</dd>
+      </dl>
+    </div>
+
+    <div class="medium medium--2">
+      <h2>Medium 2</h2>
+      <dl>
+        <dt>v<sub>2</sub></dt><dd id="readout-v2">2.00 × 10⁸ m/s</dd>
+        <dt>f<sub>2</sub></dt><dd id="readout-f2">5.45 × 10¹⁴ Hz</dd>
+        <dt>λ<sub>2</sub></dt><dd id="readout-lambda2">367 nm</dd>
+      </dl>
+    </div>
+
+  </section>
+
+</main>
+
+<script src="./app.js"></script>
+</body>
+</html>
