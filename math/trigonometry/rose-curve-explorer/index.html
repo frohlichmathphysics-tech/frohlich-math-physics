@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rose Curve Explorer · Mr. Frohlich Math &amp; Physics</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="container">
+    <header class="title-bar">
+      <p class="eyebrow">AP PRECALCULUS · TOPIC 3.14A · APPLET</p>
+      <h1>Rose Curve Explorer</h1>
+      <p class="subtitle">r = ±a · trig(nθ)</p>
+    </header>
+
+    <div class="layout">
+
+      <!-- Control panel (left, ~40%) -->
+      <section class="controls" aria-label="Parameter controls">
+
+        <div class="control-group">
+          <label for="slider-a">
+            <span class="ctrl-name">Amplitude</span>
+            <span class="ctrl-value">a = <span id="value-a">4</span></span>
+          </label>
+          <input type="range" id="slider-a" min="0.5" max="10" step="0.5" value="4">
+          <div class="ctrl-hint">range 0.5 – 10, step 0.5</div>
+        </div>
+
+        <div class="control-group">
+          <label for="slider-n">
+            <span class="ctrl-name">Frequency</span>
+            <span class="ctrl-value">n = <span id="value-n">3</span></span>
+          </label>
+          <input type="range" id="slider-n" min="1" max="8" step="1" value="3">
+          <div class="ctrl-hint">integer 1 – 8</div>
+        </div>
+
+        <div class="control-group toggle-group">
+          <span class="ctrl-name">Trig</span>
+          <div class="toggle" role="group" aria-label="Trig function">
+            <button type="button" data-value="cos" class="toggle-btn active" id="trig-cos">cos</button>
+            <button type="button" data-value="sin" class="toggle-btn" id="trig-sin">sin</button>
+          </div>
+        </div>
+
+        <div class="control-group toggle-group">
+          <span class="ctrl-name">Sign</span>
+          <div class="toggle" role="group" aria-label="Sign">
+            <button type="button" data-value="1" class="toggle-btn active" id="sign-plus">+</button>
+            <button type="button" data-value="-1" class="toggle-btn" id="sign-minus">&minus;</button>
+          </div>
+        </div>
+
+        <div class="readouts">
+          <div class="readout-row primary">
+            <span class="readout-label">Petals:</span>
+            <span class="readout-value" id="readout-petals">3</span>
+          </div>
+          <div class="readout-row">
+            <span class="readout-label">Cycle:</span>
+            <span class="readout-value" id="readout-cycle">[0, π]</span>
+          </div>
+          <div class="readout-row">
+            <span class="readout-label">Max distance:</span>
+            <span class="readout-value" id="readout-max">4</span>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Canvas + equation + trace button (right, ~60%) -->
+      <section class="canvas-wrap" aria-label="Polar curve visualization">
+        <div class="equation" id="equation" aria-live="polite">r = 4 cos(3θ)</div>
+        <div class="canvas-frame">
+          <canvas id="canvas" width="600" height="600" aria-label="Polar plot canvas"></canvas>
+        </div>
+        <button type="button" id="trace-btn" class="trace-btn">Trace</button>
+      </section>
+
+    </div>
+
+    <footer class="page-footer">
+      <span>Mr. Frohlich Math &amp; Physics</span>
+    </footer>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

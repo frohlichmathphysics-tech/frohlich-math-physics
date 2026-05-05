@@ -1,0 +1,344 @@
+/* ================================================================
+   Rose Curve Explorer — styles
+   Palette per Build_Design_v4.docx (Mr. F's brand):
+     navy   #1E2A5E   primary text, chrome, polar curve
+     teal   #2DA8A8   accents, eyebrow, value tags
+     red    #C04A3A   (reserved; not used in this applet)
+     cream  #FAF6E8   panel fill
+     ink    #1F1F1F   body
+     greys  #BFBFBF (rings) #D8D8D8 (spokes / lines) #666666 (captions)
+   ================================================================ */
+
+:root {
+  --navy: #1E2A5E;
+  --navy-deep: #161F47;
+  --teal: #2DA8A8;
+  --teal-deep: #248F8F;
+  --cream: #FAF6E8;
+  --ink: #1F1F1F;
+  --grey-ring: #BFBFBF;
+  --grey-spoke: #D8D8D8;
+  --grey-caption: #666666;
+  --bg: #FFFFFF;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Aptos', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ----- Title bar ----- */
+
+.title-bar {
+  border-bottom: 2px solid var(--navy);
+  padding-bottom: 12px;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  color: var(--teal);
+  margin: 0 0 6px 0;
+  text-transform: uppercase;
+}
+
+.title-bar h1 {
+  font-size: 28px;
+  color: var(--navy);
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.title-bar .subtitle {
+  font-family: 'Cambria Math', 'STIX Two Math', 'Cambria', 'Georgia', serif;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--grey-caption);
+  margin: 4px 0 0 0;
+}
+
+/* ----- Layout ----- */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 40%) minmax(0, 60%);
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .container { padding: 16px; }
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  /* Mobile: canvas first, controls below */
+  .canvas-wrap { order: 1; }
+  .controls    { order: 2; }
+  .title-bar h1 { font-size: 22px; }
+}
+
+/* ----- Controls panel ----- */
+
+.controls {
+  background: var(--cream);
+  border-radius: 10px;
+  padding: 22px 22px 18px 22px;
+}
+
+.control-group {
+  margin-bottom: 22px;
+}
+
+.control-group:last-of-type {
+  margin-bottom: 0;
+}
+
+.control-group label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: var(--navy);
+}
+
+.ctrl-name {
+  font-weight: 700;
+}
+
+.ctrl-value {
+  font-family: 'Cambria Math', 'STIX Two Math', serif;
+  font-style: italic;
+  font-weight: 700;
+  color: var(--teal);
+  font-size: 16px;
+}
+
+.ctrl-hint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--grey-caption);
+  font-style: italic;
+}
+
+/* Range slider */
+
+input[type="range"] {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: #E5E0CE;
+  outline: none;
+  margin: 0;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--navy);
+  cursor: pointer;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  transition: transform 0.08s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.08); }
+input[type="range"]::-webkit-slider-thumb:active { background: var(--navy-deep); }
+
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--navy);
+  cursor: pointer;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+input[type="range"]:focus { outline: none; }
+input[type="range"]:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(45, 168, 168, 0.35);
+}
+
+/* Toggle buttons */
+
+.toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.toggle-group .ctrl-name {
+  width: 70px;
+  flex: 0 0 auto;
+}
+
+.toggle {
+  display: inline-flex;
+  border: 2px solid var(--navy);
+  border-radius: 7px;
+  overflow: hidden;
+  background: #FFFFFF;
+}
+
+.toggle-btn {
+  background: #FFFFFF;
+  color: var(--navy);
+  border: none;
+  padding: 8px 22px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 56px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.toggle-btn + .toggle-btn {
+  border-left: 2px solid var(--navy);
+}
+
+.toggle-btn:hover:not(.active) {
+  background: rgba(30, 42, 94, 0.06);
+}
+
+.toggle-btn.active {
+  background: var(--navy);
+  color: #FFFFFF;
+}
+
+/* Readouts */
+
+.readouts {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid #E5E0CE;
+}
+
+.readout-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: var(--ink);
+}
+
+.readout-row:last-child { margin-bottom: 0; }
+
+.readout-row.primary {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 14px;
+}
+
+.readout-label {
+  color: var(--grey-caption);
+  font-weight: 600;
+}
+
+.readout-row.primary .readout-label {
+  color: var(--navy);
+}
+
+.readout-value {
+  font-family: 'Cambria Math', 'STIX Two Math', 'Cambria', serif;
+  font-weight: 700;
+}
+
+/* ----- Canvas pane ----- */
+
+.canvas-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.equation {
+  font-family: 'Cambria Math', 'STIX Two Math', 'Cambria', 'Georgia', serif;
+  font-size: 24px;
+  color: var(--navy);
+  margin-bottom: 14px;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+
+.canvas-frame {
+  width: 100%;
+  max-width: 600px;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 4px;
+  padding: 0;
+  line-height: 0;            /* eliminate inline-baseline gap */
+}
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  background: #FFFFFF;
+  touch-action: manipulation;
+}
+
+.trace-btn {
+  margin-top: 18px;
+  padding: 11px 32px;
+  background: var(--teal);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 7px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  transition: background 0.12s ease, transform 0.06s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.trace-btn:hover  { background: var(--teal-deep); }
+.trace-btn:active { transform: translateY(1px); }
+.trace-btn:focus-visible { outline: 3px solid rgba(45, 168, 168, 0.45); outline-offset: 2px; }
+
+/* ----- Footer ----- */
+
+.page-footer {
+  margin-top: 32px;
+  padding-top: 12px;
+  border-top: 1px solid #ECECEC;
+  font-size: 11px;
+  color: var(--grey-caption);
+  text-align: center;
+  font-style: italic;
+}
