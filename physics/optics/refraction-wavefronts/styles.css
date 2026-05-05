@@ -1,0 +1,315 @@
+/* =============================================================
+   Refraction at a Boundary — IBPHYS C1.3
+   Mr. Frohlich Physics applet catalog · entry 01
+   ============================================================= */
+
+:root {
+  /* Surfaces */
+  --bg:           #FAF8F5;   /* page parchment */
+  --bg-medium-1:  #EFF2F5;   /* cool tint, left side */
+  --bg-medium-2:  #F5EFE6;   /* warm tint, right side */
+  --surface:      #FFFFFF;
+  --border:       #DDD7CC;
+
+  /* Type */
+  --text:         #1A1F2E;
+  --text-muted:   #5A6171;
+
+  /* Accent (single-accent system; deep teal) */
+  --accent:       #2C5F66;
+  --accent-soft:  rgba(44, 95, 102, 0.14);
+
+  /* Boundary */
+  --boundary:     #2D2D2D;
+
+  /* Type stacks — system fonts only, per §7.1 (no CDN) */
+  --font-serif:   "Iowan Old Style", "Charter", "Source Serif Pro", "Georgia", serif;
+  --font-sans:    -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", "Arial", sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+}
+
+body {
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* -------------------------------------------------------------
+   Layout
+   ------------------------------------------------------------- */
+.applet {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 36px 24px 56px;
+}
+
+.applet__header {
+  margin-bottom: 28px;
+}
+
+.applet__header h1 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(1.5rem, 3.2vw, 2rem);
+  letter-spacing: -0.012em;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.applet__caption {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin: 0;
+  max-width: 62ch;
+}
+
+/* -------------------------------------------------------------
+   Controls
+   ------------------------------------------------------------- */
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 28px;
+  margin: 24px 0 18px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.control__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.control label {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.control output {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* Range slider — custom styled */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  margin: 0;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+}
+input[type="range"]::-moz-range-track {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--accent), 0 1px 2px rgba(0,0,0,0.1);
+  cursor: grab;
+  margin-top: -7px;
+  transition: transform 0.12s ease;
+}
+input[type="range"]::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.18);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: grab;
+}
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px var(--accent-soft);
+}
+input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px var(--accent-soft);
+}
+
+/* -------------------------------------------------------------
+   Canvas stage
+   ------------------------------------------------------------- */
+.stage {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+  position: relative;
+}
+
+#wave {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 5 / 2;
+}
+
+/* -------------------------------------------------------------
+   Toolbar (pause/resume)
+   ------------------------------------------------------------- */
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 12px;
+}
+
+body.reduced-motion .toolbar { display: none; }
+
+.toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 7px 14px;
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  user-select: none;
+}
+
+.toolbar button:hover {
+  background: var(--bg-medium-1);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.toolbar button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: var(--accent);
+}
+
+.toolbar button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.toolbar__icon {
+  font-size: 0.85em;
+  line-height: 1;
+  font-family: var(--font-mono);
+  letter-spacing: -0.05em;
+}
+
+/* -------------------------------------------------------------
+   Numerical readouts
+   ------------------------------------------------------------- */
+.readouts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  margin-top: 18px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.medium {
+  padding: 18px 22px;
+}
+
+.medium--1 { background: var(--bg-medium-1); }
+.medium--2 { background: var(--bg-medium-2); }
+
+.medium h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 14px;
+  color: var(--text-muted);
+}
+
+.medium dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 18px;
+  row-gap: 8px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+}
+
+.medium dt {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.medium dd {
+  margin: 0;
+  font-weight: 500;
+  color: var(--text);
+  text-align: right;
+}
+
+/* -------------------------------------------------------------
+   Mobile
+   ------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .applet { padding: 22px 16px 36px; }
+  .controls {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 16px;
+  }
+  .readouts { grid-template-columns: 1fr; }
+  .medium { padding: 14px 16px; }
+  .medium dl { font-size: 0.9rem; }
+}
