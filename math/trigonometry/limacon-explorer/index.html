@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Limaçon Explorer · Polar Function Graphs</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app">
+
+    <header class="top">
+      <div class="eyebrow">AP PRECALCULUS · TOPIC 3.14B · APPLET</div>
+      <div class="equation" id="equation" aria-live="polite">r = 4 + 2 cos(θ)</div>
+      <div class="regime" id="regime" aria-live="polite">Convex Limaçon</div>
+      <div class="readouts" id="readouts">
+        <span id="max-distance">Max distance: 6</span>
+        <span class="readout-sep" id="readout-sep" aria-hidden="true">•</span>
+        <span id="inner-loop" class="hidden">Inner loop reaches: 0</span>
+      </div>
+    </header>
+
+    <section class="controls" aria-label="Controls">
+      <div class="slider-group">
+        <label for="slider-a"><em>a</em></label>
+        <input type="range" id="slider-a" min="0" max="10" step="0.1" value="4" aria-label="parameter a">
+        <span class="slider-value" id="value-a">4</span>
+      </div>
+
+      <div class="slider-group">
+        <label for="slider-b"><em>b</em></label>
+        <input type="range" id="slider-b" min="0" max="10" step="0.1" value="2" aria-label="parameter b">
+        <span class="slider-value" id="value-b">2</span>
+      </div>
+
+      <div class="toggle-group" role="group" aria-label="Sign">
+        <button class="toggle-btn active" data-toggle="sign" data-value="1" type="button">+</button>
+        <button class="toggle-btn" data-toggle="sign" data-value="-1" type="button">&#8722;</button>
+      </div>
+
+      <div class="toggle-group" role="group" aria-label="Trig function">
+        <button class="toggle-btn" data-toggle="trig" data-value="sin" type="button">sin</button>
+        <button class="toggle-btn active" data-toggle="trig" data-value="cos" type="button">cos</button>
+      </div>
+    </section>
+
+    <section class="canvases" aria-label="Plots">
+      <div class="canvas-wrapper" id="wrap-rect">
+        <div class="canvas-caption">Rectangular: <em>r</em> vs <em>θ</em></div>
+        <canvas id="canvas-rect" width="500" height="400" aria-label="Rectangular plot of r as a function of theta"></canvas>
+        <div class="canvas-overlay" id="overlay-rect" hidden>r = 0 — both terms zero</div>
+      </div>
+      <div class="canvas-wrapper" id="wrap-polar">
+        <div class="canvas-caption">Polar</div>
+        <canvas id="canvas-polar" width="500" height="500" aria-label="Polar plot"></canvas>
+        <div class="canvas-overlay" id="overlay-polar" hidden>r = 0 — both terms zero</div>
+      </div>
+    </section>
+
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>

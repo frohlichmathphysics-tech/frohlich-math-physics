@@ -1,0 +1,288 @@
+/* =========================================================
+   Limaçon Explorer — styles.css
+   Palette and typography locked to Build_Design v4.
+   ========================================================= */
+
+:root {
+  /* Build_Design v4 palette */
+  --navy:           #1E2A5E;
+  --teal:           #2DA8A8;
+  --red:            #C04A3A;
+  --cream:          #FAF6E8;
+  --ink:            #1F1F1F;
+  --grey-line:      #BFBFBF;
+  --grey-secondary: #D8D8D8;
+  --grey-caption:   #666666;
+
+  /* Derived 10%-opacity fills */
+  --teal-fill:      rgba(45, 168, 168, 0.10);
+  --red-fill:       rgba(192,  74,  58, 0.10);
+
+  /* Layout */
+  --max-app-width: 1100px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+  color: var(--ink);
+  font-family: 'Aptos', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  padding: 24px 16px 32px;
+}
+
+.app {
+  max-width: var(--max-app-width);
+  margin: 0 auto;
+}
+
+/* ---------- Top section: eyebrow, equation, regime, readouts ---------- */
+
+.top {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.eyebrow {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--teal);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.equation {
+  font-family: 'Cambria Math', 'Cambria', 'Latin Modern Math', 'Times New Roman', serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.regime {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--teal);
+  margin-bottom: 6px;
+  line-height: 1.2;
+  min-height: 34px; /* prevents layout shift in degenerate state */
+}
+
+.regime-sub {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--grey-caption);
+  font-style: italic;
+  margin-left: 4px;
+  vertical-align: 2px;
+}
+
+.readouts {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 16px;
+  color: var(--ink);
+  min-height: 22px;
+}
+
+.readout-sep {
+  color: var(--grey-caption);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------- Controls ---------- */
+
+.controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 22px;
+  margin: 18px 0 22px;
+}
+
+.slider-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider-group label {
+  font-family: 'Cambria Math', 'Cambria', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--navy);
+  min-width: 14px;
+  text-align: right;
+}
+
+.slider-group label em {
+  font-style: italic;
+  font-weight: 700;
+}
+
+.slider-group input[type="range"] {
+  width: 180px;
+  accent-color: var(--teal);
+  cursor: pointer;
+}
+
+.slider-value {
+  font-family: 'Cambria Math', 'Cambria', serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--navy);
+  min-width: 36px;
+  text-align: left;
+}
+
+/* ---------- Toggle buttons ---------- */
+
+.toggle-group {
+  display: inline-flex;
+  border: 2px solid var(--navy);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.toggle-btn {
+  background: #ffffff;
+  color: var(--navy);
+  border: none;
+  padding: 6px 14px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Cambria Math', 'Cambria', 'Aptos', serif;
+  transition: background-color 0.12s ease, color 0.12s ease;
+  min-width: 44px;
+}
+
+.toggle-btn + .toggle-btn {
+  border-left: 2px solid var(--navy);
+}
+
+.toggle-btn:hover {
+  background: rgba(45, 168, 168, 0.10);
+}
+
+.toggle-btn.active {
+  background: var(--teal);
+  color: #ffffff;
+}
+
+.toggle-btn:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+}
+
+/* ---------- Canvases ---------- */
+
+.canvases {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.canvas-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.canvas-caption {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--grey-caption);
+}
+
+.canvas-caption em {
+  font-family: 'Cambria Math', serif;
+  font-style: italic;
+}
+
+canvas {
+  display: block;
+  background: #ffffff;
+  border: 1px solid var(--grey-secondary);
+  max-width: 100%;
+  height: auto;
+}
+
+#canvas-rect  { aspect-ratio: 5 / 4; }
+#canvas-polar { aspect-ratio: 1 / 1; }
+
+.canvas-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--grey-caption);
+  font-style: italic;
+  font-size: 16px;
+  padding: 10px 18px;
+  border: 1px solid var(--grey-secondary);
+  border-radius: 6px;
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.canvas-wrapper.degenerate canvas {
+  filter: grayscale(1) opacity(0.45);
+}
+
+/* ---------- Mobile / narrow-viewport stack (per spec G1) ---------- */
+
+@media (max-width: 1024px) {
+  .canvases {
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .controls {
+    gap: 16px;
+  }
+
+  .slider-group input[type="range"] {
+    width: 150px;
+  }
+}
+
+@media (max-width: 540px) {
+  body {
+    padding: 18px 10px 24px;
+  }
+
+  .equation {
+    font-size: 26px;
+  }
+
+  /* Regime label stays 28pt per spec — loud is intentional */
+
+  canvas {
+    width: 100%;
+    max-width: 480px;
+  }
+}
