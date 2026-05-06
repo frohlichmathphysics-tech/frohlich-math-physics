@@ -191,14 +191,18 @@ body {
   outline-offset: 2px;
 }
 
-/* ---------- Canvases ---------- */
+/* ---------- Canvases ----------
+   Side-by-side at any viewport ≥ 700px. Each canvas takes an equal share
+   of available width, capped at 500px. Shrinks proportionally below the
+   cap so the layout never wraps. Stacks only on phone-narrow viewports.
+   The high-DPI setupCanvas() reads getBoundingClientRect() at render
+   time, so reduced CSS size does not degrade rendering quality. */
 
 .canvases {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  gap: 28px;
-  flex-wrap: wrap;
+  gap: 24px;
 }
 
 .canvas-wrapper {
@@ -207,6 +211,9 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 500px;
 }
 
 .canvas-caption {
@@ -224,7 +231,7 @@ canvas {
   display: block;
   background: #ffffff;
   border: 1px solid var(--grey-secondary);
-  max-width: 100%;
+  width: 100%;
   height: auto;
 }
 
@@ -252,13 +259,19 @@ canvas {
   filter: grayscale(1) opacity(0.45);
 }
 
-/* ---------- Mobile / narrow-viewport stack (per spec G1) ---------- */
+/* ---------- Stack vertically only on phone-narrow viewports ---------- */
 
-@media (max-width: 1024px) {
+@media (max-width: 700px) {
   .canvases {
     flex-direction: column;
     align-items: center;
     gap: 18px;
+  }
+
+  .canvas-wrapper {
+    width: 100%;
+    max-width: 500px;
+    flex: 0 1 auto;
   }
 
   .controls {
@@ -280,9 +293,4 @@ canvas {
   }
 
   /* Regime label stays 28pt per spec — loud is intentional */
-
-  canvas {
-    width: 100%;
-    max-width: 480px;
-  }
 }
