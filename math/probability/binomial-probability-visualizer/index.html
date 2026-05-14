@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Binomial Probability Visualizer</title>
+<!--
+  FMP Applet 4.8.1 — Binomial Probability Visualizer
+  Linked from IB MAI Lesson Module 4.8.1 (Binomial Distribution — Part 1).
+  Single-file HTML5, Canvas 2D, no external dependencies.
+  Mr. Frohlich Math and Physics — frohlich-math-physics.netlify.app
+-->
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --navy: #1E2A5E;
+    --teal: #2DA8A8;
+    --teal-light: #74C6C6;
+    --coral: #C04A3A;
+    --cream: #FAF6E8;
+    --ink: #1F1F1F;
+    --grey: #BFBFBF;
+    --grey-light: #D8D8D8;
+    --hint: #4B5468;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    padding: 16px;
+  }
+  .app {
+    max-width: 980px;
+    margin: 0 auto;
+  }
+  .header {
+    color: var(--navy);
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 18px 0;
+    text-align: center;
+    letter-spacing: 0.01em;
+  }
+  .controls {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .control {
+    flex: 1 1 220px;
+    min-width: 180px;
+  }
+  .control label {
+    display: block;
+    font-size: 14px;
+    color: var(--navy);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .control label span { color: var(--ink); font-weight: 700; }
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: var(--grey);
+    border-radius: 3px;
+    outline: none;
+    margin: 0;
+    padding: 0;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    background: var(--navy);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 18px; height: 18px;
+    background: var(--navy);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  input[type="range"]:focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 4px;
+  }
+  @media (pointer: coarse) {
+    input[type="range"]::-webkit-slider-thumb { width: 28px; height: 28px; }
+    input[type="range"]::-moz-range-thumb { width: 28px; height: 28px; }
+  }
+  .checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    color: var(--navy);
+    font-size: 14px;
+    font-weight: 600;
+    flex: 0 0 auto;
+  }
+  .checkbox input {
+    width: 18px; height: 18px;
+    accent-color: var(--navy);
+    cursor: pointer;
+    margin: 0;
+  }
+  .checkbox sup, .checkbox sub { font-size: 0.75em; }
+  .formula {
+    text-align: right;
+    font-size: 13px;
+    color: var(--navy);
+    margin: 6px 4px 6px 0;
+    font-weight: 500;
+  }
+  .formula sup, .formula sub { font-size: 0.78em; }
+  .chart-wrap {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    position: relative;
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+  }
+  .readout {
+    margin-top: 14px;
+    background: var(--cream);
+    color: var(--navy);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 16px;
+    line-height: 1.6;
+    min-height: 56px;
+  }
+  .readout sup, .readout sub { font-size: 0.75em; }
+  .readout .hint { color: var(--hint); font-style: italic; }
+  @media (max-width: 640px) {
+    .controls { flex-direction: column; align-items: stretch; gap: 14px; }
+    .control, .checkbox { width: 100%; flex: 1 1 auto; }
+    .header { font-size: 20px; margin-bottom: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1 class="header">Binomial Distribution</h1>
+  <div class="controls">
+    <div class="control">
+      <label>n = <span id="n-value">6</span></label>
+      <input type="range" id="n-slider" min="1" max="30" step="1" value="6" aria-label="n, number of trials">
+    </div>
+    <div class="control">
+      <label>p = <span id="p-value">0.50</span></label>
+      <input type="range" id="p-slider" min="1" max="99" step="1" value="50" aria-label="p, probability of success">
+    </div>
+    <label class="checkbox">
+      <input type="checkbox" id="show-c">
+      <span>Show <sup>n</sup>C<sub>k</sub></span>
+    </label>
+  </div>
+  <div class="formula">P(X = k) = <sup>n</sup>C<sub>k</sub> &middot; p<sup>k</sup> &middot; (1&minus;p)<sup>n&minus;k</sup></div>
+  <div class="chart-wrap">
+    <canvas id="chart"></canvas>
+  </div>
+  <div class="readout" id="readout"><span class="hint">Tap a bar to see its probability.</span></div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ===== Palette =====
+  var NAVY       = '#1E2A5E';
+  var TEAL       = '#2DA8A8';
+  var TEAL_LIGHT = '#74C6C6';
+  var CORAL      = '#C04A3A';
+  var GREY       = '#BFBFBF';
+  var GREY_LIGHT = '#D8D8D8';
+  var WHITE      = '#FFFFFF';
+
+  // ===== Constants =====
+  var NICE_CEILINGS = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.75, 1.0];
+
+  // ===== State =====
+  var n         = 6;
+  var p         = 0.50;
+  var showC     = false;
+  var selectedK = -1;
+  var hoveredK  = -1;
+
+  // ===== DOM =====
+  var canvas        = document.getElementById('chart');
+  var ctx           = canvas.getContext('2d');
+  var nSlider       = document.getElementById('n-slider');
+  var pSlider       = document.getElementById('p-slider');
+  var showCCheckbox = document.getElementById('show-c');
+  var nValueEl      = document.getElementById('n-value');
+  var pValueEl      = document.getElementById('p-value');
+  var readoutEl     = document.getElementById('readout');
+  var chartWrap     = document.querySelector('.chart-wrap');
+
+  // ===== Math =====
+  function binomialCoeff(nn, k) {
+    if (k < 0 || k > nn) return 0;
+    if (k > nn - k) k = nn - k;
+    var c = 1;
+    for (var i = 0; i < k; i++) {
+      c = c * (nn - i) / (i + 1);
+    }
+    return Math.round(c);
+  }
+
+  function binomialPMF(nIn, pIn) {
+    // Defensive clamp per Build_Rules_Physics §7.3
+    var nn = Math.max(1, Math.min(30, Math.round(nIn)));
+    var pp = Math.max(0.01, Math.min(0.99, pIn));
+    var q = 1 - pp;
+    var probs = new Array(nn + 1);
+    var coef = 1;
+    for (var k = 0; k <= nn; k++) {
+      var prob = coef * Math.pow(pp, k) * Math.pow(q, nn - k);
+      if (!isFinite(prob) || prob < 0) prob = 0;
+      probs[k] = prob;
+      coef = coef * (nn - k) / (k + 1);
+    }
+    return probs;
+  }
+
+  function niceCeiling(peak) {
+    var target = peak * 1.1;
+    for (var i = 0; i < NICE_CEILINGS.length; i++) {
+      if (NICE_CEILINGS[i] >= target) return NICE_CEILINGS[i];
+    }
+    return 1.0;
+  }
+
+  // ===== Formatting =====
+  // Readout P-value: 4 sf decimal; scientific (HTML sup) when < 1e-4
+  function fmtProbHTML(v) {
+    if (v === 0) return '0';
+    if (Math.abs(v) < 1e-4) {
+      var exp = Math.floor(Math.log10(Math.abs(v)));
+      var mantissa = v / Math.pow(10, exp);
+      return mantissa.toPrecision(4) + ' &times; 10<sup>' + exp + '</sup>';
+    }
+    return Number(v).toPrecision(4);
+  }
+
+  // Canvas tick label: 3 sf, no HTML
+  function fmtTick(v) {
+    if (v === 0) return '0';
+    return Number(v).toPrecision(3);
+  }
+
+  // ⁿCₖ readout — integer with thousands separators
+  function fmtCoeff(c) {
+    return c.toLocaleString('en-US');
+  }
+
+  // ===== Slider styling =====
+  function updateSliderBg(slider) {
+    var min = +slider.min;
+    var max = +slider.max;
+    var val = +slider.value;
+    var pct = ((val - min) / (max - min)) * 100;
+    slider.style.background =
+      'linear-gradient(to right, ' + TEAL + ' 0%, ' + TEAL + ' ' + pct + '%, ' +
+      GREY + ' ' + pct + '%, ' + GREY + ' 100%)';
+  }
+
+  // ===== Event handlers =====
+  function onNChange() {
+    n = +nSlider.value;
+    nValueEl.textContent = n;
+    updateSliderBg(nSlider);
+    if (selectedK > n) selectedK = -1;
+    hoveredK = -1;
+    scheduleDraw();
+    updateReadout();
+  }
+
+  function onPChange() {
+    p = (+pSlider.value) / 100;
+    pValueEl.textContent = p.toFixed(2);
+    updateSliderBg(pSlider);
+    scheduleDraw();
+    updateReadout();
+  }
+
+  function onShowCChange() {
+    showC = showCCheckbox.checked;
+    scheduleDraw();
+    updateReadout();
+  }
+
+  nSlider.addEventListener('input', onNChange);
+  pSlider.addEventListener('input', onPChange);
+  showCCheckbox.addEventListener('change', onShowCChange);
+
+  // ===== Canvas sizing =====
+  var cssWidth = 0, cssHeight = 0;
+
+  function resizeCanvas() {
+    var rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    var dpr = window.devicePixelRatio || 1;
+    cssWidth  = rect.width;
+    cssHeight = rect.height;
+    canvas.width  = Math.round(cssWidth  * dpr);
+    canvas.height = Math.round(cssHeight * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    scheduleDraw();
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  if (window.ResizeObserver) {
+    new ResizeObserver(resizeCanvas).observe(chartWrap);
+  }
+
+  // ===== Chart geometry =====
+  function getChartBounds() {
+    var padL = 56, padR = 16, padT = 36, padB = 44;
+    return {
+      left:   padL,
+      right:  cssWidth - padR,
+      top:    padT,
+      bottom: cssHeight - padB,
+      width:  cssWidth - padL - padR,
+      height: cssHeight - padT - padB
+    };
+  }
+
+  function getBarPitch(b) {
+    return b.width / (n + 1);
+  }
+
+  function barCenterX(b, k) {
+    return b.left + (k + 0.5) * getBarPitch(b);
+  }
+
+  // ===== Pointer / hit detection =====
+  function findKAt(clientX, clientY) {
+    var rect = canvas.getBoundingClientRect();
+    var x = clientX - rect.left;
+    var y = clientY - rect.top;
+    var b = getChartBounds();
+    if (y < b.top || y > b.bottom) return -1;
+    if (x < b.left || x > b.right) return -1;
+    var pitch = getBarPitch(b);
+    var best = -1, bestDist = Infinity;
+    for (var k = 0; k <= n; k++) {
+      var cx = barCenterX(b, k);
+      var d = Math.abs(x - cx);
+      if (d < bestDist) { bestDist = d; best = k; }
+    }
+    return (bestDist <= pitch / 2) ? best : -1;
+  }
+
+  canvas.addEventListener('pointerdown', function(e) {
+    var k = findKAt(e.clientX, e.clientY);
+    if (k >= 0) {
+      selectedK = k;
+      scheduleDraw();
+      updateReadout();
+    }
+  });
+
+  canvas.addEventListener('pointermove', function(e) {
+    if (e.pointerType !== 'mouse') return;
+    var k = findKAt(e.clientX, e.clientY);
+    if (k !== hoveredK) {
+      hoveredK = k;
+      scheduleDraw();
+    }
+  });
+
+  canvas.addEventListener('pointerleave', function() {
+    if (hoveredK !== -1) {
+      hoveredK = -1;
+      scheduleDraw();
+    }
+  });
+
+  // ===== Drawing =====
+  var drawScheduled = false;
+
+  function scheduleDraw() {
+    if (drawScheduled) return;
+    drawScheduled = true;
+    requestAnimationFrame(function() {
+      drawScheduled = false;
+      draw();
+    });
+  }
+
+  function draw() {
+    if (cssWidth <= 0 || cssHeight <= 0) return;
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+    var b       = getChartBounds();
+    var probs   = binomialPMF(n, p);
+    var peak    = 0;
+    for (var k = 0; k <= n; k++) { if (probs[k] > peak) peak = probs[k]; }
+    var ceiling = niceCeiling(peak);
+
+    drawAxes(b, ceiling);
+    drawBars(b, probs, ceiling);
+    if (showC && n <= 15) drawCoeffOverlay(b, probs, ceiling);
+  }
+
+  function drawAxes(b, ceiling) {
+    ctx.save();
+    ctx.lineWidth = 1;
+
+    // Light horizontal gridlines (under axis lines)
+    ctx.strokeStyle = GREY_LIGHT;
+    for (var i = 1; i < 5; i++) {
+      var yPx = b.bottom - (i / 4) * b.height;
+      ctx.beginPath();
+      ctx.moveTo(b.left, yPx);
+      ctx.lineTo(b.right, yPx);
+      ctx.stroke();
+    }
+
+    // Y-axis line
+    ctx.strokeStyle = NAVY;
+    ctx.beginPath();
+    ctx.moveTo(b.left, b.top);
+    ctx.lineTo(b.left, b.bottom);
+    ctx.stroke();
+
+    // X-axis line
+    ctx.beginPath();
+    ctx.moveTo(b.left, b.bottom);
+    ctx.lineTo(b.right, b.bottom);
+    ctx.stroke();
+
+    // Y-ticks (5 total)
+    ctx.fillStyle = NAVY;
+    ctx.font = '12px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (var j = 0; j < 5; j++) {
+      var frac = j / 4;
+      var yVal = ceiling * frac;
+      var yPx2 = b.bottom - frac * b.height;
+      // tick mark
+      ctx.beginPath();
+      ctx.moveTo(b.left - 4, yPx2);
+      ctx.lineTo(b.left, yPx2);
+      ctx.stroke();
+      // label
+      ctx.fillText(fmtTick(yVal), b.left - 7, yPx2);
+    }
+
+    // Y-axis title (rotated)
+    ctx.save();
+    ctx.translate(14, b.top + b.height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '13px system-ui, -apple-system, sans-serif';
+    ctx.fillText('P(X = k)', 0, 0);
+    ctx.restore();
+
+    // X-ticks
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.font = '12px system-ui, -apple-system, sans-serif';
+    for (var k = 0; k <= n; k++) {
+      var cx = barCenterX(b, k);
+      ctx.beginPath();
+      ctx.moveTo(cx, b.bottom);
+      ctx.lineTo(cx, b.bottom + 4);
+      ctx.stroke();
+      var showLabel = (n <= 20) || (k % 5 === 0);
+      if (showLabel) {
+        ctx.fillText(String(k), cx, b.bottom + 7);
+      }
+    }
+
+    // X-axis title
+    ctx.font = '13px system-ui, -apple-system, sans-serif';
+    ctx.fillText('k', b.left + b.width / 2, b.bottom + 25);
+
+    ctx.restore();
+  }
+
+  function drawBars(b, probs, ceiling) {
+    var pitch    = getBarPitch(b);
+    var barWidth = Math.max(2, pitch * 0.8);
+    for (var k = 0; k <= n; k++) {
+      var cx   = barCenterX(b, k);
+      var barX = cx - barWidth / 2;
+      var prob = probs[k];
+      var barH = Math.max(0, (prob / ceiling) * b.height);
+      var barY = b.bottom - barH;
+
+      var fill = TEAL;
+      if (k === selectedK)     fill = CORAL;
+      else if (k === hoveredK) fill = TEAL_LIGHT;
+
+      ctx.fillStyle = fill;
+      ctx.fillRect(barX, barY, barWidth, barH);
+    }
+  }
+
+  function drawCoeffOverlay(b, probs, ceiling) {
+    // Per item 3: 12pt n ≤ 10, 10pt 11 ≤ n ≤ 15; n > 15 handled by caller
+    var fontSize = (n <= 10) ? 12 : 10;
+    ctx.save();
+    ctx.font = 'bold ' + fontSize + 'px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+
+    for (var k = 0; k <= n; k++) {
+      var c    = binomialCoeff(n, k);
+      var cx   = barCenterX(b, k);
+      var prob = probs[k];
+      var barH = Math.max(0, (prob / ceiling) * b.height);
+      var barY = b.bottom - barH;
+
+      var labelY, fill;
+      if (barH < 1) {
+        // Zero-height bar: label 4px above x-axis baseline (item 3)
+        labelY = b.bottom - 4;
+        fill   = NAVY;
+      } else if ((barY - b.top) < 14) {
+        // Bar top within 14px of chart top: draw inside top of bar in white
+        labelY = barY + fontSize + 2;
+        fill   = WHITE;
+      } else {
+        labelY = barY - 4;
+        fill   = NAVY;
+      }
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = fill;
+      ctx.fillText(String(c), cx, labelY);
+    }
+    ctx.restore();
+  }
+
+  // ===== Readout =====
+  function updateReadout() {
+    if (selectedK < 0 || selectedK > n) {
+      readoutEl.innerHTML = '<span class="hint">Tap a bar to see its probability.</span>';
+      return;
+    }
+    var probs = binomialPMF(n, p);
+    var prob = probs[selectedK];
+    var html =
+      'k = ' + selectedK + '<br>' +
+      'P(X = ' + selectedK + ') = ' + fmtProbHTML(prob);
+    if (showC) {
+      var c = binomialCoeff(n, selectedK);
+      html += '<br><sup>' + n + '</sup>C<sub>' + selectedK + '</sub> = ' + fmtCoeff(c);
+    }
+    readoutEl.innerHTML = html;
+  }
+
+  // ===== Init =====
+  function init() {
+    nValueEl.textContent = n;
+    pValueEl.textContent = p.toFixed(2);
+    updateSliderBg(nSlider);
+    updateSliderBg(pSlider);
+    resizeCanvas();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>
