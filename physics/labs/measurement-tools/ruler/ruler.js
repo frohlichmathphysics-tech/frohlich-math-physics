@@ -103,6 +103,8 @@ class Ruler {
       let cls, tickLen;
       if (halfCm % 20 === 0) {        // every 10 cm — major
         cls = 'rl-tick-major'; tickLen = 14;
+      } else if (halfCm % 10 === 0) { // every 5 cm (but not 10) — half
+        cls = 'rl-tick-half';  tickLen = 12;
       } else if (halfCm % 2 === 0) {  // every 1 cm — mid
         cls = 'rl-tick-mid';   tickLen = 9;
       } else {                        // every 0.5 cm — minor

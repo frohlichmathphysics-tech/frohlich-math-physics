@@ -37,6 +37,10 @@
   stroke: #1a1a1a;
   stroke-width: 1.4;
 }
+.rl-tick-half {
+  stroke: #1a1a1a;
+  stroke-width: 1.2;
+}
 .rl-tick-mid {
   stroke: #1a1a1a;
   stroke-width: 1;
