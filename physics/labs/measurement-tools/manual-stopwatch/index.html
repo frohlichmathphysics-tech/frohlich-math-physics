@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual Stopwatch — Test Page</title>
+<link rel="stylesheet" href="./styles.css">
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    background: #10121E;
+    color: #e8e8e8;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 20px 32px;
+    box-sizing: border-box;
+  }
+  h1 {
+    margin: 0 0 4px 0;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  .subtitle {
+    color: #8a8e9a;
+    font-size: 12px;
+    margin-bottom: 18px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+  .instructions {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 12px 18px;
+    font-size: 13px;
+    line-height: 1.55;
+    margin-bottom: 16px;
+  }
+  .instructions strong { color: #f0f0f0; }
+  .instructions ul { margin: 6px 0 0 0; padding-left: 22px; }
+  .instructions li { margin: 3px 0; color: #c8ccd4; }
+  .frame {
+    position: relative;
+    width: 100%;
+    height: 480px;
+    background: #181b27;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  footer {
+    margin-top: 14px;
+    font-size: 11px;
+    color: #6a6e7a;
+    text-align: center;
+    letter-spacing: 0.3px;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <h1>Manual Stopwatch — Test Page</h1>
+    <div class="subtitle">physics/labs/measurement-tools/manual-stopwatch</div>
+
+    <div class="instructions">
+      <strong>What to test:</strong>
+      <ul>
+        <li>Drag the stopwatch body anywhere inside the dark frame.</li>
+        <li>Click <strong>Start</strong>. Hand stays at 12 (frozen). A small red dot pulses below center — that is the only visual cue that timing is in progress.</li>
+        <li>Click <strong>Stop</strong> after a few seconds. Hand should snap instantly to the elapsed-time position on the dial. Read the value to the nearest 0.1 s.</li>
+        <li>Click <strong>Reset</strong>. Hand returns to 12; dial is blank.</li>
+        <li>Try rapid Start / Stop / Reset cycles. State should remain consistent — Reset is allowed during any state (including while running, to abort a misclick).</li>
+        <li>Open this page on a phone. Drag and buttons should work via touch.</li>
+      </ul>
+    </div>
+
+    <div class="frame" id="frame"></div>
+
+    <footer>Mr. Frohlich Math and Physics · Measurement-tool module v1</footer>
+  </div>
+
+  <script src="./stopwatch.js"></script>
+  <script>
+    new Stopwatch({
+      container:  document.getElementById('frame'),
+      x:          40,
+      y:          40,
+      maxSeconds: 10,
+      size:       220
+    });
+  </script>
+</body>
+</html>

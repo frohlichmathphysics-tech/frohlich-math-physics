@@ -1,0 +1,129 @@
+/* Stopwatch — measurement-tool module styles
+   Mr. Frohlich Math and Physics
+   physics/labs/measurement-tools/manual-stopwatch
+*/
+
+.sw-wrap {
+  position: absolute;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.sw-dial {
+  display: block;
+  cursor: grab;
+}
+.sw-dial:active { cursor: grabbing; }
+
+/* Body */
+.sw-bezel {
+  fill: #3a3f4a;
+  stroke: #1a1d24;
+  stroke-width: 2;
+}
+.sw-face {
+  fill: #f4ecd8;
+  stroke: #c5b89a;
+  stroke-width: 1;
+}
+
+/* Ticks */
+.sw-tick-major {
+  stroke: #2a2e36;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+.sw-tick-mid {
+  stroke: #2a2e36;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+.sw-tick-minor {
+  stroke: #2a2e36;
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+.sw-tick-label {
+  fill: #2a2e36;
+  font: bold 14px sans-serif;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* Hand — instant snap, no transition */
+.sw-hand {
+  stroke: #c0142b;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transform-origin: 0 0;
+}
+.sw-pin {
+  fill: #1a1d24;
+  stroke: #c0142b;
+  stroke-width: 1;
+}
+
+/* Brand + range labels (face decoration) */
+.sw-brand {
+  fill: #6a5e4a;
+  font: 700 8px sans-serif;
+  letter-spacing: 0.5px;
+  text-anchor: middle;
+}
+.sw-brand-sub {
+  fill: #6a5e4a;
+  font: italic 6.5px sans-serif;
+  letter-spacing: 0.3px;
+  text-anchor: middle;
+}
+.sw-range {
+  fill: #6a5e4a;
+  font: 7px sans-serif;
+  letter-spacing: 0.5px;
+  text-anchor: middle;
+}
+.sw-indicator {
+  fill: #c0142b;
+}
+
+/* Buttons */
+.sw-buttons {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 10px;
+  padding: 0 2px;
+}
+.sw-btn {
+  flex: 1;
+  padding: 9px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  background: #2a2e36;
+  color: #e8e8e8;
+  cursor: pointer;
+  transition: background 0.12s, opacity 0.12s;
+}
+.sw-btn:hover:not(:disabled) { background: #3a3f4a; }
+.sw-btn:active:not(:disabled) { transform: translateY(1px); }
+.sw-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.sw-btn-start:not(:disabled) {
+  background: #1f6b3d;
+  border-color: #2a8c52;
+}
+.sw-btn-start:hover:not(:disabled) { background: #2a8c52; }
+
+.sw-btn-stop:not(:disabled) {
+  background: #a8222a;
+  border-color: #cc333d;
+}
+.sw-btn-stop:hover:not(:disabled) { background: #cc333d; }
