@@ -36,18 +36,20 @@
 
     /* ============================================================
        MEASUREMENT TOOL WRAPPERS (.sw-wrap, .rl-wrap)
-       Module-created wrappers default to position: static, which means their
-       `left` and `top` values are ignored. Override to absolute so the
-       coordinates the modules set actually position them.
-       Also: dark scene + dark widgets = invisible. Cream backing gives them
-       contrast and aligns to the locked palette.
+       Modules default to position: static — override to absolute so the
+       left/top coordinates they set actually take effect.
+       SVG content inside is filter-inverted to flip dark-on-dark to light-on-dark
+       (modules were authored against a light page; their black dial face and
+       ruler body disappear against our #10121E scene without this).
+       hue-rotate(180deg) preserves color identity for any colored elements
+       (e.g., a red hand inverts to cyan then rotates back to red).
        ============================================================ */
     .sw-wrap, .rl-wrap {
       position: absolute;
-      background: #FAF3DE;       /* cream — locked palette */
-      border-radius: 6px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
       z-index: 10;
+    }
+    .sw-wrap svg, .rl-wrap svg {
+      filter: invert(1) hue-rotate(180deg);
     }
 
     footer {
@@ -167,8 +169,6 @@
   <div id="app">
     <div id="scene-wrap">
       <canvas id="scene" width="1100" height="620"></canvas>
-      <!-- Stopwatch and Ruler wrappers (.sw-wrap, .rl-wrap) are appended here
-           at runtime by their modules. CSS above handles position + visibility. -->
     </div>
     <div id="controls">
       <div class="control-group">
@@ -195,7 +195,6 @@
     <footer>Mr. Frohlich Math and Physics</footer>
   </div>
 
-  <!-- Measurement tool modules. Global script load (window.Stopwatch, window.Ruler). -->
   <script src="../measurement-tools/manual-stopwatch/stopwatch.js"></script>
   <script src="../measurement-tools/ruler/ruler.js"></script>
 
@@ -203,9 +202,6 @@
   (function () {
     'use strict';
 
-    /* ============================================================
-       CONSTANTS
-       ============================================================ */
     const PIXELS_PER_METER = 400;
     const TRACK_LEFT_X_PX  = 150;
     const TRACK_Y_PX       = 360;
@@ -233,9 +229,6 @@
     const COLOR_BALL_FILL = '#FAF3DE';
     const COLOR_BALL_RIM  = '#1E2A5C';
 
-    /* ============================================================
-       STATE
-       ============================================================ */
     const state = {
       currentNotch:        1,
       ballX_m:             0,
@@ -248,9 +241,6 @@
       springReleased:      false,
     };
 
-    /* ============================================================
-       DOM REFERENCES
-       ============================================================ */
     const canvas      = document.getElementById('scene');
     const ctx         = canvas.getContext('2d');
     const sceneWrap   = document.getElementById('scene-wrap');
@@ -259,9 +249,6 @@
     const speedSelect = document.getElementById('speed-select');
     const notchBtns   = document.querySelectorAll('.notch-btn');
 
-    /* ============================================================
-       UTILITIES
-       ============================================================ */
     function metersToPx(m) {
       return TRACK_LEFT_X_PX + m * PIXELS_PER_METER;
     }
@@ -278,9 +265,6 @@
       return x < 0 ? 0 : (x > 1 ? 1 : x);
     }
 
-    /* ============================================================
-       SCENE RENDERING
-       ============================================================ */
     function drawTrack() {
       ctx.strokeStyle = COLOR_TRACK;
       ctx.lineWidth = 4;
@@ -388,12 +372,8 @@
       drawBall();
     }
 
-    /* ============================================================
-       PHYSICS
-       ============================================================ */
     function launch() {
       if (state.isMoving) return;
-
       const meanSpeed = NOTCH_SPEEDS[state.currentNotch];
       const sigma     = VARIABILITY_FRACTION * meanSpeed;
       let v = sampleGaussian(meanSpeed, sigma);
@@ -420,9 +400,6 @@
       state.springReleased      = false;
     }
 
-    /* ============================================================
-       ANIMATION LOOP
-       ============================================================ */
     function tick(timestamp) {
       if (state.lastFrameTime === null) state.lastFrameTime = timestamp;
       const dt_real = (timestamp - state.lastFrameTime) / 1000;
@@ -453,9 +430,6 @@
       requestAnimationFrame(tick);
     }
 
-    /* ============================================================
-       CONTROL HANDLERS
-       ============================================================ */
     notchBtns.forEach(function (btn) {
       btn.addEventListener('click', function () {
         notchBtns.forEach(function (b) { b.classList.remove('active'); });
@@ -474,20 +448,12 @@
       state.playbackMultiplier = parseFloat(e.target.value);
     });
 
-    /* ============================================================
-       MEASUREMENT TOOLS
-       Modules mount into sceneWrap as <div class="sw-wrap"> and
-       <div class="rl-wrap">. They default to position: static, which the
-       CSS at the top of this file overrides to absolute so left/top take effect.
-       Cream wrapper background gives contrast against the dark scene.
-       ============================================================ */
     const stopwatch = new Stopwatch({
       container: sceneWrap,
       x: 880,
       y: 40,
     });
 
-    // CRITICAL: pixelsPerMeter MUST be passed explicitly. Module default is 600.
     const ruler = new Ruler({
       container:      sceneWrap,
       x:              TRACK_LEFT_X_PX,
@@ -495,9 +461,6 @@
       pixelsPerMeter: PIXELS_PER_METER,
     });
 
-    /* ============================================================
-       BOOT
-       ============================================================ */
     requestAnimationFrame(tick);
   })();
   </script>
