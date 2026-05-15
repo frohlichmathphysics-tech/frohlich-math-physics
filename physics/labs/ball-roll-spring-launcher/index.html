@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1100">
+  <title>Ball Roll · Spring Launcher</title>
+  <style>
+    /* ============================================================
+       LAYOUT
+       ============================================================ */
+    body {
+      margin: 0;
+      background: #10121E;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #app {
+      width: 1100px;
+      background: #10121E;
+    }
+    #scene-wrap {
+      position: relative;     /* required: measurement tools position absolutely inside this */
+      width: 1100px;
+      height: 620px;
+      background: #10121E;
+    }
+    #scene-wrap canvas {
+      display: block;
+      position: absolute;
+      left: 0;
+      top: 0;
+      /* No explicit z-index — DOM order handles stacking. Tool widgets
+         appended by their modules after the canvas sit on top naturally. */
+    }
+    /* Defensive: explicit z-index on any non-canvas child of scene-wrap, in case
+       the tool modules use a positioning model that doesn't stack above the canvas
+       by DOM order alone. This is what fixed invisible tools in v1. */
+    #scene-wrap > *:not(canvas) {
+      z-index: 10;
+    }
+    footer {
+      text-align: center;
+      color: #FAF3DE;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      padding: 12px 0 16px 0;
+      background: #10121E;
+    }
+
+    /* ============================================================
+       CONTROL STRIP
+       ============================================================ */
+    #controls {
+      background: #10121E;
+      padding: 16px 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid #2A3F5C;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .control-label {
+      font-size: 11px;
+      font-weight: bold;
+      color: #FAF3DE;
+      letter-spacing: 1.5px;
+      margin-bottom: 6px;
+    }
+    .notch-row {
+      display: flex;
+    }
+    .notch-btn {
+      width: 36px;
+      height: 36px;
+      border: 2px solid #2E8B8B;
+      background: transparent;
+      color: #2E8B8B;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 0 3px;
+      border-radius: 4px;
+      font-family: inherit;
+      transition: background 0.1s, color 0.1s;
+    }
+    .notch-btn:hover {
+      background: rgba(46, 139, 139, 0.15);
+    }
+    .notch-btn.active {
+      background: #2E8B8B;
+      color: white;
+    }
+    #launch-btn {
+      background: #2E8B8B;
+      color: white;
+      border: none;
+      width: 110px;
+      height: 44px;
+      font-weight: bold;
+      font-size: 15px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+    #launch-btn:hover:not(:disabled) {
+      background: #34a0a0;
+    }
+    #launch-btn:disabled {
+      background: #2A3F5C;
+      color: #6a7080;
+      cursor: not-allowed;
+    }
+    #reset-btn {
+      background: transparent;
+      color: #FAF3DE;
+      border: 2px solid #FAF3DE;
+      width: 90px;
+      height: 44px;
+      font-weight: bold;
+      font-size: 14px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+    #reset-btn:hover {
+      background: rgba(250, 243, 222, 0.1);
+    }
+    #speed-select {
+      background: #10121E;
+      color: #FAF3DE;
+      border: 2px solid #2E8B8B;
+      padding: 8px 28px 8px 10px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-family: inherit;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, #2E8B8B 50%),
+                        linear-gradient(135deg, #2E8B8B 50%, transparent 50%);
+      background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="scene-wrap">
+      <canvas id="scene" width="1100" height="620"></canvas>
+      <!-- Stopwatch and Ruler SVG widgets are appended here at runtime by their modules -->
+    </div>
+    <div id="controls">
+      <div class="control-group">
+        <div class="control-label">NOTCH</div>
+        <div class="notch-row">
+          <button class="notch-btn active" data-notch="1">1</button>
+          <button class="notch-btn" data-notch="2">2</button>
+          <button class="notch-btn" data-notch="3">3</button>
+          <button class="notch-btn" data-notch="4">4</button>
+        </div>
+      </div>
+      <button id="launch-btn">LAUNCH</button>
+      <button id="reset-btn">RESET</button>
+      <div class="control-group">
+        <div class="control-label">SPEED</div>
+        <select id="speed-select">
+          <option value="1.0">1.0×</option>
+          <option value="0.5">0.5×</option>
+          <option value="0.25">0.25×</option>
+          <option value="0.1">0.1×</option>
+        </select>
+      </div>
+    </div>
+    <footer>Mr. Frohlich Math and Physics</footer>
+  </div>
+
+  <!-- Measurement tool modules. Global script load (window.Stopwatch, window.Ruler).
+       Relative path to ../measurement-tools/ siblings under physics/labs/. -->
+  <script src="../measurement-tools/manual-stopwatch/stopwatch.js"></script>
+  <script src="../measurement-tools/ruler/ruler.js"></script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* ============================================================
+       CONSTANTS
+       Scene geometry, physics, palette. Edit here, not in render code.
+       ============================================================ */
+
+    // Scale. The Ruler module defaults to 600 px/m — we MUST pass 400 explicitly
+    // when instantiating, or the ruler's ticks won't match scene geometry.
+    const PIXELS_PER_METER = 400;
+    const TRACK_LEFT_X_PX  = 150;       // x of the launcher mouth (track start, x_m = 0)
+    const TRACK_Y_PX       = 360;       // track centerline y
+    const TRACK_LENGTH_M   = 2.0;
+
+    // Notch → mean exit speed (m/s). Locked.
+    const NOTCH_SPEEDS = { 1: 0.3, 2: 0.6, 3: 0.9, 4: 1.2 };
+
+    // Per-launch Gaussian variability as a fraction of the mean. Tunable here;
+    // not exposed in UI. At σ = 3% of mean, dropping below zero is ~33σ — never
+    // happens in practice, but the floor below protects against pathological draws
+    // if VARIABILITY_FRACTION is ever cranked up for testing.
+    const VARIABILITY_FRACTION = 0.03;
+    const VELOCITY_FLOOR_MPS   = 0.01;
+
+    // Markers and wall (m on the track).
+    const MARKER_A_X_M   = 0.5;         // separates Launch / Middle regions
+    const MARKER_B_X_M   = 1.2;         // separates Middle / Far regions (0.5 + 0.7)
+    const RIGHT_WALL_X_M = 2.0;
+
+    const BALL_RADIUS_PX = 7;
+
+    // Spring release animation duration in SIM seconds. Because we advance the
+    // animation by dt_sim each frame, the animation naturally scales with playback
+    // speed — at 0.1× it takes 1.5 wall-clock seconds, at 1.0× it takes 150 ms.
+    const SPRING_RELEASE_DURATION_S = 0.15;
+
+    // Palette (locked).
+    const COLOR_BG        = '#10121E';
+    const COLOR_TRACK     = '#2A3F5C';
+    const COLOR_LAUNCHER  = '#2A3F5C';
+    const COLOR_WALL      = '#2A3F5C';
+    const COLOR_MARKER    = '#2E8B8B';
+    const COLOR_LABEL     = '#FAF3DE';
+    const COLOR_BALL_FILL = '#FAF3DE';
+    const COLOR_BALL_RIM  = '#1E2A5C';
+
+    /* ============================================================
+       STATE
+       ============================================================ */
+
+    const state = {
+      currentNotch:        1,
+      ballX_m:             0,
+      ballVelocity_mps:    0,
+      isMoving:            false,
+      playbackMultiplier:  1.0,
+      lastFrameTime:       null,
+
+      // Spring visual state machine:
+      //   springAnimating + animElapsed:  release in progress (loaded → extended)
+      //   springReleased = true:          release complete, held at extended length
+      //   neither:                        at rest, loaded at currentNotch length
+      springAnimating:     false,
+      springAnimElapsed_s: 0,
+      springReleased:      false,
+    };
+
+    /* ============================================================
+       DOM REFERENCES
+       ============================================================ */
+
+    const canvas      = document.getElementById('scene');
+    const ctx         = canvas.getContext('2d');
+    const sceneWrap   = document.getElementById('scene-wrap');
+    const launchBtn   = document.getElementById('launch-btn');
+    const resetBtn    = document.getElementById('reset-btn');
+    const speedSelect = document.getElementById('speed-select');
+    const notchBtns   = document.querySelectorAll('.notch-btn');
+
+    /* ============================================================
+       UTILITIES
+       ============================================================ */
+
+    function metersToPx(m) {
+      return TRACK_LEFT_X_PX + m * PIXELS_PER_METER;
+    }
+
+    // Box-Muller standard-normal draw, then scale + shift.
+    function sampleGaussian(mean, sigma) {
+      let u1 = 0, u2 = 0;
+      while (u1 === 0) u1 = Math.random();   // avoid log(0)
+      while (u2 === 0) u2 = Math.random();
+      const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+      return mean + z * sigma;
+    }
+
+    function clamp01(x) {
+      return x < 0 ? 0 : (x > 1 ? 1 : x);
+    }
+
+    /* ============================================================
+       SCENE SHELL — track, markers, wall
+       ============================================================ */
+
+    function drawTrack() {
+      ctx.strokeStyle = COLOR_TRACK;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(metersToPx(0),               TRACK_Y_PX);
+      ctx.lineTo(metersToPx(TRACK_LENGTH_M),  TRACK_Y_PX);
+      ctx.stroke();
+    }
+
+    function drawMarker(x_px, label) {
+      ctx.strokeStyle = COLOR_MARKER;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x_px, 280);
+      ctx.lineTo(x_px, 440);
+      ctx.stroke();
+
+      ctx.fillStyle = COLOR_LABEL;
+      ctx.font = 'bold 18px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(label, x_px, 268);
+    }
+
+    function drawWall() {
+      const x = metersToPx(RIGHT_WALL_X_M);
+      ctx.fillStyle = COLOR_WALL;
+      ctx.fillRect(x, TRACK_Y_PX - 35, 8, 70);
+    }
+
+    /* ============================================================
+       LAUNCHER + BALL
+       ============================================================ */
+
+    // Launcher housing with a stylized spring inside.
+    //
+    // Spring fraction (of available inner width) depends on state:
+    //   - Animating release:  interpolate loaded → extended (eased) using animElapsed
+    //   - Released (held):    extended (1.0)
+    //   - Otherwise (loaded): notch-dependent compression
+    //
+    // The animation is driven by dt_sim in the tick loop, so it scales with
+    // playback speed automatically — at 0.1× the spring takes 1.5 s of wall time
+    // to release, matching the slowed visual of the ball motion.
+    function drawLauncher() {
+      const housingLeft   = 60;
+      const housingRight  = TRACK_LEFT_X_PX;
+      const housingTop    = TRACK_Y_PX - 35;
+      const housingBottom = TRACK_Y_PX + 35;
+      const housingWidth  = housingRight - housingLeft;
+      const housingHeight = housingBottom - housingTop;
+
+      // Housing outline
+      ctx.strokeStyle = COLOR_LAUNCHER;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(housingLeft, housingTop, housingWidth, housingHeight);
+
+      const innerPadding      = 6;
+      const maxLoadedFraction = 0.85;   // notch 1 — least compressed (longest spring at rest)
+      const minLoadedFraction = 0.40;   // notch 4 — most compressed (shortest spring at rest)
+      const relaxedFraction   = 1.00;   // fully extended after release
+
+      const loadedFraction =
+        maxLoadedFraction
+        - ((state.currentNotch - 1) / 3) * (maxLoadedFraction - minLoadedFraction);
+
+      let springFraction;
+      if (state.springAnimating) {
+        const progress = clamp01(state.springAnimElapsed_s / SPRING_RELEASE_DURATION_S);
+        const eased    = 1 - (1 - progress) * (1 - progress);   // ease-out quadratic
+        springFraction = loadedFraction + (relaxedFraction - loadedFraction) * eased;
+      } else if (state.springReleased) {
+        springFraction = relaxedFraction;
+      } else {
+        springFraction = loadedFraction;
+      }
+
+      const springLength = (housingWidth - 2 * innerPadding) * springFraction;
+      const springLeft   = housingLeft + innerPadding;
+      const springRight  = springLeft + springLength;
+      const springY      = TRACK_Y_PX;
+      const amplitude    = 10;
+      const numZigs      = 5;
+
+      ctx.strokeStyle = COLOR_LAUNCHER;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(springLeft, springY);
+      for (let i = 1; i <= numZigs; i++) {
+        const x = springLeft + (i / numZigs) * springLength;
+        const y = springY + (i % 2 === 1 ? -amplitude : amplitude);
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(springRight, springY);
+      ctx.stroke();
+
+      // Piston bar at the right end of the spring — moves outward with the spring.
+      ctx.fillStyle = COLOR_LAUNCHER;
+      ctx.fillRect(springRight - 2, springY - 14, 4, 28);
+    }
+
+    function drawBall() {
+      const x = metersToPx(state.ballX_m);
+      ctx.fillStyle = COLOR_BALL_FILL;
+      ctx.beginPath();
+      ctx.arc(x, TRACK_Y_PX, BALL_RADIUS_PX, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.strokeStyle = COLOR_BALL_RIM;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    /* ============================================================
+       PHYSICS
+       ============================================================ */
+
+    function launch() {
+      if (state.isMoving) return;     // safety; button is also disabled
+
+      const meanSpeed = NOTCH_SPEEDS[state.currentNotch];
+      const sigma     = VARIABILITY_FRACTION * meanSpeed;
+      let v = sampleGaussian(meanSpeed, sigma);
+      if (v < VELOCITY_FLOOR_MPS) v = VELOCITY_FLOOR_MPS;
+
+      // Ball APPEARS at the launcher mouth with full velocity (spec item 15).
+      // The spring animation that follows is cosmetic — the ball does not ride
+      // the spring outward; it begins moving the instant we call launch().
+      state.ballX_m          = 0;
+      state.ballVelocity_mps = v;
+      state.isMoving         = true;
+      launchBtn.disabled     = true;
+
+      // Spring: snap to loaded (in case it was already released from a prior shot)
+      // then start the release animation.
+      state.springReleased      = false;
+      state.springAnimating     = true;
+      state.springAnimElapsed_s = 0;
+    }
+
+    function resetApparatus() {
+      // Scene Reset returns ball to launcher and re-enables Launch.
+      // Does NOT touch the stopwatch or ruler (per Q3 answer — student needs
+      // the stopwatch reading visible until they've recorded it on paper).
+      state.isMoving         = false;
+      state.ballVelocity_mps = 0;
+      state.ballX_m          = 0;
+      launchBtn.disabled     = false;
+
+      // Spring re-cocks to loaded position. Instant — Reset is the re-cocking step.
+      state.springAnimating     = false;
+      state.springAnimElapsed_s = 0;
+      state.springReleased      = false;
+    }
+
+    /* ============================================================
+       RENDER + ANIMATION LOOP
+       ============================================================ */
+
+    function render() {
+      ctx.fillStyle = COLOR_BG;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      drawTrack();
+      drawLauncher();
+      drawWall();
+      drawMarker(metersToPx(MARKER_A_X_M), 'A');
+      drawMarker(metersToPx(MARKER_B_X_M), 'B');
+      drawBall();
+    }
+
+    function tick(timestamp) {
+      if (state.lastFrameTime === null) state.lastFrameTime = timestamp;
+      const dt_real = (timestamp - state.lastFrameTime) / 1000;
+      state.lastFrameTime = timestamp;
+
+      // Clamp dt against the case where the tab was backgrounded.
+      const dt_real_clamped = Math.min(dt_real, 0.1);
+
+      // Playback speed scales simulation time but NOT the stopwatch — the stopwatch
+      // is fully agnostic to playbackMultiplier and uses its own performance.now().
+      const dt_sim = dt_real_clamped * state.playbackMultiplier;
+
+      // Ball physics
+      if (state.isMoving) {
+        state.ballX_m += state.ballVelocity_mps * dt_sim;
+        if (state.ballX_m >= RIGHT_WALL_X_M) {
+          state.ballX_m          = RIGHT_WALL_X_M;
+          state.ballVelocity_mps = 0;
+          state.isMoving         = false;
+          launchBtn.disabled     = false;
+        }
+      }
+
+      // Spring release animation advances on dt_sim so it scales with playback.
+      if (state.springAnimating) {
+        state.springAnimElapsed_s += dt_sim;
+        if (state.springAnimElapsed_s >= SPRING_RELEASE_DURATION_S) {
+          state.springAnimating = false;
+          state.springReleased  = true;
+        }
+      }
+
+      render();
+      requestAnimationFrame(tick);
+    }
+
+    /* ============================================================
+       CONTROL HANDLERS
+       ============================================================ */
+
+    notchBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        // Notch change is allowed at any time. It does NOT affect the in-flight
+        // ball — only sets speed for the NEXT launch. Spring visual snaps back
+        // to the new notch's loaded position (treat notch click as a re-cock).
+        notchBtns.forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        state.currentNotch = parseInt(btn.dataset.notch, 10);
+
+        state.springAnimating     = false;
+        state.springAnimElapsed_s = 0;
+        state.springReleased      = false;
+      });
+    });
+
+    launchBtn.addEventListener('click', launch);
+    resetBtn.addEventListener('click', resetApparatus);
+
+    speedSelect.addEventListener('change', function (e) {
+      state.playbackMultiplier = parseFloat(e.target.value);
+    });
+
+    /* ============================================================
+       MEASUREMENT TOOLS
+       Global script load. Self-contained SVG-DOM widgets. Scene never calls
+       their methods; student drives. Render loop never touches them.
+       ============================================================ */
+
+    // Stopwatch — upper-right of scene area. Default size 220 → spans x=880 to x=1100.
+    // Agnostic to playback speed; uses its own performance.now() internally.
+    const stopwatch = new Stopwatch({
+      container: sceneWrap,
+      x: 880,
+      y: 40,
+    });
+
+    // Ruler — Option A initial placement: above the track, aligned with launcher mouth.
+    // Body 36 px thick at y=290–326; bottom (reading) edge 34 px above track at y=360.
+    //
+    // CRITICAL: pixelsPerMeter MUST be passed explicitly. Module default is 600;
+    // scene scale is 400. Without this override the ruler's ticks would not match
+    // scene geometry.
+    const ruler = new Ruler({
+      container:      sceneWrap,
+      x:              TRACK_LEFT_X_PX,
+      y:              290,
+      pixelsPerMeter: PIXELS_PER_METER,
+    });
+
+    /* ============================================================
+       BOOT
+       ============================================================ */
+
+    requestAnimationFrame(tick);
+  })();
+  </script>
+</body>
+</html>
