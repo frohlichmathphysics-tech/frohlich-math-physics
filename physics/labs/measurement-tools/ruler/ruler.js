@@ -20,6 +20,9 @@
  *        ruler MUST agree on this scale, or measurements will not match
  *        the physical setup the scene is simulating.
  *
+ * Self-contained: this module injects its own CSS on first load. Hosts
+ * need only load this JS file — no companion stylesheet required.
+ *
  * Usage:
  *   const r = new Ruler({
  *     container: document.getElementById('frame'),
@@ -29,6 +32,83 @@
  *     thicknessPx: 36
  *   });
  */
+
+// ── Embedded styles (was styles.css) ─────────────────────────────────────
+const RULER_STYLES = `
+.rl-wrap {
+  position: absolute;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.rl-svg {
+  display: block;
+  cursor: grab;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+.rl-svg:active { cursor: grabbing; }
+
+/* Body — pale wood / yellow-tan */
+.rl-body {
+  fill: #e8c878;
+  stroke: #8a6a2a;
+  stroke-width: 1;
+}
+
+/* Faint horizontal grain lines */
+.rl-grain {
+  stroke: #c9a558;
+  stroke-width: 0.5;
+  opacity: 0.6;
+}
+
+/* Ticks */
+.rl-tick-major {
+  stroke: #1a1a1a;
+  stroke-width: 1.4;
+}
+.rl-tick-half {
+  stroke: #1a1a1a;
+  stroke-width: 1.2;
+}
+.rl-tick-mid {
+  stroke: #1a1a1a;
+  stroke-width: 1;
+}
+.rl-tick-minor {
+  stroke: #1a1a1a;
+  stroke-width: 0.7;
+}
+
+/* Numerals at each 10 cm */
+.rl-numeral {
+  fill: #1a1a1a;
+  font: 600 11px sans-serif;
+  dominant-baseline: alphabetic;
+}
+
+/* Subtle brand label inside the body */
+.rl-brand {
+  fill: #8a6a2a;
+  font: italic 7px sans-serif;
+  letter-spacing: 0.5px;
+  opacity: 0.55;
+}
+`;
+
+// Inject styles once per page, on first load of this module.
+(function injectRulerStyles() {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('frohlich-ruler-styles')) return;
+  const styleEl = document.createElement('style');
+  styleEl.id = 'frohlich-ruler-styles';
+  styleEl.textContent = RULER_STYLES;
+  document.head.appendChild(styleEl);
+})();
+
+// ── Class ────────────────────────────────────────────────────────────────
 class Ruler {
   constructor(options) {
     this.container       = options.container;
