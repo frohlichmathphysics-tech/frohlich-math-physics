@@ -178,10 +178,16 @@ class Ruler {
       const parentRect = this.container.getBoundingClientRect();
       const w = this.wrap.offsetWidth;
       const h = this.wrap.offsetHeight;
+
+      // Allow the ruler to extend beyond the frame on any side,
+      // but keep at least this much visible so it stays grabbable.
+      const minVisibleX = Math.min(40, w);
+      const minVisibleY = Math.min(20, h);
+
       let nx = ev.clientX - parentRect.left - this._dragOffsetX;
       let ny = ev.clientY - parentRect.top  - this._dragOffsetY;
-      nx = Math.max(0, Math.min(parentRect.width  - w, nx));
-      ny = Math.max(0, Math.min(parentRect.height - h, ny));
+      nx = Math.max(-(w - minVisibleX), Math.min(parentRect.width  - minVisibleX, nx));
+      ny = Math.max(-(h - minVisibleY), Math.min(parentRect.height - minVisibleY, ny));
       this.wrap.style.left = `${nx}px`;
       this.wrap.style.top  = `${ny}px`;
     };
