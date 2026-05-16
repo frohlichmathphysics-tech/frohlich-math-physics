@@ -3,29 +3,75 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=1100">
-  <title>Ball Roll · Spring Launcher</title>
+  <title>Spring Launcher · Ball Roll</title>
   <style>
     /* ============================================================
-       LAYOUT
+       LIGHT THEME — matches the math applets in the catalog.
+       Palette (Build_Design v4):
+         cream  #FAF3DE   page + scene background
+         navy   #1E2A5C   structural color (title, apparatus, ball, text)
+         teal   #2E8B8B   accent color (markers, breadcrumb, primary actions)
        ============================================================ */
+
     body {
       margin: 0;
-      background: #10121E;
+      background: #FAF3DE;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
       min-height: 100vh;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
+      padding: 24px 0;
     }
     #app {
       width: 1100px;
-      background: #10121E;
+      background: #FAF3DE;
     }
+
+    /* ============================================================
+       HEADER BLOCK
+       ============================================================ */
+    #header {
+      padding: 8px 30px 18px 30px;
+    }
+    .breadcrumb-pill {
+      display: inline-block;
+      color: #2E8B8B;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+    }
+    .title {
+      font-family: Georgia, "Times New Roman", serif;
+      color: #1E2A5C;
+      font-size: 30px;
+      font-weight: bold;
+      margin: 0 0 6px 0;
+      line-height: 1.15;
+    }
+    .subtitle {
+      font-family: Georgia, "Times New Roman", serif;
+      color: #1E2A5C;
+      font-style: italic;
+      font-size: 15px;
+      margin: 0;
+      opacity: 0.85;
+    }
+    .header-rule {
+      border: none;
+      border-top: 1px solid rgba(30, 42, 92, 0.18);
+      margin: 18px 0 0 0;
+    }
+
+    /* ============================================================
+       SCENE
+       ============================================================ */
     #scene-wrap {
       position: relative;
       width: 1100px;
       height: 620px;
-      background: #10121E;
+      background: #FAF3DE;
     }
     #scene-wrap canvas {
       display: block;
@@ -33,44 +79,18 @@
       left: 0;
       top: 0;
     }
-
-    /* ============================================================
-       MEASUREMENT TOOL WRAPPERS (.sw-wrap, .rl-wrap)
-       Modules default to position: static — override to absolute so the
-       left/top coordinates they set actually take effect.
-       SVG content inside is filter-inverted to flip dark-on-dark to light-on-dark
-       (modules were authored against a light page; their black dial face and
-       ruler body disappear against our #10121E scene without this).
-       hue-rotate(180deg) preserves color identity for any colored elements
-       (e.g., a red hand inverts to cyan then rotates back to red).
-       ============================================================ */
-    .sw-wrap, .rl-wrap {
-      position: absolute;
-      z-index: 10;
-    }
-    .sw-wrap svg, .rl-wrap svg {
-      filter: invert(1) hue-rotate(180deg);
-    }
-
-    footer {
-      text-align: center;
-      color: #FAF3DE;
-      font-size: 11px;
-      letter-spacing: 0.5px;
-      padding: 12px 0 16px 0;
-      background: #10121E;
-    }
+    /* No host overrides on the tool wrappers. The measurement-tool modules now
+       self-inject all the CSS they need (position, sizing, palette). */
 
     /* ============================================================
        CONTROL STRIP
        ============================================================ */
     #controls {
-      background: #10121E;
-      padding: 16px 30px;
+      padding: 18px 30px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-top: 1px solid #2A3F5C;
+      border-top: 1px solid rgba(30, 42, 92, 0.18);
     }
     .control-group {
       display: flex;
@@ -80,7 +100,7 @@
     .control-label {
       font-size: 11px;
       font-weight: bold;
-      color: #FAF3DE;
+      color: #1E2A5C;
       letter-spacing: 1.5px;
       margin-bottom: 6px;
     }
@@ -102,7 +122,7 @@
       transition: background 0.1s, color 0.1s;
     }
     .notch-btn:hover {
-      background: rgba(46, 139, 139, 0.15);
+      background: rgba(46, 139, 139, 0.12);
     }
     .notch-btn.active {
       background: #2E8B8B;
@@ -125,14 +145,14 @@
       background: #34a0a0;
     }
     #launch-btn:disabled {
-      background: #2A3F5C;
-      color: #6a7080;
+      background: rgba(30, 42, 92, 0.25);
+      color: rgba(30, 42, 92, 0.5);
       cursor: not-allowed;
     }
     #reset-btn {
       background: transparent;
-      color: #FAF3DE;
-      border: 2px solid #FAF3DE;
+      color: #1E2A5C;
+      border: 2px solid #1E2A5C;
       width: 90px;
       height: 44px;
       font-weight: bold;
@@ -143,11 +163,11 @@
       font-family: inherit;
     }
     #reset-btn:hover {
-      background: rgba(250, 243, 222, 0.1);
+      background: rgba(30, 42, 92, 0.08);
     }
     #speed-select {
-      background: #10121E;
-      color: #FAF3DE;
+      background: #FAF3DE;
+      color: #1E2A5C;
       border: 2px solid #2E8B8B;
       padding: 8px 28px 8px 10px;
       font-size: 14px;
@@ -163,13 +183,33 @@
       background-size: 5px 5px, 5px 5px;
       background-repeat: no-repeat;
     }
+
+    /* ============================================================
+       FOOTER
+       ============================================================ */
+    footer {
+      text-align: center;
+      color: rgba(30, 42, 92, 0.55);
+      font-style: italic;
+      font-size: 12px;
+      padding: 18px 0 8px 0;
+    }
   </style>
 </head>
 <body>
   <div id="app">
+
+    <header id="header">
+      <div class="breadcrumb-pill">PHYSICS · KINEMATICS · APPLET</div>
+      <h1 class="title">Spring Launcher · Ball Roll</h1>
+      <p class="subtitle">Use the stopwatch and ruler to measure the ball's motion between markers A, B, and C.</p>
+      <hr class="header-rule">
+    </header>
+
     <div id="scene-wrap">
       <canvas id="scene" width="1100" height="620"></canvas>
     </div>
+
     <div id="controls">
       <div class="control-group">
         <div class="control-label">NOTCH</div>
@@ -192,7 +232,9 @@
         </select>
       </div>
     </div>
-    <footer>Mr. Frohlich Math and Physics</footer>
+
+    <footer>Mr. Frohlich Math and Physics · physics/labs/ball-roll-spring-launcher</footer>
+
   </div>
 
   <script src="../measurement-tools/manual-stopwatch/stopwatch.js"></script>
@@ -202,33 +244,42 @@
   (function () {
     'use strict';
 
-    const PIXELS_PER_METER = 400;
+    /* ============================================================
+       CONSTANTS
+       ============================================================ */
+
+    // Scene scale. Ruler MUST be told this explicitly (its module default is 600).
+    const PIXELS_PER_METER = 350;
     const TRACK_LEFT_X_PX  = 150;
     const TRACK_Y_PX       = 360;
-    const TRACK_LENGTH_M   = 2.0;
+    const TRACK_LENGTH_M   = 2.5;
 
+    // Notch → mean exit speed (m/s).
     const NOTCH_SPEEDS = { 1: 0.3, 2: 0.6, 3: 0.9, 4: 1.2 };
 
     const VARIABILITY_FRACTION = 0.03;
     const VELOCITY_FLOOR_MPS   = 0.01;
 
-    const MARKER_A_X_M   = 0.5;
-    const MARKER_B_X_M   = 1.2;
-    const RIGHT_WALL_X_M = 2.0;
+    // Markers (m on the track). Pre-roll then equal A→B and B→C segments.
+    const MARKER_A_X_M   = 0.7;
+    const MARKER_B_X_M   = 1.3;     // A + 0.6
+    const MARKER_C_X_M   = 1.9;     // B + 0.6
+    const RIGHT_WALL_X_M = 2.5;
 
     const BALL_RADIUS_PX = 7;
 
+    // Spring release animation duration in sim seconds. Scales with playback speed.
     const SPRING_RELEASE_DURATION_S = 0.15;
 
-    const COLOR_BG        = '#10121E';
-    const COLOR_TRACK     = '#2A3F5C';
-    const COLOR_LAUNCHER  = '#2A3F5C';
-    const COLOR_WALL      = '#2A3F5C';
-    const COLOR_MARKER    = '#2E8B8B';
-    const COLOR_LABEL     = '#FAF3DE';
-    const COLOR_BALL_FILL = '#FAF3DE';
-    const COLOR_BALL_RIM  = '#1E2A5C';
+    // Light-theme palette (Build_Design v4).
+    const COLOR_BG          = '#FAF3DE';   // cream — scene background
+    const COLOR_APPARATUS   = '#1E2A5C';   // navy — track, launcher, wall, spring, ball
+    const COLOR_MARKER      = '#2E8B8B';   // teal — marker poles
+    const COLOR_MARKER_LBL  = '#1E2A5C';   // navy — letter labels
 
+    /* ============================================================
+       STATE
+       ============================================================ */
     const state = {
       currentNotch:        1,
       ballX_m:             0,
@@ -241,6 +292,9 @@
       springReleased:      false,
     };
 
+    /* ============================================================
+       DOM REFERENCES
+       ============================================================ */
     const canvas      = document.getElementById('scene');
     const ctx         = canvas.getContext('2d');
     const sceneWrap   = document.getElementById('scene-wrap');
@@ -249,6 +303,9 @@
     const speedSelect = document.getElementById('speed-select');
     const notchBtns   = document.querySelectorAll('.notch-btn');
 
+    /* ============================================================
+       UTILITIES
+       ============================================================ */
     function metersToPx(m) {
       return TRACK_LEFT_X_PX + m * PIXELS_PER_METER;
     }
@@ -265,9 +322,12 @@
       return x < 0 ? 0 : (x > 1 ? 1 : x);
     }
 
+    /* ============================================================
+       SCENE RENDERING
+       ============================================================ */
     function drawTrack() {
-      ctx.strokeStyle = COLOR_TRACK;
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = COLOR_APPARATUS;
+      ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(metersToPx(0),               TRACK_Y_PX);
       ctx.lineTo(metersToPx(TRACK_LENGTH_M),  TRACK_Y_PX);
@@ -282,8 +342,8 @@
       ctx.lineTo(x_px, 440);
       ctx.stroke();
 
-      ctx.fillStyle = COLOR_LABEL;
-      ctx.font = 'bold 18px Arial, sans-serif';
+      ctx.fillStyle = COLOR_MARKER_LBL;
+      ctx.font = 'bold 20px Georgia, "Times New Roman", serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(label, x_px, 268);
@@ -291,8 +351,8 @@
 
     function drawWall() {
       const x = metersToPx(RIGHT_WALL_X_M);
-      ctx.fillStyle = COLOR_WALL;
-      ctx.fillRect(x, TRACK_Y_PX - 35, 8, 70);
+      ctx.fillStyle = COLOR_APPARATUS;
+      ctx.fillRect(x, TRACK_Y_PX - 35, 6, 70);
     }
 
     function drawLauncher() {
@@ -303,10 +363,11 @@
       const housingWidth  = housingRight - housingLeft;
       const housingHeight = housingBottom - housingTop;
 
-      ctx.strokeStyle = COLOR_LAUNCHER;
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = COLOR_APPARATUS;
+      ctx.lineWidth = 2.5;
       ctx.strokeRect(housingLeft, housingTop, housingWidth, housingHeight);
 
+      // Spring: notch-dependent compression, eased release animation, held extended after launch.
       const innerPadding      = 6;
       const maxLoadedFraction = 0.85;
       const minLoadedFraction = 0.40;
@@ -334,7 +395,7 @@
       const amplitude    = 10;
       const numZigs      = 5;
 
-      ctx.strokeStyle = COLOR_LAUNCHER;
+      ctx.strokeStyle = COLOR_APPARATUS;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(springLeft, springY);
@@ -346,19 +407,16 @@
       ctx.lineTo(springRight, springY);
       ctx.stroke();
 
-      ctx.fillStyle = COLOR_LAUNCHER;
+      ctx.fillStyle = COLOR_APPARATUS;
       ctx.fillRect(springRight - 2, springY - 14, 4, 28);
     }
 
     function drawBall() {
       const x = metersToPx(state.ballX_m);
-      ctx.fillStyle = COLOR_BALL_FILL;
+      ctx.fillStyle = COLOR_APPARATUS;
       ctx.beginPath();
       ctx.arc(x, TRACK_Y_PX, BALL_RADIUS_PX, 0, 2 * Math.PI);
       ctx.fill();
-      ctx.strokeStyle = COLOR_BALL_RIM;
-      ctx.lineWidth = 1;
-      ctx.stroke();
     }
 
     function render() {
@@ -369,9 +427,13 @@
       drawWall();
       drawMarker(metersToPx(MARKER_A_X_M), 'A');
       drawMarker(metersToPx(MARKER_B_X_M), 'B');
+      drawMarker(metersToPx(MARKER_C_X_M), 'C');
       drawBall();
     }
 
+    /* ============================================================
+       PHYSICS
+       ============================================================ */
     function launch() {
       if (state.isMoving) return;
       const meanSpeed = NOTCH_SPEEDS[state.currentNotch];
@@ -400,6 +462,9 @@
       state.springReleased      = false;
     }
 
+    /* ============================================================
+       ANIMATION LOOP
+       ============================================================ */
     function tick(timestamp) {
       if (state.lastFrameTime === null) state.lastFrameTime = timestamp;
       const dt_real = (timestamp - state.lastFrameTime) / 1000;
@@ -430,6 +495,9 @@
       requestAnimationFrame(tick);
     }
 
+    /* ============================================================
+       CONTROL HANDLERS
+       ============================================================ */
     notchBtns.forEach(function (btn) {
       btn.addEventListener('click', function () {
         notchBtns.forEach(function (b) { b.classList.remove('active'); });
@@ -448,12 +516,18 @@
       state.playbackMultiplier = parseFloat(e.target.value);
     });
 
+    /* ============================================================
+       MEASUREMENT TOOLS
+       ============================================================ */
+
     const stopwatch = new Stopwatch({
       container: sceneWrap,
       x: 880,
       y: 40,
     });
 
+    // CRITICAL: pixelsPerMeter MUST be passed explicitly (module default 600,
+    // scene scale 350) or the ruler ticks won't match scene geometry.
     const ruler = new Ruler({
       container:      sceneWrap,
       x:              TRACK_LEFT_X_PX,
@@ -461,6 +535,9 @@
       pixelsPerMeter: PIXELS_PER_METER,
     });
 
+    /* ============================================================
+       BOOT
+       ============================================================ */
     requestAnimationFrame(tick);
   })();
   </script>
