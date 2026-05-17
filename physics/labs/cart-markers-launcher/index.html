@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1100">
+  <title>Spring Launcher · Cart Markers</title>
+  <style>
+    /* ============================================================
+       LIGHT THEME — palette per Applet_Creation v6 §0.1.
+       Locked palette:
+         cream  #FAF3DE   page + scene background
+         navy   #1E2A5C   structural color (title, apparatus, posts, text)
+         teal   #2E8B8B   accent color (primary actions, flags, eyebrow pill)
+         red    #C00000   destructive content element (marker X-remove)
+       Cart-specific (this applet only):
+         walnut #8B5A2B   cart body
+         grain  #5C3D1E   cart wood grain
+         wheel  #444444   cart wheels
+       ============================================================ */
+
+    body {
+      margin: 0;
+      background: #FAF3DE;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 0;
+    }
+    #app {
+      width: 1100px;
+      background: #FAF3DE;
+    }
+
+    /* ============================================================
+       HEADER BLOCK
+       ============================================================ */
+    #header {
+      padding: 8px 30px 18px 30px;
+    }
+    .breadcrumb-pill {
+      display: inline-block;
+      color: #2E8B8B;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+    }
+    .title {
+      font-family: Georgia, "Times New Roman", serif;
+      color: #1E2A5C;
+      font-size: 30px;
+      font-weight: bold;
+      margin: 0 0 6px 0;
+      line-height: 1.15;
+    }
+    .subtitle {
+      font-family: Georgia, "Times New Roman", serif;
+      color: #1E2A5C;
+      font-style: italic;
+      font-size: 15px;
+      margin: 0;
+      opacity: 0.85;
+    }
+    .header-rule {
+      border: none;
+      border-top: 1px solid rgba(30, 42, 92, 0.18);
+      margin: 18px 0 0 0;
+    }
+
+    /* ============================================================
+       SCENE
+       ============================================================ */
+    #scene-wrap {
+      position: relative;
+      width: 1100px;
+      height: 620px;
+      background: #FAF3DE;
+    }
+    #scene-wrap canvas {
+      display: block;
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    /* ============================================================
+       MARKERS (DOM elements positioned absolutely inside scene-wrap)
+       ============================================================ */
+    .marker {
+      position: absolute;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      z-index: 10;
+      width: 40px;
+      height: 75px;
+    }
+    .marker svg {
+      display: block;
+      cursor: grab;
+      overflow: visible;
+    }
+    .marker.dragging svg { cursor: grabbing; }
+    .marker.locked svg { cursor: default; pointer-events: none; }
+    .marker.locked .marker-x { display: none !important; }
+
+    .marker-x {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 18px;
+      height: 18px;
+      background: #C00000;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 13px;
+      line-height: 1;
+      padding: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    .marker-x:hover { background: #a00000; }
+    .marker:hover .marker-x { display: flex; }
+    .marker.touch-show-x .marker-x { display: flex; }
+
+    /* ============================================================
+       CONTROL STRIP
+       ============================================================ */
+    #controls {
+      padding: 18px 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid rgba(30, 42, 92, 0.18);
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .control-label {
+      font-size: 11px;
+      font-weight: bold;
+      color: #1E2A5C;
+      letter-spacing: 1.5px;
+      margin-bottom: 6px;
+    }
+    .notch-row {
+      display: flex;
+    }
+    .notch-btn {
+      width: 36px;
+      height: 36px;
+      border: 2px solid #2E8B8B;
+      background: transparent;
+      color: #2E8B8B;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 0 3px;
+      border-radius: 4px;
+      font-family: inherit;
+      transition: background 0.1s, color 0.1s;
+    }
+    .notch-btn:hover {
+      background: rgba(46, 139, 139, 0.12);
+    }
+    .notch-btn.active {
+      background: #2E8B8B;
+      color: white;
+    }
+    #launch-btn {
+      background: #2E8B8B;
+      color: white;
+      border: none;
+      width: 110px;
+      height: 44px;
+      font-weight: bold;
+      font-size: 15px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+    #launch-btn:hover:not(:disabled) {
+      background: #34a0a0;
+    }
+    #launch-btn:disabled {
+      background: rgba(30, 42, 92, 0.25);
+      color: rgba(30, 42, 92, 0.5);
+      cursor: not-allowed;
+    }
+    #add-marker-btn {
+      background: transparent;
+      color: #2E8B8B;
+      border: 2px solid #2E8B8B;
+      width: 130px;
+      height: 44px;
+      font-weight: bold;
+      font-size: 14px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-family: inherit;
+      transition: background 0.1s;
+    }
+    #add-marker-btn:hover:not(:disabled) {
+      background: rgba(46, 139, 139, 0.12);
+    }
+    #add-marker-btn:disabled {
+      border-color: rgba(30, 42, 92, 0.25);
+      color: rgba(30, 42, 92, 0.4);
+      cursor: not-allowed;
+    }
+    #reset-btn,
+    #reset-markers-btn {
+      background: transparent;
+      color: #1E2A5C;
+      border: 2px solid #1E2A5C;
+      height: 44px;
+      font-weight: bold;
+      font-size: 14px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+    #reset-btn { width: 90px; }
+    #reset-markers-btn { width: 140px; }
+    #reset-btn:hover,
+    #reset-markers-btn:hover {
+      background: rgba(30, 42, 92, 0.08);
+    }
+    #speed-select {
+      background: #FAF3DE;
+      color: #1E2A5C;
+      border: 2px solid #2E8B8B;
+      padding: 8px 28px 8px 10px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-family: inherit;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, #2E8B8B 50%),
+                        linear-gradient(135deg, #2E8B8B 50%, transparent 50%);
+      background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
+    }
+
+    /* ============================================================
+       FOOTER
+       ============================================================ */
+    footer {
+      text-align: center;
+      color: rgba(30, 42, 92, 0.55);
+      font-style: italic;
+      font-size: 12px;
+      padding: 18px 0 8px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+
+    <header id="header">
+      <div class="breadcrumb-pill">PHYSICS · KINEMATICS · APPLET</div>
+      <h1 class="title">Spring Launcher · Cart Markers</h1>
+      <p class="subtitle">Place markers along the track, then press Lap on the stopwatch as the cart passes each one. Measure the spacings with the ruler.</p>
+      <hr class="header-rule">
+    </header>
+
+    <div id="scene-wrap">
+      <canvas id="scene" width="1100" height="620"></canvas>
+    </div>
+
+    <div id="controls">
+      <div class="control-group">
+        <div class="control-label">NOTCH</div>
+        <div class="notch-row">
+          <button class="notch-btn active" data-notch="1">1</button>
+          <button class="notch-btn" data-notch="2">2</button>
+          <button class="notch-btn" data-notch="3">3</button>
+          <button class="notch-btn" data-notch="4">4</button>
+        </div>
+      </div>
+      <button id="launch-btn">LAUNCH</button>
+      <button id="reset-btn">RESET</button>
+      <button id="reset-markers-btn">RESET MARKERS</button>
+      <button id="add-marker-btn">ADD MARKER</button>
+      <div class="control-group">
+        <div class="control-label">SPEED</div>
+        <select id="speed-select">
+          <option value="1.0">1.0×</option>
+          <option value="0.5">0.5×</option>
+          <option value="0.25">0.25×</option>
+          <option value="0.1">0.1×</option>
+        </select>
+      </div>
+    </div>
+
+    <footer>Mr. Frohlich Math and Physics · physics/labs/cart-markers-launcher</footer>
+
+  </div>
+
+  <script src="../measurement-tools/digital-stopwatch/stopwatch.js"></script>
+  <script src="../measurement-tools/ruler/ruler.js"></script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* ============================================================
+       CONSTANTS
+       ============================================================ */
+
+    const PIXELS_PER_METER = 350;
+    const TRACK_LEFT_X_PX  = 150;
+    const TRACK_Y_PX       = 360;
+    const TRACK_LENGTH_M   = 2.5;
+
+    const NOTCH_SPEEDS = { 1: 0.3, 2: 0.6, 3: 0.9, 4: 1.2 };
+
+    const VARIABILITY_FRACTION = 0.03;
+    const VELOCITY_FLOOR_MPS   = 0.01;
+
+    const RIGHT_WALL_X_M = 2.5;
+
+    const CART_WIDTH_M       = 0.08;
+    const CART_HEIGHT_PX     = 14;
+    const CART_HALF_WIDTH_M  = CART_WIDTH_M / 2;
+    const CART_WIDTH_PX      = CART_WIDTH_M * PIXELS_PER_METER;
+    const CART_WHEEL_RADIUS_PX = 4;
+    const CART_WHEEL_INSET_FRAC = 0.20;
+
+    // Markers
+    const MAX_MARKERS         = 20;
+    const MARKER_SPAWN_FIRST  = TRACK_LEFT_X_PX + 30;   // 180 px — just past cart at rest
+    const MARKER_SPAWN_OFFSET = 20;                     // px between successive spawn slots
+    const MARKER_X_MIN        = TRACK_LEFT_X_PX;        // 150 (allows placement at launcher exit per D3)
+    const MARKER_X_MAX_PX     = TRACK_LEFT_X_PX + RIGHT_WALL_X_M * PIXELS_PER_METER; // 1025
+    const MARKER_DIV_WIDTH    = 40;
+    const MARKER_DIV_HEIGHT   = 75;
+    const MARKER_POST_OFFSET  = 20.5;                   // post is centered at SVG x=20.5 (post rect x=19 width=3)
+    const TOUCH_HOLD_MS       = 500;                    // long-press duration to reveal X
+    const TOUCH_X_VISIBLE_MS  = 2000;                   // how long X stays visible after long-press
+    const DRAG_THRESHOLD_PX   = 4;                      // movement before touch-down becomes a drag
+
+    const SPRING_RELEASE_DURATION_S = 0.15;
+
+    const COLOR_BG          = '#FAF3DE';
+    const COLOR_APPARATUS   = '#1E2A5C';
+    const COLOR_CART_BODY   = '#8B5A2B';
+    const COLOR_CART_GRAIN  = '#5C3D1E';
+    const COLOR_CART_WHEEL  = '#444444';
+
+    /* ============================================================
+       STATE
+       ============================================================ */
+    const state = {
+      currentNotch:        1,
+      cartX_m:             0,
+      cartVelocity_mps:    0,
+      isMoving:            false,
+      hasLanded:           false,
+      playbackMultiplier:  1.0,
+      lastFrameTime:       null,
+      springAnimating:     false,
+      springAnimElapsed_s: 0,
+      springReleased:      false,
+      markers:             [], // [{id, x_px, element}]
+      nextMarkerId:        1,
+    };
+
+    /* ============================================================
+       DOM REFERENCES
+       ============================================================ */
+    const canvas          = document.getElementById('scene');
+    const ctx             = canvas.getContext('2d');
+    const sceneWrap       = document.getElementById('scene-wrap');
+    const launchBtn       = document.getElementById('launch-btn');
+    const resetBtn        = document.getElementById('reset-btn');
+    const resetMarkersBtn = document.getElementById('reset-markers-btn');
+    const addMarkerBtn    = document.getElementById('add-marker-btn');
+    const speedSelect     = document.getElementById('speed-select');
+    const notchBtns       = document.querySelectorAll('.notch-btn');
+
+    /* ============================================================
+       UTILITIES
+       ============================================================ */
+    function metersToPx(m) {
+      return TRACK_LEFT_X_PX + m * PIXELS_PER_METER;
+    }
+
+    function sampleGaussian(mean, sigma) {
+      let u1 = 0, u2 = 0;
+      while (u1 === 0) u1 = Math.random();
+      while (u2 === 0) u2 = Math.random();
+      const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+      return mean + z * sigma;
+    }
+
+    function clamp01(x) {
+      return x < 0 ? 0 : (x > 1 ? 1 : x);
+    }
+
+    function clamp(x, lo, hi) {
+      return x < lo ? lo : (x > hi ? hi : x);
+    }
+
+    function updateButtonStates() {
+      launchBtn.disabled    = state.isMoving || state.hasLanded;
+      addMarkerBtn.disabled = state.isMoving || state.markers.length >= MAX_MARKERS;
+    }
+
+    /* ============================================================
+       MARKERS — DOM-based, drawn above the canvas
+       ============================================================ */
+
+    function createMarkerElement() {
+      const wrap = document.createElement('div');
+      wrap.className = 'marker';
+
+      const NS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('viewBox', '0 0 40 75');
+      svg.setAttribute('width',  MARKER_DIV_WIDTH);
+      svg.setAttribute('height', MARKER_DIV_HEIGHT);
+
+      // Vertical post (3 px wide, navy, from y=15 to y=75)
+      const post = document.createElementNS(NS, 'rect');
+      post.setAttribute('x', 19);
+      post.setAttribute('y', 15);
+      post.setAttribute('width', 3);
+      post.setAttribute('height', 60);
+      post.setAttribute('fill', '#1E2A5C');
+      svg.appendChild(post);
+
+      // Flag rectangle (teal, attached to right side of post)
+      const flag = document.createElementNS(NS, 'rect');
+      flag.setAttribute('x', 22);
+      flag.setAttribute('y', 2);
+      flag.setAttribute('width', 18);
+      flag.setAttribute('height', 16);
+      flag.setAttribute('fill', '#2E8B8B');
+      svg.appendChild(flag);
+
+      // Flag pole tip (small cap at top of post)
+      const cap = document.createElementNS(NS, 'circle');
+      cap.setAttribute('cx', 20.5);
+      cap.setAttribute('cy', 3);
+      cap.setAttribute('r', 2);
+      cap.setAttribute('fill', '#1E2A5C');
+      svg.appendChild(cap);
+
+      // Numeral — flag spans y=2 to y=18 (height 16), vertical center is y=10.
+      // With dominant-baseline=middle, y is the glyph cell center.
+      const numeral = document.createElementNS(NS, 'text');
+      numeral.setAttribute('class', 'marker-numeral');
+      numeral.setAttribute('x', 31);
+      numeral.setAttribute('y', 10);
+      numeral.setAttribute('fill', 'white');
+      numeral.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif');
+      numeral.setAttribute('font-size', '12');
+      numeral.setAttribute('font-weight', 'bold');
+      numeral.setAttribute('text-anchor', 'middle');
+      numeral.setAttribute('dominant-baseline', 'central');
+      numeral.textContent = '?';
+      svg.appendChild(numeral);
+
+      wrap.appendChild(svg);
+
+      const xBtn = document.createElement('button');
+      xBtn.className = 'marker-x';
+      xBtn.setAttribute('type', 'button');
+      xBtn.setAttribute('aria-label', 'Remove marker');
+      xBtn.textContent = '×';
+      wrap.appendChild(xBtn);
+
+      return wrap;
+    }
+
+    function positionMarker(elt, trackX_px) {
+      // The "true marker X" in track coordinates is the post's center X.
+      // Post center is at SVG x=20.5, so the div's left edge is trackX - 20.5.
+      elt.style.left = `${trackX_px - MARKER_POST_OFFSET}px`;
+      elt.style.top  = `${TRACK_Y_PX - MARKER_DIV_HEIGHT}px`;
+    }
+
+    function updateMarkerNumerals() {
+      state.markers.forEach((m, i) => {
+        const numeral = m.element.querySelector('.marker-numeral');
+        if (numeral) numeral.textContent = String(i + 1);
+      });
+    }
+
+    function spawnMarker() {
+      if (state.markers.length >= MAX_MARKERS) return;
+      if (state.isMoving) return;
+
+      const slotIndex = state.markers.length; // 0-indexed
+      const spawnX = MARKER_SPAWN_FIRST + slotIndex * MARKER_SPAWN_OFFSET;
+
+      const elt = createMarkerElement();
+      const id  = state.nextMarkerId++;
+      elt.dataset.markerId = String(id);
+
+      positionMarker(elt, spawnX);
+      sceneWrap.appendChild(elt);
+
+      attachMarkerInteractions(elt, id);
+
+      state.markers.push({ id: id, x_px: spawnX, element: elt });
+      updateMarkerNumerals();
+      updateButtonStates();
+    }
+
+    function removeMarker(id) {
+      const idx = state.markers.findIndex(m => m.id === id);
+      if (idx === -1) return;
+      state.markers[idx].element.remove();
+      state.markers.splice(idx, 1);
+      updateMarkerNumerals();   // renumber remaining markers per D6
+      updateButtonStates();
+    }
+
+    function clearAllMarkers() {
+      state.markers.forEach(m => m.element.remove());
+      state.markers = [];
+      state.nextMarkerId = 1;
+      updateButtonStates();
+    }
+
+    function lockMarkers() {
+      state.markers.forEach(m => m.element.classList.add('locked'));
+    }
+
+    function unlockMarkers() {
+      state.markers.forEach(m => m.element.classList.remove('locked'));
+    }
+
+    function attachMarkerInteractions(elt, id) {
+      const svg  = elt.querySelector('svg');
+      const xBtn = elt.querySelector('.marker-x');
+
+      let startClientX = 0;
+      let startClientY = 0;
+      let isDragging   = false;
+      let touchHoldTimer  = null;
+      let touchHideXTimer = null;
+
+      function findMarker() {
+        return state.markers.find(m => m.id === id);
+      }
+
+      function onDown(e) {
+        if (state.isMoving) return; // markers locked during cart motion
+
+        const isTouch = !!(e.touches && e.touches[0]);
+        const ev = isTouch ? e.touches[0] : e;
+        startClientX = ev.clientX;
+        startClientY = ev.clientY;
+        isDragging   = false;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (isTouch) {
+          if (touchHoldTimer) clearTimeout(touchHoldTimer);
+          touchHoldTimer = setTimeout(() => {
+            elt.classList.add('touch-show-x');
+            if (touchHideXTimer) clearTimeout(touchHideXTimer);
+            touchHideXTimer = setTimeout(() => {
+              elt.classList.remove('touch-show-x');
+            }, TOUCH_X_VISIBLE_MS);
+            touchHoldTimer = null;
+          }, TOUCH_HOLD_MS);
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup',   onUp);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend',  onUp);
+      }
+
+      function onMove(e) {
+        if (state.isMoving) return;
+        const isTouch = !!(e.touches && e.touches[0]);
+        const ev = isTouch ? e.touches[0] : e;
+        const dx = ev.clientX - startClientX;
+        const dy = ev.clientY - startClientY;
+        const moved = Math.hypot(dx, dy);
+
+        if (!isDragging && moved > DRAG_THRESHOLD_PX) {
+          isDragging = true;
+          elt.classList.add('dragging');
+          if (touchHoldTimer) {
+            clearTimeout(touchHoldTimer);
+            touchHoldTimer = null;
+          }
+        }
+
+        if (isDragging) {
+          e.preventDefault();
+          const sceneRect = sceneWrap.getBoundingClientRect();
+          const targetTrackX = ev.clientX - sceneRect.left;
+          const clamped = clamp(targetTrackX, MARKER_X_MIN, MARKER_X_MAX_PX);
+          positionMarker(elt, clamped);
+          const m = findMarker();
+          if (m) m.x_px = clamped;
+        }
+      }
+
+      function onUp() {
+        if (touchHoldTimer) {
+          clearTimeout(touchHoldTimer);
+          touchHoldTimer = null;
+        }
+        isDragging = false;
+        elt.classList.remove('dragging');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup',   onUp);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend',  onUp);
+      }
+
+      svg.addEventListener('mousedown',  onDown);
+      svg.addEventListener('touchstart', onDown, { passive: false });
+
+      // X button: remove this marker. stopPropagation so we don't start a drag.
+      xBtn.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (state.isMoving) return;
+        removeMarker(id);
+      });
+      xBtn.addEventListener('mousedown',  e => e.stopPropagation());
+      xBtn.addEventListener('touchstart', e => e.stopPropagation());
+    }
+
+    /* ============================================================
+       SCENE RENDERING (canvas — track, launcher, cart only)
+       ============================================================ */
+    function drawTrack() {
+      ctx.strokeStyle = COLOR_APPARATUS;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(metersToPx(0),               TRACK_Y_PX);
+      ctx.lineTo(metersToPx(TRACK_LENGTH_M),  TRACK_Y_PX);
+      ctx.stroke();
+    }
+
+    function drawWall() {
+      const x = metersToPx(RIGHT_WALL_X_M);
+      ctx.fillStyle = COLOR_APPARATUS;
+      ctx.fillRect(x, TRACK_Y_PX - 35, 6, 70);
+    }
+
+    function drawLauncher() {
+      const housingLeft   = 60;
+      const housingRight  = TRACK_LEFT_X_PX;
+      const housingTop    = TRACK_Y_PX - 35;
+      const housingBottom = TRACK_Y_PX + 35;
+      const housingWidth  = housingRight - housingLeft;
+      const housingHeight = housingBottom - housingTop;
+
+      ctx.strokeStyle = COLOR_APPARATUS;
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(housingLeft, housingTop, housingWidth, housingHeight);
+
+      const innerPadding      = 6;
+      const maxLoadedFraction = 0.85;
+      const minLoadedFraction = 0.40;
+      const relaxedFraction   = 1.00;
+
+      const loadedFraction =
+        maxLoadedFraction
+        - ((state.currentNotch - 1) / 3) * (maxLoadedFraction - minLoadedFraction);
+
+      let springFraction;
+      if (state.springAnimating) {
+        const progress = clamp01(state.springAnimElapsed_s / SPRING_RELEASE_DURATION_S);
+        const eased    = 1 - (1 - progress) * (1 - progress);
+        springFraction = loadedFraction + (relaxedFraction - loadedFraction) * eased;
+      } else if (state.springReleased) {
+        springFraction = relaxedFraction;
+      } else {
+        springFraction = loadedFraction;
+      }
+
+      const springLength = (housingWidth - 2 * innerPadding) * springFraction;
+      const springLeft   = housingLeft + innerPadding;
+      const springRight  = springLeft + springLength;
+      const springY      = TRACK_Y_PX;
+      const amplitude    = 10;
+      const numZigs      = 5;
+
+      ctx.strokeStyle = COLOR_APPARATUS;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(springLeft, springY);
+      for (let i = 1; i <= numZigs; i++) {
+        const x = springLeft + (i / numZigs) * springLength;
+        const y = springY + (i % 2 === 1 ? -amplitude : amplitude);
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(springRight, springY);
+      ctx.stroke();
+
+      ctx.fillStyle = COLOR_APPARATUS;
+      ctx.fillRect(springRight - 2, springY - 14, 4, 28);
+    }
+
+    function drawCart() {
+      const cx_px = metersToPx(state.cartX_m);
+      const bodyLeft  = cx_px - CART_WIDTH_PX / 2;
+      const bodyRight = cx_px + CART_WIDTH_PX / 2;
+      const wheelR    = CART_WHEEL_RADIUS_PX;
+      const wheelOverhang = (2 * wheelR) / 3;
+      const bodyBottom = TRACK_Y_PX - wheelOverhang;
+      const bodyTop    = bodyBottom - CART_HEIGHT_PX;
+      const wheelCY    = TRACK_Y_PX - wheelR;
+      const wheelOffset = CART_WIDTH_PX * CART_WHEEL_INSET_FRAC;
+      const leftWheelX  = bodyLeft  + wheelOffset;
+      const rightWheelX = bodyRight - wheelOffset;
+
+      ctx.fillStyle = COLOR_CART_WHEEL;
+      ctx.beginPath();
+      ctx.arc(leftWheelX,  wheelCY, wheelR, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(rightWheelX, wheelCY, wheelR, 0, 2 * Math.PI);
+      ctx.fill();
+
+      const radius = 2;
+      ctx.fillStyle = COLOR_CART_BODY;
+      ctx.beginPath();
+      ctx.moveTo(bodyLeft + radius, bodyTop);
+      ctx.lineTo(bodyRight - radius, bodyTop);
+      ctx.quadraticCurveTo(bodyRight, bodyTop, bodyRight, bodyTop + radius);
+      ctx.lineTo(bodyRight, bodyBottom - radius);
+      ctx.quadraticCurveTo(bodyRight, bodyBottom, bodyRight - radius, bodyBottom);
+      ctx.lineTo(bodyLeft + radius, bodyBottom);
+      ctx.quadraticCurveTo(bodyLeft, bodyBottom, bodyLeft, bodyBottom - radius);
+      ctx.lineTo(bodyLeft, bodyTop + radius);
+      ctx.quadraticCurveTo(bodyLeft, bodyTop, bodyLeft + radius, bodyTop);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = COLOR_APPARATUS;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.strokeStyle = COLOR_CART_GRAIN;
+      ctx.lineWidth = 0.6;
+      const grainInset = 2;
+      const grainY1 = bodyTop + CART_HEIGHT_PX * 0.33;
+      const grainY2 = bodyTop + CART_HEIGHT_PX * 0.66;
+      ctx.beginPath();
+      ctx.moveTo(bodyLeft + grainInset,  grainY1);
+      ctx.lineTo(bodyRight - grainInset, grainY1);
+      ctx.moveTo(bodyLeft + grainInset,  grainY2);
+      ctx.lineTo(bodyRight - grainInset, grainY2);
+      ctx.stroke();
+    }
+
+    function render() {
+      ctx.fillStyle = COLOR_BG;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawTrack();
+      drawLauncher();
+      drawWall();
+      drawCart();
+    }
+
+    /* ============================================================
+       PHYSICS
+       ============================================================ */
+    function launch() {
+      if (state.isMoving || state.hasLanded) return;
+      const meanSpeed = NOTCH_SPEEDS[state.currentNotch];
+      const sigma     = VARIABILITY_FRACTION * meanSpeed;
+      let v = sampleGaussian(meanSpeed, sigma);
+      if (v < VELOCITY_FLOOR_MPS) v = VELOCITY_FLOOR_MPS;
+
+      state.cartX_m          = 0;
+      state.cartVelocity_mps = v;
+      state.isMoving         = true;
+      state.hasLanded        = false;
+
+      state.springReleased      = false;
+      state.springAnimating     = true;
+      state.springAnimElapsed_s = 0;
+
+      lockMarkers();
+      updateButtonStates();
+    }
+
+    function resetTrial() {
+      // Per-trial reset: cart returns, stopwatch clears, markers stay (D4).
+      state.isMoving         = false;
+      state.cartVelocity_mps = 0;
+      state.cartX_m          = 0;
+      state.hasLanded        = false;
+
+      state.springAnimating     = false;
+      state.springAnimElapsed_s = 0;
+      state.springReleased      = false;
+
+      stopwatch.reset();
+      unlockMarkers();
+      updateButtonStates();
+    }
+
+    function resetMarkers() {
+      // Full reset: per-trial reset + clear all markers.
+      resetTrial();
+      clearAllMarkers();
+    }
+
+    /* ============================================================
+       ANIMATION LOOP
+       ============================================================ */
+    function tick(timestamp) {
+      if (state.lastFrameTime === null) state.lastFrameTime = timestamp;
+      const dt_real = (timestamp - state.lastFrameTime) / 1000;
+      state.lastFrameTime = timestamp;
+
+      const dt_real_clamped = Math.min(dt_real, 0.1);
+      const dt_sim = dt_real_clamped * state.playbackMultiplier;
+
+      if (state.isMoving) {
+        state.cartX_m += state.cartVelocity_mps * dt_sim;
+        const stopAt_m = RIGHT_WALL_X_M - CART_HALF_WIDTH_M;
+        if (state.cartX_m >= stopAt_m) {
+          state.cartX_m          = stopAt_m;
+          state.cartVelocity_mps = 0;
+          state.isMoving         = false;
+          state.hasLanded        = true;
+          unlockMarkers();       // cart stopped — markers re-movable
+          updateButtonStates();
+        }
+      }
+
+      if (state.springAnimating) {
+        state.springAnimElapsed_s += dt_sim;
+        if (state.springAnimElapsed_s >= SPRING_RELEASE_DURATION_S) {
+          state.springAnimating = false;
+          state.springReleased  = true;
+        }
+      }
+
+      render();
+      requestAnimationFrame(tick);
+    }
+
+    /* ============================================================
+       CONTROL HANDLERS
+       ============================================================ */
+    notchBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (state.isMoving) return;
+        notchBtns.forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        state.currentNotch = parseInt(btn.dataset.notch, 10);
+        state.springAnimating     = false;
+        state.springAnimElapsed_s = 0;
+        state.springReleased      = false;
+      });
+    });
+
+    launchBtn.addEventListener('click', launch);
+    resetBtn.addEventListener('click', resetTrial);
+    resetMarkersBtn.addEventListener('click', resetMarkers);
+    addMarkerBtn.addEventListener('click', spawnMarker);
+
+    speedSelect.addEventListener('change', function (e) {
+      state.playbackMultiplier = parseFloat(e.target.value);
+    });
+
+    /* ============================================================
+       MEASUREMENT TOOLS
+       ============================================================ */
+
+    const stopwatch = new DigitalStopwatch({
+      container: sceneWrap,
+      x:        880,
+      y:        40,
+      showLap:  true,
+    });
+
+    const ruler = new Ruler({
+      container:      sceneWrap,
+      x:              TRACK_LEFT_X_PX,
+      y:              290,
+      pixelsPerMeter: PIXELS_PER_METER,
+    });
+
+    /* ============================================================
+       BOOT
+       ============================================================ */
+    updateButtonStates();
+    requestAnimationFrame(tick);
+  })();
+  </script>
+</body>
+</html>
