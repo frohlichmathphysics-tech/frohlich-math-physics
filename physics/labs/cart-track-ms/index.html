@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cart on Track — Motion Sensor Lab</title>
+<style>
+  /* ------- Palette (Applet_Creation v6 §0.1 locked) ------- */
+  :root {
+    --cream: #FAF3DE;
+    --navy:  #1E2A5C;
+    --teal:  #2E8B8B;
+    --grey-dark: #444;
+    --grey-mid:  #888;
+    --grey-light:#BFBFBF;
+    --grey-bg:   #E8E4D4;        /* slightly darker cream for control strip */
+    --ink:       #1F1F1F;
+    --start-green: #1f6b3d;      /* functional-color exception */
+    --stop-red:    #a8222a;      /* functional-color exception */
+    --ms-led:      #d94545;      /* MS activity LED — kept distinct from stop-red */
+  }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  .title-bar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--grey-light);
+    margin-bottom: 12px;
+  }
+  .title-bar h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--navy);
+  }
+  .title-bar .sub {
+    font-size: 13px;
+    color: var(--grey-mid);
+  }
+
+  /* ------- Main layout ------- */
+  .main-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 12px;
+    align-items: stretch;
+  }
+  @media (max-width: 900px) {
+    .main-row { grid-template-columns: 1fr; }
+  }
+  .left-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+  .scene-wrap {
+    background: var(--cream);
+    border: 1px solid var(--grey-light);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .scene-wrap canvas { display: block; width: 100%; height: auto; }
+
+  .scrubber-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px 8px 10px;
+    border-top: 1px solid var(--grey-light);
+    background: rgba(0,0,0,0.025);
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+  .scrubber-row[hidden] { display: none; }
+  .scrub-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--navy);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .scrubber {
+    flex: 1;
+    min-width: 180px;
+    accent-color: #c62828;
+    cursor: pointer;
+  }
+  .scrubber-readout {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  .graphs-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+  }
+  .graph-card {
+    flex: 1 1 0;
+    min-height: 0;
+    background: #ffffff;
+    border: 1px solid var(--grey-light);
+    border-radius: 6px;
+    padding: 5px 8px 6px 8px;
+    display: flex;
+    flex-direction: column;
+  }
+  .graph-card .label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin-bottom: 2px;
+    flex-shrink: 0;
+  }
+  .graph-card .label .units { color: var(--grey-mid); font-weight: 500; text-transform: none; letter-spacing: 0; margin-left: 4px; }
+  .graph-card canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .trial-status {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--grey-mid);
+    height: 16px;
+    flex-shrink: 0;
+  }
+  .trial-status.complete { color: var(--navy); }
+
+  /* ------- Controls ------- */
+  .controls {
+    background: var(--grey-bg);
+    border: 1px solid var(--grey-light);
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: grid;
+    gap: 6px;
+  }
+  .ctrl-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    row-gap: 6px;
+  }
+  .group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .group > .group-label {
+    font-size: 12px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .btn-group {
+    display: inline-flex;
+    border: 1px solid var(--navy);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .btn-group button {
+    background: #fff;
+    color: var(--navy);
+    border: none;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border-right: 1px solid var(--navy);
+    min-width: 30px;
+  }
+  .btn-group button:last-child { border-right: none; }
+  .btn-group button.active {
+    background: var(--navy);
+    color: #fff;
+  }
+  .btn-group button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  select {
+    padding: 4px 6px;
+    font-size: 12px;
+    border: 1px solid var(--navy);
+    border-radius: 4px;
+    background: #fff;
+    color: var(--ink);
+    font-family: inherit;
+    min-width: 80px;
+  }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle input { width: 14px; height: 14px; accent-color: var(--navy); cursor: pointer; }
+
+  .action-btn {
+    border: none;
+    border-radius: 4px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: #fff;
+  }
+  .action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-start  { background: var(--start-green); }
+  .btn-launch { background: var(--navy); }
+  .btn-reset  { background: var(--grey-dark); }
+  .btn-resetall { background: var(--stop-red); }
+  .btn-sensor-off { background: var(--stop-red); }
+
+  /* Mobile: rows wrap naturally; nothing special needed */
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="title-bar">
+    <h1>Cart on Track — Motion Sensor Lab</h1>
+    <div class="sub">Mr. Frohlich Math and Physics</div>
+  </div>
+
+  <div class="main-row">
+
+    <div class="left-col">
+
+      <div class="scene-wrap">
+        <canvas id="scene" width="780" height="380"></canvas>
+        <div class="scrubber-row" id="scrubberRow" hidden>
+          <span class="scrub-label">Scrub:</span>
+          <input type="range" id="scrubber" class="scrubber" min="0" max="1" step="0.001" value="0">
+          <span class="scrubber-readout" id="scrubberReadout">t=0.00s &middot; x=0.00 m &middot; v=0.00 m/s &middot; a=0.00 m/s²</span>
+        </div>
+      </div>
+
+      <div class="controls">
+
+        <!-- Row 1: position -->
+        <div class="ctrl-row">
+          <div class="group">
+            <span class="group-label">Motion Sensor:</span>
+            <div class="btn-group" id="msGroup">
+              <button data-val="left">LEFT</button>
+              <button data-val="right">RIGHT</button>
+            </div>
+          </div>
+
+          <div class="group">
+            <span class="group-label">Cart start:</span>
+            <div class="btn-group" id="cartStartGroup">
+              <button data-val="left">LEFT</button>
+              <button data-val="right">RIGHT</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: books -->
+        <div class="ctrl-row">
+          <div class="group">
+            <span class="group-label">Books left:</span>
+            <div class="btn-group" id="booksLeftGroup">
+              <button data-val="0">0</button>
+              <button data-val="1">1</button>
+              <button data-val="2">2</button>
+              <button data-val="3">3</button>
+            </div>
+          </div>
+
+          <div class="group">
+            <span class="group-label">Books right:</span>
+            <div class="btn-group" id="booksRightGroup">
+              <button data-val="0">0</button>
+              <button data-val="1">1</button>
+              <button data-val="2">2</button>
+              <button data-val="3">3</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 3: launch -->
+        <div class="ctrl-row">
+          <div class="group">
+            <span class="group-label">Push:</span>
+            <div class="btn-group" id="pushDirGroup">
+              <button data-val="left">PUSH ←</button>
+              <button data-val="release">RELEASE</button>
+              <button data-val="right">PUSH →</button>
+            </div>
+          </div>
+
+          <div class="group">
+            <span class="group-label">Magnitude:</span>
+            <select id="magnitudeSelect">
+              <option value="gentle">gentle (0.5 m/s)</option>
+              <option value="medium">medium (1.0 m/s)</option>
+              <option value="hard">hard (1.5 m/s)</option>
+            </select>
+          </div>
+
+          <label class="toggle">
+            <input type="checkbox" id="stopAtPeak">
+            Stop at peak
+          </label>
+        </div>
+
+        <!-- Row 4: actions -->
+        <div class="ctrl-row">
+          <button class="action-btn btn-start"  id="btnSensor">Start Sensor</button>
+          <button class="action-btn btn-launch" id="btnLaunch">Launch</button>
+          <button class="action-btn btn-reset"  id="btnReset">Reset</button>
+          <button class="action-btn btn-resetall" id="btnResetAll">Reset All</button>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="graphs-wrap">
+      <div class="graph-card">
+        <div class="label">Position <span class="units">(m)</span></div>
+        <canvas id="graphX" width="420" height="200"></canvas>
+      </div>
+      <div class="graph-card">
+        <div class="label">Velocity <span class="units">(m/s)</span></div>
+        <canvas id="graphV" width="420" height="200"></canvas>
+      </div>
+      <div class="graph-card">
+        <div class="label">Acceleration <span class="units">(m/s²)</span></div>
+        <canvas id="graphA" width="420" height="200"></canvas>
+      </div>
+      <div class="trial-status" id="trialStatus">&nbsp;</div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   PHYSICS & STATE
+   ===================================================================== */
+
+const G = 9.81;
+const TRACK_LENGTH = 2.5;            // meters
+const BOOK_SIN_PER = 0.02;           // sin(theta) per book ≈ 5cm/2.5m
+const PUSH_SPEEDS = { gentle: 0.5, medium: 1.0, hard: 1.5 };
+
+const DEFAULTS = {
+  msPosition: 'left',                // 'left' | 'right'
+  cartStart:  'left',                // 'left' | 'right'
+  booksLeft:  0,
+  booksRight: 0,
+  pushDir:    'release',             // 'left' | 'release' | 'right'
+  magnitude:  'medium',
+  stopAtPeak: true,
+};
+
+const state = {
+  // Config (set by controls)
+  msPosition: DEFAULTS.msPosition,
+  cartStart:  DEFAULTS.cartStart,
+  booksLeft:  DEFAULTS.booksLeft,
+  booksRight: DEFAULTS.booksRight,
+  pushDir:    DEFAULTS.pushDir,
+  magnitude:  DEFAULTS.magnitude,
+  stopAtPeak: DEFAULTS.stopAtPeak,
+
+  // Runtime
+  cartX: 0,          // position in meters from MS, in +x direction
+  cartV: 0,          // velocity in m/s in +x direction
+  sensorOn: false,
+  launched:  false,
+  atRest:    true,
+  restStartT: null,
+  trialComplete: false,
+  time: 0,           // seconds since sensor started
+
+  // Sample buffer for graphs: array of { t, x, v, a }
+  samples: [],
+
+  // Scrubber state — null when not active
+  scrubbedT: null,
+
+  // Animation
+  lastFrameMs: null,
+  ledPhase: 0,       // for MS LED blinking
+  conePhase: 0,      // for cone pulsing
+};
+
+/* ----- Derived physics ----- */
+
+function plusXIsRight() {
+  // If MS at LEFT, +x points right (away from MS, into the track)
+  return state.msPosition === 'left';
+}
+
+function getAcceleration() {
+  // a in +x direction, in m/s^2
+  if (state.booksLeft === 0 && state.booksRight === 0) return 0;
+  const raisedSide = state.booksLeft > 0 ? 'left' : 'right';
+  const books = state.booksLeft > 0 ? state.booksLeft : state.booksRight;
+  const magnitude = G * BOOK_SIN_PER * books;
+  // If raised end IS the MS end, cart slides AWAY from MS → +x → a > 0
+  return (raisedSide === state.msPosition) ? magnitude : -magnitude;
+}
+
+function getInitialVelocity() {
+  if (state.pushDir === 'release') return 0;
+  const speed = PUSH_SPEEDS[state.magnitude];
+  // Convert screen-direction push to +x sign
+  const pushIsRight = (state.pushDir === 'right');
+  return (pushIsRight === plusXIsRight()) ? speed : -speed;
+}
+
+function getCartStartX() {
+  // x=0 if cart starts at the MS-end, else x=L
+  return (state.cartStart === state.msPosition) ? 0 : TRACK_LENGTH;
+}
+
+/* ----- Reset helpers ----- */
+
+function applyConfigToCart() {
+  state.cartX = getCartStartX();
+  state.cartV = 0;
+  state.launched = false;
+  state.atRest = true;
+  state.restStartT = null;
+  state.trialComplete = false;
+  state.samples = [];
+  state.time = 0;
+  // Sensor state is NOT touched here — that's set by sensor button.
+}
+
+function fullReset() {
+  Object.assign(state, {
+    msPosition: DEFAULTS.msPosition,
+    cartStart:  DEFAULTS.cartStart,
+    booksLeft:  DEFAULTS.booksLeft,
+    booksRight: DEFAULTS.booksRight,
+    pushDir:    DEFAULTS.pushDir,
+    magnitude:  DEFAULTS.magnitude,
+    stopAtPeak: DEFAULTS.stopAtPeak,
+    sensorOn: false,
+  });
+  state.scrubbedT = null;
+  applyConfigToCart();
+  syncControlsFromState();
+}
+
+function trialReset() {
+  state.sensorOn = false;
+  state.scrubbedT = null;
+  applyConfigToCart();
+  syncControlsFromState();
+}
+
+/* =====================================================================
+   PHYSICS STEP
+   ===================================================================== */
+
+function physicsStep(dt) {
+  if (!state.sensorOn) return;
+  if (state.trialComplete) return;   // freeze when trial done (item 19)
+
+  state.time += dt;
+
+  if (state.launched && !state.atRest) {
+    const a = getAcceleration();
+    const vOld = state.cartV;
+    const vNew = vOld + a * dt;
+    let xNew = state.cartX + ((vOld + vNew) / 2) * dt;
+
+    // Zero-crossing detection for stop-at-peak
+    if (state.stopAtPeak && vOld !== 0 && Math.sign(vOld) !== Math.sign(vNew) && a !== 0) {
+      // Apex: solve t* where v hits 0, snap there.
+      const tStar = -vOld / a;             // 0 < tStar < dt
+      const xApex = state.cartX + vOld * tStar + 0.5 * a * tStar * tStar;
+      state.cartX = Math.max(0, Math.min(TRACK_LENGTH, xApex));
+      state.cartV = 0;
+      state.atRest = true;
+      state.restStartT = state.time;
+    } else if (xNew <= 0) {
+      state.cartX = 0;
+      state.cartV = 0;
+      state.atRest = true;
+      state.restStartT = state.time;
+    } else if (xNew >= TRACK_LENGTH) {
+      state.cartX = TRACK_LENGTH;
+      state.cartV = 0;
+      state.atRest = true;
+      state.restStartT = state.time;
+    } else {
+      state.cartX = xNew;
+      state.cartV = vNew;
+    }
+  }
+
+  // Record sample for THIS frame (captures the at-rest data point that triggers trial-complete)
+  let aRec;
+  if (!state.launched) {
+    aRec = 0;  // held at wall → a=0 (Q-C)
+  } else {
+    aRec = getAcceleration();  // applied incline a (item 11: no spike on wall hit)
+  }
+  state.samples.push({
+    t: state.time,
+    x: state.cartX,
+    v: state.cartV,
+    a: aRec,
+  });
+
+  // Trial-complete detection: cart at rest >0.5s after launch
+  if (state.launched && state.atRest && !state.trialComplete) {
+    if (state.restStartT === null) state.restStartT = state.time;
+    if (state.time - state.restStartT > 0.5) {
+      state.trialComplete = true;
+    }
+  }
+
+  // Cap sample buffer to keep memory bounded (60 fps × 60 s = 3600 max realistic)
+  if (state.samples.length > 5000) state.samples.shift();
+}
+
+/* =====================================================================
+   RENDERING
+   ===================================================================== */
+
+const sceneCanvas = document.getElementById('scene');
+const sceneCtx = sceneCanvas.getContext('2d');
+
+const graphXCanvas = document.getElementById('graphX');
+const graphVCanvas = document.getElementById('graphV');
+const graphACanvas = document.getElementById('graphA');
+const gXCtx = graphXCanvas.getContext('2d');
+const gVCtx = graphVCanvas.getContext('2d');
+const gACtx = graphACanvas.getContext('2d');
+
+const trialStatusEl = document.getElementById('trialStatus');
+
+/* ----- Scene drawing ----- */
+
+const SCENE = {
+  trackY: 240,            // baseline y in canvas px (track sits at this y when flat)
+  trackXLeft: 70,
+  trackXRight: 720,
+  bookHeightPx: 22,       // visual book height (physics uses BOOK_SIN_PER separately)
+  bookWidthPx: 50,
+};
+
+function drawScene(dt) {
+  const ctx = sceneCtx;
+  const W = sceneCanvas.width;
+  const H = sceneCanvas.height;
+
+  // Background (cream, no clear needed — but explicit fill to be safe)
+  ctx.fillStyle = '#FAF3DE';
+  ctx.fillRect(0, 0, W, H);
+
+  // Floor/table line
+  const floorY = SCENE.trackY + 6;
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, floorY);
+  ctx.lineTo(W, floorY);
+  ctx.stroke();
+
+  // Compute track endpoints (with books)
+  const yLeft  = SCENE.trackY - state.booksLeft  * SCENE.bookHeightPx;
+  const yRight = SCENE.trackY - state.booksRight * SCENE.bookHeightPx;
+  const xLeft  = SCENE.trackXLeft;
+  const xRight = SCENE.trackXRight;
+
+  // Books — only one side has them (or neither). Draw stacks under raised end.
+  drawBooks(ctx, xLeft, floorY, state.booksLeft,  true);
+  drawBooks(ctx, xRight, floorY, state.booksRight, false);
+
+  // Track (a thick rect rotated to match slope, but we'll just draw a thick line + perpendicular caps)
+  const trackThickness = 8;
+  const angle = Math.atan2(yRight - yLeft, xRight - xLeft);
+  ctx.save();
+  ctx.lineCap = 'butt';
+  // Main track body
+  ctx.beginPath();
+  ctx.strokeStyle = '#5a5a5a';
+  ctx.lineWidth = trackThickness;
+  ctx.moveTo(xLeft, yLeft);
+  ctx.lineTo(xRight, yRight);
+  ctx.stroke();
+  // Highlight stripe
+  ctx.beginPath();
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 2;
+  const stripeOffY = -trackThickness / 2 + 1;
+  ctx.moveTo(xLeft  + stripeOffY * Math.sin(angle),  yLeft  - stripeOffY * Math.cos(angle));
+  ctx.lineTo(xRight + stripeOffY * Math.sin(angle),  yRight - stripeOffY * Math.cos(angle));
+  ctx.stroke();
+  ctx.restore();
+
+  // Walls at both ends (vertical bars rising from the track)
+  drawWall(ctx, xLeft,  yLeft,  angle);
+  drawWall(ctx, xRight, yRight, angle);
+
+  // Motion sensor + cone + LED
+  drawMotionSensor(ctx, xLeft, yLeft, xRight, yRight, dt);
+
+  // Origin label "0" at MS face
+  drawOriginLabel(ctx, xLeft, yLeft, xRight, yRight);
+
+  // Cart
+  drawCart(ctx, xLeft, yLeft, xRight, yRight, angle);
+
+  // Distance markers on track (subtle)
+  drawTrackTicks(ctx, xLeft, yLeft, xRight, yRight, angle);
+}
+
+function drawBooks(ctx, x, floorY, n, isLeftSide) {
+  if (n <= 0) return;
+  const bw = SCENE.bookWidthPx;
+  const bh = SCENE.bookHeightPx;
+  const bx = x - bw / 2;
+  // Left books = Math (pale blue). Right books = Physics (pale green).
+  const isMath = isLeftSide;
+  const cover    = isMath ? '#a8c8e0' : '#b8d8b0';
+  const coverDk  = isMath ? '#4a6886' : '#52764c';
+  const titleClr = isMath ? '#1c3550' : '#26421e';
+  const titleTxt = isMath ? 'MATH'    : 'PHYSICS';
+
+  for (let i = 0; i < n; i++) {
+    const by = floorY - (i + 1) * bh;
+    // Spine body (cover color)
+    ctx.fillStyle = cover;
+    ctx.fillRect(bx, by, bw, bh);
+    // Top and bottom darker bands (the cover edges along the spine)
+    ctx.fillStyle = coverDk;
+    ctx.fillRect(bx, by, bw, 2);
+    ctx.fillRect(bx, by + bh - 2, bw, 2);
+    // Inset highlight stripe just below top band
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillRect(bx + 2, by + 3, bw - 4, 1);
+    // Page-edge sliver on the right (just a thin off-white)
+    ctx.fillStyle = '#f4ecd6';
+    ctx.fillRect(bx + bw - 2, by + 3, 1.5, bh - 6);
+    // Outline
+    ctx.strokeStyle = coverDk;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+    // Title text along the spine
+    ctx.fillStyle = titleClr;
+    const fontSize = isMath ? 10 : 9;
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(titleTxt, bx + bw / 2, by + bh / 2 + 1);
+  }
+}
+
+function drawWall(ctx, x, y, angle) {
+  const wallH = 26;
+  // Perpendicular to track, "up" relative to track surface
+  const nx = -Math.sin(angle);
+  const ny = -Math.cos(angle);
+  ctx.save();
+  ctx.fillStyle = '#3a3a3a';
+  ctx.beginPath();
+  const halfW = 3;
+  // Two corners at track surface
+  const ax = x + halfW * Math.cos(angle);
+  const ay = y + halfW * Math.sin(angle);
+  const bx = x - halfW * Math.cos(angle);
+  const by = y - halfW * Math.sin(angle);
+  // Two corners at top
+  const cx = bx + wallH * nx;
+  const cy = by + wallH * ny;
+  const dx = ax + wallH * nx;
+  const dy = ay + wallH * ny;
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(bx, by);
+  ctx.lineTo(cx, cy);
+  ctx.lineTo(dx, dy);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawMotionSensor(ctx, xL, yL, xR, yR, dt) {
+  state.ledPhase = (state.ledPhase + (dt || 0)) % 1.0;
+  state.conePhase = (state.conePhase + (dt || 0) * 1.5) % 1.0;
+
+  const atLeft = state.msPosition === 'left';
+  const mountX = atLeft ? xL : xR;
+  const mountY = atLeft ? yL : yR;
+
+  const angle = Math.atan2(yR - yL, xR - xL);
+  // Perpendicular up
+  const nx = -Math.sin(angle);
+  const ny = -Math.cos(angle);
+  // Along track from MS into track region (+x direction in our scene mapping)
+  const tx = atLeft ? Math.cos(angle) : -Math.cos(angle);
+  const ty = atLeft ? Math.sin(angle) : -Math.sin(angle);
+
+  // MS body: a rounded block "behind" the wall (away from track)
+  const bodyW = 38, bodyH = 28;
+  const offBehind = 22;
+  const bcx = mountX - offBehind * tx;
+  const bcy = mountY - offBehind * ty;
+
+  ctx.save();
+  ctx.translate(bcx, bcy);
+  ctx.rotate(angle);
+  // Body
+  ctx.fillStyle = '#bababa';
+  roundRect(ctx, -bodyW/2, -bodyH/2 - 8, bodyW, bodyH, 4);
+  ctx.fill();
+  ctx.strokeStyle = '#5a5a5a';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // "Eye" — front face of the sensor (circle facing track)
+  ctx.fillStyle = '#2a2a2a';
+  ctx.beginPath();
+  const eyeOffset = atLeft ? bodyW/2 - 4 : -bodyW/2 + 4;
+  ctx.arc(eyeOffset, -8, 5, 0, Math.PI * 2);
+  ctx.fill();
+  // LED — blinks while sensor is recording
+  const ledOn = state.sensorOn && (state.ledPhase < 0.5);
+  ctx.fillStyle = ledOn ? '#d94545' : '#5e1a1a';
+  ctx.beginPath();
+  ctx.arc(eyeOffset, 4, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Cone — extends from the MS face into the track
+  // Cone tip at MS face on the track surface
+  const coneTipX = mountX + 4 * tx;
+  const coneTipY = mountY + 4 * ty;
+  const coneLength = 110;
+  const coneFarX = coneTipX + coneLength * tx;
+  const coneFarY = coneTipY + coneLength * ty;
+  const coneSpread = 26;
+  // Two far corners (perpendicular to track)
+  const f1x = coneFarX + coneSpread * nx * 0.5;
+  const f1y = coneFarY + coneSpread * ny * 0.5;
+  const f2x = coneFarX - coneSpread * nx * 0.5;
+  const f2y = coneFarY - coneSpread * ny * 0.5;
+
+  const conePulse = state.sensorOn ? (0.55 + 0.25 * Math.abs(Math.sin(state.conePhase * Math.PI * 2))) : 0.18;
+  ctx.save();
+  // Fill — saturated red, gradient fading out toward the far end
+  const grad = ctx.createLinearGradient(coneTipX, coneTipY, coneFarX, coneFarY);
+  grad.addColorStop(0, `rgba(217, 69, 69, ${conePulse})`);
+  grad.addColorStop(1, `rgba(217, 69, 69, 0)`);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(coneTipX, coneTipY);
+  ctx.lineTo(f1x, f1y);
+  ctx.lineTo(f2x, f2y);
+  ctx.closePath();
+  ctx.fill();
+  // Edge outline — dashed when sensor on, solid faint when off
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = state.sensorOn ? `rgba(180, 40, 40, ${0.55 + 0.20 * Math.abs(Math.sin(state.conePhase * Math.PI * 2))})` : 'rgba(120, 60, 60, 0.25)';
+  if (state.sensorOn) ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(coneTipX, coneTipY);
+  ctx.lineTo(f1x, f1y);
+  ctx.moveTo(coneTipX, coneTipY);
+  ctx.lineTo(f2x, f2y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function drawOriginLabel(ctx, xL, yL, xR, yR) {
+  const atLeft = state.msPosition === 'left';
+  const x = atLeft ? xL : xR;
+  const y = atLeft ? yL : yR;
+  const angle = Math.atan2(yR - yL, xR - xL);
+  // Place "0" just below the track at the MS end
+  const nx =  Math.sin(angle);
+  const ny =  Math.cos(angle);
+  const lx = x + 14 * nx;
+  const ly = y + 14 * ny;
+  ctx.fillStyle = '#1E2A5C';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('x=0', lx, ly);
+}
+
+function drawTrackTicks(ctx, xL, yL, xR, yR, angle) {
+  // 0.5 m ticks. Map physical x along the track to screen via linear interp
+  // between MS-end and far-end endpoints (matches the cart's mapping exactly).
+  const tickEvery = 0.5;
+  const nTicks = Math.floor(TRACK_LENGTH / tickEvery) + 1;
+  const nx = -Math.sin(angle);
+  const ny = -Math.cos(angle);
+  const atLeft = state.msPosition === 'left';
+  const startX = atLeft ? xL : xR;
+  const startY = atLeft ? yL : yR;
+  const endX   = atLeft ? xR : xL;
+  const endY   = atLeft ? yR : yL;
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#888';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (let i = 1; i < nTicks; i++) {
+    const xMeters = i * tickEvery;
+    const frac = xMeters / TRACK_LENGTH;
+    const tickX = startX + (endX - startX) * frac;
+    const tickY = startY + (endY - startY) * frac;
+    ctx.beginPath();
+    ctx.moveTo(tickX + 4 * nx, tickY + 4 * ny);
+    ctx.lineTo(tickX - 4 * nx, tickY - 4 * ny);
+    ctx.stroke();
+  }
+}
+
+function findSampleAtT(t) {
+  // Binary search the sorted samples buffer
+  const samples = state.samples;
+  if (samples.length === 0) return null;
+  let lo = 0, hi = samples.length - 1;
+  if (t <= samples[lo].t) return samples[lo];
+  if (t >= samples[hi].t) return samples[hi];
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (samples[mid].t < t) lo = mid; else hi = mid;
+  }
+  // Linear-interpolate between the two bracketing samples for a smoother readout
+  const a = samples[lo], b = samples[hi];
+  const f = (t - a.t) / Math.max(1e-9, (b.t - a.t));
+  return {
+    t: t,
+    x: a.x + (b.x - a.x) * f,
+    v: a.v + (b.v - a.v) * f,
+    a: a.a + (b.a - a.a) * f,
+  };
+}
+
+function drawCart(ctx, xL, yL, xR, yR, angle) {
+  // If scrubbing, place cart at the scrubbed time's x; otherwise at live position
+  let cartXMeters = state.cartX;
+  if (state.scrubbedT !== null) {
+    const s = findSampleAtT(state.scrubbedT);
+    if (s) cartXMeters = s.x;
+  }
+  // Map cart x in [0, L] to a position along the track
+  const frac = cartXMeters / TRACK_LENGTH;
+  const atLeft = state.msPosition === 'left';
+  const startX = atLeft ? xL : xR;
+  const startY = atLeft ? yL : yR;
+  const endX   = atLeft ? xR : xL;
+  const endY   = atLeft ? yR : yL;
+  const cx = startX + (endX - startX) * frac;
+  const cy = startY + (endY - startY) * frac;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+
+  // Wheel positions (in local cart coords, x = along track, y = perpendicular up = negative)
+  const cartW = 56;
+  const cartH = 18;
+  const wheelR = 5;
+  // Cart body sits on top of the wheels; wheels touch track surface
+  // Track surface in local coords: y = 0
+  // Wheel center: y = -wheelR
+  // Cart body bottom: y = -2*wheelR
+  // Cart body top:    y = -2*wheelR - cartH
+  const wheelY = -wheelR;
+  const bodyBottom = -2 * wheelR;
+  const bodyTop = bodyBottom - cartH;
+
+  // Wheels
+  ctx.fillStyle = '#202020';
+  for (const wx of [-cartW/2 + 9, cartW/2 - 9]) {
+    ctx.beginPath();
+    ctx.arc(wx, wheelY, wheelR, 0, Math.PI * 2);
+    ctx.fill();
+    // Hub
+    ctx.fillStyle = '#666';
+    ctx.beginPath();
+    ctx.arc(wx, wheelY, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#202020';
+  }
+
+  // Cart body — navy
+  ctx.fillStyle = '#1E2A5C';
+  roundRect(ctx, -cartW/2, bodyTop, cartW, cartH, 3);
+  ctx.fill();
+  ctx.strokeStyle = '#0e1538';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // Body highlight stripe
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
+  ctx.fillRect(-cartW/2 + 3, bodyTop + 2, cartW - 6, 3);
+
+  // Red flag on top
+  const flagX = 0;
+  const flagBaseY = bodyTop;
+  const flagH = 14;
+  const flagW = 9;
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(flagX, flagBaseY);
+  ctx.lineTo(flagX, flagBaseY - flagH);
+  ctx.stroke();
+  ctx.fillStyle = '#c03030';
+  ctx.beginPath();
+  ctx.moveTo(flagX, flagBaseY - flagH);
+  ctx.lineTo(flagX + flagW, flagBaseY - flagH + 3);
+  ctx.lineTo(flagX, flagBaseY - flagH + 6);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+/* ----- Graph drawing ----- */
+
+const GRAPH = {
+  windowSec: 10.0,
+  padL: 36, padR: 8, padT: 8, padB: 18,
+};
+
+function drawAllGraphs() {
+  drawGraph(gXCtx, graphXCanvas, 'x', '#1E2A5C');
+  drawGraph(gVCtx, graphVCanvas, 'v', '#2E8B8B');
+  drawGraph(gACtx, graphACanvas, 'a', '#444444');
+}
+
+function drawGraph(ctx, canvas, field, color) {
+  const W = canvas.width;
+  const H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Compute time window
+  const tMax = Math.max(state.time, GRAPH.windowSec);
+  const tMin = Math.max(0, tMax - GRAPH.windowSec);
+
+  // Filter samples in window
+  const samples = state.samples;
+  let startIdx = 0;
+  for (let i = samples.length - 1; i >= 0; i--) {
+    if (samples[i].t < tMin) { startIdx = i; break; }
+  }
+  const visible = samples.slice(startIdx);
+
+  // Y range — auto-scale per trial
+  let yMin, yMax;
+  if (visible.length === 0) {
+    yMin = -1; yMax = 1;
+  } else {
+    let lo = Infinity, hi = -Infinity;
+    for (const s of visible) {
+      const v = s[field];
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }
+    // Minimum range guard
+    const minRange = (field === 'x') ? 0.5 : (field === 'v') ? 0.3 : 0.3;
+    if (hi - lo < minRange) {
+      const mid = (hi + lo) / 2;
+      lo = mid - minRange / 2;
+      hi = mid + minRange / 2;
+    }
+    // Padding 8%
+    const pad = (hi - lo) * 0.10;
+    yMin = lo - pad;
+    yMax = hi + pad;
+    // For position, never let yMin go below ~ -0.1 (cart x is non-negative)
+    if (field === 'x' && yMin > -0.1 && yMin < 0) {
+      // ok
+    }
+    // For acceleration, if it's exactly constant, fall back to fixed range around it
+    if (field === 'a' && Math.abs(hi - lo) < 0.001) {
+      const c = (hi + lo) / 2;
+      const r = Math.max(0.5, Math.abs(c) * 2);
+      yMin = c - r;
+      yMax = c + r;
+    }
+  }
+
+  const plotL = GRAPH.padL;
+  const plotR = W - GRAPH.padR;
+  const plotT = GRAPH.padT;
+  const plotB = H - GRAPH.padB;
+
+  // Background
+  ctx.fillStyle = '#fafafa';
+  ctx.fillRect(plotL, plotT, plotR - plotL, plotB - plotT);
+
+  // Gridlines
+  ctx.strokeStyle = '#e5e5e5';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  // Vertical (time): every 1s within window
+  for (let t = Math.ceil(tMin); t <= Math.floor(tMax); t++) {
+    const x = plotL + ((t - tMin) / GRAPH.windowSec) * (plotR - plotL);
+    ctx.moveTo(x, plotT);
+    ctx.lineTo(x, plotB);
+  }
+  // Horizontal: 4 gridlines + zero
+  for (let i = 0; i <= 4; i++) {
+    const y = plotT + (i / 4) * (plotB - plotT);
+    ctx.moveTo(plotL, y);
+    ctx.lineTo(plotR, y);
+  }
+  ctx.stroke();
+
+  // Zero-line (if 0 is in y range)
+  if (yMin < 0 && yMax > 0) {
+    const yZero = plotB - ((0 - yMin) / (yMax - yMin)) * (plotB - plotT);
+    ctx.strokeStyle = '#bbb';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(plotL, yZero);
+    ctx.lineTo(plotR, yZero);
+    ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(plotL, plotT);
+  ctx.lineTo(plotL, plotB);
+  ctx.lineTo(plotR, plotB);
+  ctx.stroke();
+
+  // Y labels (min, mid, max)
+  ctx.fillStyle = '#666';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i <= 2; i++) {
+    const y = plotB - (i / 2) * (plotB - plotT);
+    const val = yMin + (i / 2) * (yMax - yMin);
+    ctx.fillText(val.toFixed(2), plotL - 3, y);
+  }
+
+  // X labels (time)
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (let t = Math.ceil(tMin); t <= Math.floor(tMax); t += Math.max(1, Math.ceil(GRAPH.windowSec / 5))) {
+    const x = plotL + ((t - tMin) / GRAPH.windowSec) * (plotR - plotL);
+    ctx.fillText(t.toFixed(0) + 's', x, plotB + 2);
+  }
+
+  // Data line
+  if (visible.length >= 2) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    for (let i = 0; i < visible.length; i++) {
+      const s = visible[i];
+      const px = plotL + ((s.t - tMin) / GRAPH.windowSec) * (plotR - plotL);
+      const py = plotB - ((s[field] - yMin) / (yMax - yMin)) * (plotB - plotT);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  // Frozen indicator
+  if (state.trialComplete && visible.length > 0) {
+    const last = visible[visible.length - 1];
+    const px = plotL + ((last.t - tMin) / GRAPH.windowSec) * (plotR - plotL);
+    const py = plotB - ((last[field] - yMin) / (yMax - yMin)) * (plotB - plotT);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Scrubber red line + marker dot
+  if (state.scrubbedT !== null) {
+    const t = state.scrubbedT;
+    if (t >= tMin && t <= tMax) {
+      const px = plotL + ((t - tMin) / GRAPH.windowSec) * (plotR - plotL);
+      // Vertical line
+      ctx.save();
+      ctx.strokeStyle = '#c62828';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(px, plotT);
+      ctx.lineTo(px, plotB);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      // Marker dot at the data point
+      const s = findSampleAtT(t);
+      if (s) {
+        const py = plotB - ((s[field] - yMin) / (yMax - yMin)) * (plotB - plotT);
+        ctx.fillStyle = '#c62828';
+        ctx.beginPath();
+        ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+/* =====================================================================
+   ANIMATION LOOP
+   ===================================================================== */
+
+function syncGraphCanvasSizes() {
+  // Graph canvases are flex-stretched by CSS to fill available column space.
+  // Match their bitmap resolution to their displayed CSS size so lines stay crisp
+  // and font sizes match drawing-code expectations.
+  for (const cv of [graphXCanvas, graphVCanvas, graphACanvas]) {
+    const w = Math.max(50, Math.round(cv.clientWidth));
+    const h = Math.max(50, Math.round(cv.clientHeight));
+    if (cv.width !== w) cv.width = w;
+    if (cv.height !== h) cv.height = h;
+  }
+}
+
+function frame(nowMs) {
+  if (state.lastFrameMs == null) state.lastFrameMs = nowMs;
+  let dt = (nowMs - state.lastFrameMs) / 1000;
+  state.lastFrameMs = nowMs;
+  // Clamp dt to avoid huge jumps (e.g., tab backgrounded)
+  if (dt > 0.05) dt = 0.05;
+  if (dt < 0) dt = 0;
+
+  // Sub-step physics for stability at high acceleration
+  const subSteps = 4;
+  const subDt = dt / subSteps;
+  for (let i = 0; i < subSteps; i++) physicsStep(subDt);
+
+  syncGraphCanvasSizes();
+  drawScene(dt);
+  drawAllGraphs();
+  updateTrialStatus();
+  updateScrubberUI();
+
+  requestAnimationFrame(frame);
+}
+
+function updateTrialStatus() {
+  if (state.trialComplete) {
+    trialStatusEl.textContent = 'TRIAL COMPLETE — press Reset for next trial';
+    trialStatusEl.classList.add('complete');
+  } else if (state.sensorOn && !state.launched) {
+    trialStatusEl.textContent = 'Sensor ON — cart held. Press LAUNCH to release.';
+    trialStatusEl.classList.remove('complete');
+  } else if (state.sensorOn && state.launched) {
+    trialStatusEl.textContent = 'Recording…';
+    trialStatusEl.classList.remove('complete');
+  } else if (!state.sensorOn && state.launched) {
+    trialStatusEl.textContent = 'Cart in motion (sensor off)';
+    trialStatusEl.classList.remove('complete');
+  } else {
+    trialStatusEl.innerHTML = '&nbsp;';
+    trialStatusEl.classList.remove('complete');
+  }
+}
+
+/* =====================================================================
+   CONTROLS WIRING
+   ===================================================================== */
+
+function activateBtnGroup(groupEl, value) {
+  for (const b of groupEl.querySelectorAll('button')) {
+    b.classList.toggle('active', String(b.dataset.val) === String(value));
+  }
+}
+
+function bindBtnGroup(groupId, onPick) {
+  const el = document.getElementById(groupId);
+  el.addEventListener('click', (e) => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    onPick(t.dataset.val);
+  });
+}
+
+function softReconfigure() {
+  // Called whenever a setup control changes: reset trial state but keep config
+  state.sensorOn = false;
+  state.scrubbedT = null;
+  applyConfigToCart();
+  syncBtnGroupsFromState();
+  updateSensorButton();
+}
+
+function syncBtnGroupsFromState() {
+  activateBtnGroup(document.getElementById('msGroup'),         state.msPosition);
+  activateBtnGroup(document.getElementById('cartStartGroup'),  state.cartStart);
+  activateBtnGroup(document.getElementById('booksLeftGroup'),  state.booksLeft);
+  activateBtnGroup(document.getElementById('booksRightGroup'), state.booksRight);
+  activateBtnGroup(document.getElementById('pushDirGroup'),    state.pushDir);
+  document.getElementById('magnitudeSelect').value = state.magnitude;
+  document.getElementById('stopAtPeak').checked = state.stopAtPeak;
+  // Disable PUSH magnitude visually when RELEASE selected — but keep value
+  document.getElementById('magnitudeSelect').disabled = (state.pushDir === 'release');
+}
+
+function syncControlsFromState() {
+  syncBtnGroupsFromState();
+}
+
+/* ----- Scrubber ----- */
+const scrubberRow = document.getElementById('scrubberRow');
+const scrubberEl = document.getElementById('scrubber');
+const scrubberReadout = document.getElementById('scrubberReadout');
+
+scrubberEl.addEventListener('input', (e) => {
+  state.scrubbedT = parseFloat(e.target.value);
+});
+
+function updateScrubberUI() {
+  // Scrubber is available when the trial is over (or paused) AND we have data
+  const haveData = state.samples.length > 1;
+  const canScrub = haveData && state.launched && (state.trialComplete || !state.sensorOn);
+  if (canScrub) {
+    if (scrubberRow.hidden) {
+      // Just became scrubbable — default to last sample
+      scrubberRow.hidden = false;
+      if (state.scrubbedT === null) {
+        state.scrubbedT = state.samples[state.samples.length - 1].t;
+      }
+    }
+    const tMin = state.samples[0].t;
+    const tMax = state.samples[state.samples.length - 1].t;
+    scrubberEl.min = tMin;
+    scrubberEl.max = tMax;
+    scrubberEl.step = Math.max(0.001, (tMax - tMin) / 1000);
+    if (state.scrubbedT !== null) {
+      // Clamp to range
+      state.scrubbedT = Math.max(tMin, Math.min(tMax, state.scrubbedT));
+      // Only update the input value if user isn't actively dragging
+      if (document.activeElement !== scrubberEl) {
+        scrubberEl.value = state.scrubbedT;
+      }
+    }
+    // Update readout
+    const s = findSampleAtT(state.scrubbedT);
+    if (s) {
+      scrubberReadout.textContent =
+        `t=${s.t.toFixed(2)}s \u00B7 x=${s.x.toFixed(2)} m \u00B7 v=${s.v.toFixed(2)} m/s \u00B7 a=${s.a.toFixed(2)} m/s\u00B2`;
+    }
+  } else {
+    if (!scrubberRow.hidden) {
+      scrubberRow.hidden = true;
+      state.scrubbedT = null;
+    }
+  }
+}
+
+/* ----- MS position ----- */
+bindBtnGroup('msGroup', (val) => {
+  state.msPosition = val;
+  softReconfigure();
+});
+
+/* ----- Cart start ----- */
+bindBtnGroup('cartStartGroup', (val) => {
+  state.cartStart = val;
+  softReconfigure();
+});
+
+/* ----- Books left (mutually exclusive with books right) ----- */
+bindBtnGroup('booksLeftGroup', (val) => {
+  const n = parseInt(val, 10);
+  state.booksLeft = n;
+  if (n > 0) state.booksRight = 0;
+  softReconfigure();
+});
+
+/* ----- Books right (mutually exclusive with books left) ----- */
+bindBtnGroup('booksRightGroup', (val) => {
+  const n = parseInt(val, 10);
+  state.booksRight = n;
+  if (n > 0) state.booksLeft = 0;
+  softReconfigure();
+});
+
+/* ----- Push direction ----- */
+bindBtnGroup('pushDirGroup', (val) => {
+  state.pushDir = val;
+  softReconfigure();
+});
+
+/* ----- Magnitude ----- */
+document.getElementById('magnitudeSelect').addEventListener('change', (e) => {
+  state.magnitude = e.target.value;
+  softReconfigure();
+});
+
+/* ----- Stop at peak ----- */
+document.getElementById('stopAtPeak').addEventListener('change', (e) => {
+  state.stopAtPeak = e.target.checked;
+  softReconfigure();
+});
+
+/* ----- Action buttons ----- */
+const btnSensor = document.getElementById('btnSensor');
+const btnLaunch = document.getElementById('btnLaunch');
+const btnReset = document.getElementById('btnReset');
+const btnResetAll = document.getElementById('btnResetAll');
+
+btnSensor.addEventListener('click', () => {
+  state.sensorOn = !state.sensorOn;
+  updateSensorButton();
+});
+
+function updateSensorButton() {
+  if (state.sensorOn) {
+    btnSensor.textContent = 'Stop Sensor';
+    btnSensor.classList.remove('btn-start');
+    btnSensor.classList.add('btn-sensor-off');
+  } else {
+    btnSensor.textContent = 'Start Sensor';
+    btnSensor.classList.add('btn-start');
+    btnSensor.classList.remove('btn-sensor-off');
+  }
+}
+
+btnLaunch.addEventListener('click', () => {
+  if (state.launched) return;     // ignore re-clicks during trial
+  if (state.trialComplete) return;
+  state.cartV = getInitialVelocity();
+  state.launched = true;
+  state.atRest = (state.cartV === 0 && getAcceleration() === 0);
+  state.restStartT = state.atRest ? state.time : null;
+});
+
+btnReset.addEventListener('click', () => {
+  trialReset();
+  updateSensorButton();
+});
+
+btnResetAll.addEventListener('click', () => {
+  fullReset();
+  updateSensorButton();
+});
+
+/* =====================================================================
+   INIT
+   ===================================================================== */
+function init() {
+  applyConfigToCart();
+  syncControlsFromState();
+  updateSensorButton();
+  requestAnimationFrame(frame);
+}
+init();
+
+</script>
+</body>
+</html>
