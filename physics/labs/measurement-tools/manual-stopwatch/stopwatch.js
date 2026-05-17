@@ -52,29 +52,29 @@ const STOPWATCH_STYLES = `
   stroke-width: 2;
 }
 .sw-face {
-  fill: #f4ecd8;
-  stroke: #c5b89a;
+  fill: #ffffff;
+  stroke: #bbbbbb;
   stroke-width: 1;
 }
 
 /* Ticks */
 .sw-tick-major {
-  stroke: #2a2e36;
+  stroke: #000000;
   stroke-width: 2.5;
   stroke-linecap: round;
 }
 .sw-tick-mid {
-  stroke: #2a2e36;
+  stroke: #000000;
   stroke-width: 1.5;
   stroke-linecap: round;
 }
 .sw-tick-minor {
-  stroke: #2a2e36;
+  stroke: #000000;
   stroke-width: 1;
   stroke-linecap: round;
 }
 .sw-tick-label {
-  fill: #2a2e36;
+  fill: #000000;
   font: bold 14px sans-serif;
   text-anchor: middle;
   dominant-baseline: central;
@@ -82,32 +82,32 @@ const STOPWATCH_STYLES = `
 
 /* Hand — instant snap, no transition */
 .sw-hand {
-  stroke: #c0142b;
+  stroke: #000000;
   stroke-width: 2.5;
   stroke-linecap: round;
   transform-origin: 0 0;
 }
 .sw-pin {
-  fill: #1a1d24;
-  stroke: #c0142b;
+  fill: #000000;
+  stroke: #000000;
   stroke-width: 1;
 }
 
 /* Brand + range labels (face decoration) */
 .sw-brand {
-  fill: #6a5e4a;
+  fill: #666666;
   font: 700 8px sans-serif;
   letter-spacing: 0.5px;
   text-anchor: middle;
 }
 .sw-brand-sub {
-  fill: #6a5e4a;
+  fill: #666666;
   font: italic 6.5px sans-serif;
   letter-spacing: 0.3px;
   text-anchor: middle;
 }
 .sw-range {
-  fill: #6a5e4a;
+  fill: #666666;
   font: 7px sans-serif;
   letter-spacing: 0.5px;
   text-anchor: middle;
