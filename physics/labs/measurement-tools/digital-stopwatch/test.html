@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Digital Stopwatch — Test Harness</title>
+<style>
+  body {
+    margin: 0;
+    padding: 24px;
+    background: #f5f1e8;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1E2A5C;
+  }
+  h1 { font-size: 18px; margin: 0 0 6px; }
+  p  { font-size: 13px; color: #555; margin: 0 0 20px; }
+  .scene {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+    height: 360px;
+    background: #ffffff;
+    border: 1px solid #d8cfa9;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .scene-label {
+    position: absolute;
+    top: 10px; left: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+  .readout-panel {
+    position: absolute;
+    bottom: 10px; left: 12px;
+    font-size: 12px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    color: #1E2A5C;
+    background: #f3f3ee;
+    border: 1px solid #d0d0c7;
+    border-radius: 4px;
+    padding: 6px 8px;
+    max-width: 540px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<h1>Digital Stopwatch — Test Harness</h1>
+<p>Two scenes. Top: <code>showLap: false</code> (cart-breadcrumb config). Bottom: <code>showLap: true</code> (future cart-marker config). Drag either stopwatch by its body. Buttons stop propagation. The grey readout panels poll <code>getCurrentMs()</code> and <code>getLapsMs()</code> every 100 ms so you can verify the API.</p>
+
+<div class="scene" id="scene1">
+  <span class="scene-label">Scene 1 — no laps</span>
+  <div class="readout-panel" id="readout1">current: 0 ms · last: 0 ms</div>
+</div>
+
+<div class="scene" id="scene2">
+  <span class="scene-label">Scene 2 — with laps (max 20)</span>
+  <div class="readout-panel" id="readout2">current: 0 ms · last: 0 ms · laps: []</div>
+</div>
+
+<script src="stopwatch.js"></script>
+<script>
+  const scene1 = document.getElementById('scene1');
+  const scene2 = document.getElementById('scene2');
+
+  const sw1 = new DigitalStopwatch({
+    container: scene1,
+    x: 40, y: 40,
+    size: 220,
+    showLap: false
+  });
+
+  const sw2 = new DigitalStopwatch({
+    container: scene2,
+    x: 40, y: 40,
+    size: 220,
+    showLap: true
+  });
+
+  const r1 = document.getElementById('readout1');
+  const r2 = document.getElementById('readout2');
+
+  setInterval(() => {
+    r1.textContent =
+      `current: ${Math.round(sw1.getCurrentMs())} ms · ` +
+      `last: ${Math.round(sw1.getElapsedMs())} ms`;
+    const laps    = sw2.getLapsMs().map(t => Math.round(t));
+    const splits  = sw2.getSplitsMs().map(t => Math.round(t));
+    r2.textContent =
+      `current: ${Math.round(sw2.getCurrentMs())} ms · ` +
+      `last: ${Math.round(sw2.getElapsedMs())} ms · ` +
+      `laps(cum): [${laps.join(', ')}] · ` +
+      `splits: [${splits.join(', ')}]`;
+  }, 100);
+</script>
+
+</body>
+</html>

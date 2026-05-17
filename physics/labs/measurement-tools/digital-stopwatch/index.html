@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Digital Stopwatch — Test Page</title>
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    background: #FAF3DE;
+    color: #1E2A5C;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 20px 32px;
+    box-sizing: border-box;
+  }
+  h1 {
+    margin: 0 0 4px 0;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: #1E2A5C;
+  }
+  .subtitle {
+    color: #2E8B8B;
+    font-size: 12px;
+    margin-bottom: 18px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+  .instructions {
+    background: #ffffff;
+    border: 1px solid rgba(30, 42, 92, 0.15);
+    border-radius: 6px;
+    padding: 12px 18px;
+    font-size: 13px;
+    line-height: 1.55;
+    margin-bottom: 16px;
+    color: #1E2A5C;
+  }
+  .instructions strong { color: #1E2A5C; }
+  .instructions code {
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+    background: rgba(46, 139, 139, 0.10);
+    color: #2E8B8B;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .instructions ul { margin: 6px 0 0 0; padding-left: 22px; }
+  .instructions li { margin: 3px 0; color: #1E2A5C; }
+  .frame {
+    position: relative;
+    width: 100%;
+    height: 480px;
+    background: #ffffff;
+    border: 1px solid rgba(30, 42, 92, 0.20);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  footer {
+    margin-top: 14px;
+    font-size: 11px;
+    color: rgba(30, 42, 92, 0.55);
+    text-align: center;
+    letter-spacing: 0.3px;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <h1>Digital Stopwatch — Test Page</h1>
+    <div class="subtitle">physics/labs/measurement-tools/digital-stopwatch</div>
+
+    <div class="instructions">
+      <strong>What to test:</strong>
+      <ul>
+        <li>Drag the stopwatch body anywhere inside the white frame. Buttons and the lap strip do not initiate a drag.</li>
+        <li>Click <strong>Start</strong>. Digits count up live every animation frame. The Start button morphs into a green <strong>Lap</strong> button.</li>
+        <li>Click <strong>Lap</strong> several times while the timer runs. A cumulative-time chip appears in the strip below the buttons for each press. The strip scrolls horizontally as chips accumulate. The main readout keeps showing total elapsed — splits are not displayed (students compute them).</li>
+        <li>Watch the <strong>counter</strong> on the right edge of the lap row: it shows <code>N / 20</code> at all times. When it reaches <code>20 / 20</code> the counter turns red — the cap is visible before the next press.</li>
+        <li>Press <strong>Lap</strong> a 21st time. The counter pulses, the button flashes red for ~150 ms, and the press is <em>not</em> recorded.</li>
+        <li>Click <strong>Stop</strong>. Digits freeze at the final reading.</li>
+        <li>Click <strong>Start</strong> again. With laps recorded, Start is disabled — Reset is required first. This is the data-protection guard.</li>
+        <li>Click <strong>Reset</strong>. Digits return to <code>00.00</code>, the lap strip clears.</li>
+        <li>API: <code>getCurrentMs()</code>, <code>getElapsedMs()</code>, <code>getLapsMs()</code>, <code>getSplitsMs()</code>. Open the browser console and call them on the global <code>sw</code> instance.</li>
+        <li>Open this page on a phone. Drag and buttons should work via touch; the lap strip should scroll horizontally with a finger swipe.</li>
+      </ul>
+    </div>
+
+    <div class="frame" id="frame"></div>
+
+    <footer>Mr. Frohlich Math and Physics · Measurement-tool module v1</footer>
+  </div>
+
+  <script src="./stopwatch.js"></script>
+  <script>
+    // Expose globally for console testing
+    window.sw = new DigitalStopwatch({
+      container: document.getElementById('frame'),
+      x:        40,
+      y:        40,
+      size:     220,
+      showLap:  true
+    });
+  </script>
+</body>
+</html>
