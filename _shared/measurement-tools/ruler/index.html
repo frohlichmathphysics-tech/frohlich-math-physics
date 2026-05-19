@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ruler — Test Page</title>
+<title>Ruler — Test Page (v2)</title>
 <style>
   html, body {
     margin: 0; padding: 0;
@@ -46,7 +46,7 @@
   .frame {
     position: relative;
     width: 100%;
-    height: 480px;
+    height: 680px;
     background: #181b27;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
@@ -77,21 +77,23 @@
 </head>
 <body>
   <div class="page">
-    <h1>Ruler — Test Page</h1>
-    <div class="subtitle">physics/labs/measurement-tools/ruler  ·  scale: 600 px/m</div>
+    <h1>Ruler — Test Page (v2)</h1>
+    <div class="subtitle">_shared/measurement-tools/ruler  ·  scale: 600 px/m  ·  horizontal + vertical</div>
 
     <div class="instructions">
       <strong>What to test:</strong>
       <ul>
-        <li>Drag the ruler anywhere inside the dark frame — body should follow your cursor.</li>
-        <li>Reading edge is the <strong>bottom edge</strong> of the ruler body, where the tick marks are.</li>
-        <li>Two blue reference shapes are drawn in the frame with their <strong>true lengths</strong> labeled. Drag the ruler over each and verify the reading on the bottom edge matches the labeled length (within ~0.5 cm).</li>
-        <li>Numerals are at every 10 cm (0, 10, 20, …, 100). Bare ticks between them are at every 1 cm; the shorter ticks are at every 0.5 cm.</li>
-        <li>Open this page on a phone. Drag should work via touch.</li>
+        <li><strong>Horizontal ruler</strong> (left side): drag anywhere in the dark frame. Reading edge is the <strong>bottom edge</strong>. Slide over each blue reference shape and verify the reading matches the labeled true length (within ~0.5 cm).</li>
+        <li><strong>Vertical ruler</strong> (right side): drag anywhere in the dark frame. Reading edge is the <strong>right edge</strong>. <strong>0 is at the top, 100 at the bottom.</strong> Slide the right edge against the vertical blue bar and verify both end-positions match the labeled true length.</li>
+        <li>Numerals: 0, 10, 20, …, 100 at every 10 cm. Bare ticks between numerals every 1 cm; shorter half-ticks every 0.5 cm.</li>
+        <li>Drag both rulers off-frame on each side — at least a thin sliver of each body must stay visible so you can grab it back.</li>
+        <li><strong>Mobile check</strong> (required before redeploy per Build_Rules v25 §0.1 mobile-testing lock): open this page on a phone, drag both rulers via touch, verify they respond and that the frame fits the viewport without horizontal scrolling.</li>
       </ul>
     </div>
 
     <div class="frame" id="frame">
+      <!-- ── HORIZONTAL test ─────────────────────────────────────────── -->
+
       <!-- Reference shape 1: 25.0 cm line (at 600 px/m: 150 px wide) -->
       <div class="ref-shape" style="left: 60px; top: 220px; width: 150px; height: 4px;"></div>
       <div class="ref-label" style="left: 60px; top: 200px;">25.0 cm  →  starts here</div>
@@ -100,17 +102,37 @@
       <!-- Reference shape 2: 45.0 cm rectangle (at 600 px/m: 270 px wide) -->
       <div class="ref-shape" style="left: 60px; top: 330px; width: 270px; height: 22px;"></div>
       <div class="ref-label" style="left: 60px; top: 360px;">45.0 cm block</div>
+
+      <!-- ── VERTICAL test ───────────────────────────────────────────── -->
+
+      <!-- Reference shape 3: 30.0 cm vertical bar (at 600 px/m: 180 px tall) -->
+      <div class="ref-shape" style="left: 740px; top: 100px; width: 22px; height: 180px;"></div>
+      <div class="ref-label" style="left: 770px; top: 96px;">30.0 cm bar — top</div>
+      <div class="ref-label" style="left: 770px; top: 270px;">30.0 cm bar — bottom</div>
     </div>
 
-    <footer>Mr. Frohlich Math and Physics  ·  Measurement-tool module v1</footer>
+    <footer>Mr. Frohlich Math and Physics  ·  Measurement-tool module v2 (horizontal + vertical)</footer>
   </div>
 
   <script src="./ruler.js"></script>
   <script>
+    // Horizontal ruler — orientation flag omitted, defaults to "horizontal"
+    // (backward-compatible with v1 callers).
     new Ruler({
       container:      document.getElementById('frame'),
       x:              60,
       y:              80,
+      pixelsPerMeter: 600,
+      lengthMeters:   1.0,
+      thicknessPx:    36
+    });
+
+    // Vertical ruler — opt-in via orientation flag.
+    new Ruler({
+      container:      document.getElementById('frame'),
+      x:              830,
+      y:              40,
+      orientation:    'vertical',
       pixelsPerMeter: 600,
       lengthMeters:   1.0,
       thicknessPx:    36
