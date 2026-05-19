@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cart on Curved Track — Acceleration & Geometry</title>
+<style>
+  /* ------- Palette (Applet_Creation v6 §0.1 locked) ------- */
+  :root {
+    --cream: #FAF3DE;
+    --navy:  #1E2A5C;
+    --teal:  #2E8B8B;
+    --grey-dark: #444;
+    --grey-mid:  #888;
+    --grey-light:#BFBFBF;
+    --grey-bg:   #E8E4D4;
+    --ink:       #1F1F1F;
+    --start-green: #1f6b3d;
+    --stop-red:    #a8222a;
+    --curved-color: #2E8B8B;   /* solid teal line for curved-peak cart (matches teal track) */
+    --straight-color: #000000; /* dashed black line for straight-ramp cart (matches black track) */
+  }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  .title-bar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--grey-light);
+    margin-bottom: 12px;
+  }
+  .title-bar h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--navy);
+  }
+  .title-bar .sub {
+    font-size: 13px;
+    color: var(--grey-mid);
+  }
+
+  /* ------- Main layout ------- */
+  .main-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 12px;
+    align-items: stretch;
+  }
+  @media (max-width: 900px) {
+    .main-row { grid-template-columns: 1fr; }
+  }
+  .left-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+  .scene-wrap {
+    background: var(--cream);
+    border: 1px solid var(--grey-light);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .scene-wrap canvas { display: block; width: 100%; height: auto; }
+
+  .scrubber-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px 8px 10px;
+    border-top: 1px solid var(--grey-light);
+    background: rgba(0,0,0,0.025);
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+  .scrubber-row[hidden] { display: none; }
+  .scrub-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--navy);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .scrubber {
+    flex: 1;
+    min-width: 180px;
+    accent-color: #c62828;
+    cursor: pointer;
+  }
+  .scrubber-readout {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  .graphs-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+  }
+  .graph-card {
+    flex: 1 1 0;
+    min-height: 0;
+    background: #ffffff;
+    border: 1px solid var(--grey-light);
+    border-radius: 6px;
+    padding: 5px 8px 6px 8px;
+    display: flex;
+    flex-direction: column;
+  }
+  .graph-card .label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin-bottom: 2px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .graph-card .label .units {
+    color: var(--grey-mid);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .graph-card .legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--grey-mid);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: auto;
+  }
+  .graph-card .legend[hidden] { display: none; }
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .legend-line {
+    display: inline-block;
+    width: 18px;
+    height: 0;
+    border-top: 2px solid currentColor;
+  }
+  .legend-line.dashed {
+    border-top-style: dashed;
+  }
+  .graph-card canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .trial-status {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--grey-mid);
+    height: 16px;
+    flex-shrink: 0;
+  }
+  .trial-status.complete { color: var(--navy); }
+  .trial-status.active { color: var(--start-green); }
+
+  /* ------- Controls ------- */
+  .controls {
+    background: var(--grey-bg);
+    border: 1px solid var(--grey-light);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: grid;
+    gap: 8px;
+  }
+  .ctrl-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    row-gap: 8px;
+  }
+  .group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .group > .group-label {
+    font-size: 12px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .btn-group {
+    display: inline-flex;
+    border: 1px solid var(--navy);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .btn-group button {
+    background: #fff;
+    color: var(--navy);
+    border: none;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border-right: 1px solid var(--navy);
+    min-width: 60px;
+  }
+  .btn-group button:last-child { border-right: none; }
+  .btn-group button.active {
+    background: var(--navy);
+    color: #fff;
+  }
+  .btn-group button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .action-btn {
+    border: none;
+    border-radius: 4px;
+    padding: 7px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: #fff;
+    min-width: 70px;
+  }
+  .action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-play  { background: var(--start-green); }
+  .btn-reset { background: var(--grey-dark); }
+
+  .scenario-desc {
+    font-size: 12px;
+    color: var(--grey-dark);
+    line-height: 1.4;
+    border-top: 1px solid var(--grey-light);
+    padding-top: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="title-bar">
+    <h1>Cart on Curved Track — Acceleration &amp; Geometry</h1>
+    <div class="sub">Mr. Frohlich Math and Physics</div>
+  </div>
+
+  <div class="main-row">
+
+    <div class="left-col">
+
+      <div class="scene-wrap">
+        <canvas id="scene" width="780" height="400"></canvas>
+        <div class="scrubber-row" id="scrubberRow" hidden>
+          <span class="scrub-label">Scrub:</span>
+          <input type="range" id="scrubber" class="scrubber" min="0" max="1" step="0.001" value="0">
+          <span class="scrubber-readout" id="scrubberReadout">t=0.00s</span>
+        </div>
+      </div>
+
+      <div class="controls">
+
+        <div class="ctrl-row">
+          <div class="group">
+            <span class="group-label">Scenario:</span>
+            <div class="btn-group" id="scenarioGroup">
+              <button data-val="peak">PEAK</button>
+              <button data-val="contrast">CONTRAST</button>
+              <button data-val="valley">VALLEY</button>
+            </div>
+          </div>
+
+          <button class="action-btn btn-play"  id="btnPlay">PLAY</button>
+          <button class="action-btn btn-reset" id="btnReset">RESET</button>
+        </div>
+
+        <div class="scenario-desc" id="scenarioDesc"></div>
+
+      </div>
+
+    </div>
+
+    <div class="graphs-wrap">
+      <div class="graph-card">
+        <div class="label">
+          Position <span class="units">(m, along track)</span>
+          <span class="legend" id="legendX" hidden></span>
+        </div>
+        <canvas id="graphX"></canvas>
+      </div>
+      <div class="graph-card">
+        <div class="label">
+          Velocity <span class="units">(m/s)</span>
+          <span class="legend" id="legendV" hidden></span>
+        </div>
+        <canvas id="graphV"></canvas>
+      </div>
+      <div class="graph-card">
+        <div class="label">
+          Acceleration <span class="units">(m/s²)</span>
+          <span class="legend" id="legendA" hidden></span>
+        </div>
+        <canvas id="graphA"></canvas>
+      </div>
+      <div class="trial-status" id="trialStatus">&nbsp;</div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   CONSTANTS
+   ===================================================================== */
+
+const G = 9.81;
+const SCALE = 280;              // pixels per meter (physics → canvas)
+const SCENE_W = 780;
+const SCENE_H = 400;
+
+const TRACK = (() => {
+  const alpha_deg = 12;
+  const alpha_rad = alpha_deg * Math.PI / 180;
+  const R = 0.4;
+  const L_slope = 1.0;
+  const L_arc = R * 2 * alpha_rad;
+  const L_total = 2 * L_slope + L_arc;
+  return { alpha_deg, alpha_rad, R, L_slope, L_arc, L_total };
+})();
+
+const RAMP = {
+  alpha_rad: TRACK.alpha_rad,
+  L_total: 1.5,                 // physical length; cart never reaches the end
+};
+
+const V_LAUNCH = 2.2;           // m/s, scenarios 1 and 2
+const V_VALLEY_BOOST = 0.05;    // tiny nudge so valley cart reaches the far wall
+
+const GRAPH_WINDOW = 4.0;       // seconds visible on graphs
+const TRIAL_HOLD_TIME = 0.5;    // seconds at rest before trial-complete fires
+const TIME_SCALE = 0.7;         // <1 slows sim wall-clock; physics integration unchanged
+
+const COLOR_TRACK_CURVED = '#2E8B8B';   // teal for peak/valley arc tracks
+const COLOR_TRACK_STRAIGHT = '#000000'; // black for ramp track
+const COLOR_WALL = '#3a3a3a';
+const COLOR_CART_BODY = '#1E2A5C';      // navy — both carts identical
+const COLOR_CART_BODY_DASHED = '#1E2A5C'; // legacy alias; both carts now navy
+const COLOR_CURVED_LINE = '#2E8B8B';    // graph line matches curved track
+const COLOR_STRAIGHT_LINE = '#000000';  // graph line matches straight track
+
+/* =====================================================================
+   SCENARIOS — per-scenario layout and cart configuration
+   ===================================================================== */
+
+const SCENARIOS = {
+  peak: {
+    label: 'PEAK',
+    description: 'Cart launched from the left with enough speed to cross the peak. Watch what the a–t graph does as the track angle changes through the arc.',
+    tracks: [
+      {
+        kind: 'peak',
+        origin: { x: SCENE_W / 2, y: 130 },
+        label: 'cart',
+        lineColor: COLOR_CURVED_LINE,
+        bodyColor: COLOR_CART_BODY,
+        dash: null,
+        s_init: 0,
+        v_init: V_LAUNCH,
+        L_total: TRACK.L_total
+      }
+    ]
+  },
+  contrast: {
+    label: 'CONTRAST',
+    description: 'Same launch speed sent into a curved peak (top) and a straight ramp (bottom). Compare the two a–t graphs — especially what happens at the instant the straight-ramp cart reverses direction.',
+    tracks: [
+      {
+        kind: 'peak',
+        origin: { x: SCENE_W / 2, y: 90 },
+        label: 'curved peak',
+        lineColor: COLOR_CURVED_LINE,
+        bodyColor: COLOR_CART_BODY,
+        dash: null,
+        s_init: 0,
+        v_init: V_LAUNCH,
+        L_total: TRACK.L_total
+      },
+      {
+        kind: 'ramp',
+        origin: { x: 93, y: 305 },
+        label: 'straight ramp',
+        lineColor: COLOR_STRAIGHT_LINE,
+        bodyColor: COLOR_CART_BODY_DASHED,
+        dash: [6, 4],
+        s_init: 0,
+        v_init: V_LAUNCH,
+        L_total: RAMP.L_total
+      }
+    ]
+  },
+  valley: {
+    label: 'VALLEY',
+    description: 'Cart released from rest at the upper-left corner. Watch the a–t graph as the cart traverses the curved valley bottom — and compare to the straight-segment behavior on either side.',
+    tracks: [
+      {
+        kind: 'valley',
+        origin: { x: SCENE_W / 2, y: 270 },
+        label: 'cart',
+        lineColor: COLOR_CURVED_LINE,
+        bodyColor: COLOR_CART_BODY,
+        dash: null,
+        s_init: 0,
+        v_init: V_VALLEY_BOOST,
+        L_total: TRACK.L_total
+      }
+    ]
+  }
+};
+
+/* =====================================================================
+   TRACK GEOMETRY (physics frame: y up, apex/valley-bottom at origin)
+   ===================================================================== */
+
+function trackPos(kind, s) {
+  if (kind === 'peak') return _peakPos(s);
+  if (kind === 'valley') {
+    const p = _peakPos(s);
+    return { x: p.x, y: -p.y, theta: -p.theta };
+  }
+  if (kind === 'ramp') {
+    const a = RAMP.alpha_rad;
+    return { x: s * Math.cos(a), y: s * Math.sin(a), theta: a };
+  }
+  throw new Error('Unknown track kind: ' + kind);
+}
+
+function _peakPos(s) {
+  const { alpha_rad: a, R, L_slope, L_arc } = TRACK;
+  if (s <= L_slope) {
+    // Left up-slope (cart launched from left wall)
+    const L_x = -(R * Math.sin(a) + L_slope * Math.cos(a));
+    const L_y = -(R * (1 - Math.cos(a)) + L_slope * Math.sin(a));
+    return {
+      x: L_x + s * Math.cos(a),
+      y: L_y + s * Math.sin(a),
+      theta: a
+    };
+  } else if (s <= L_slope + L_arc) {
+    // Arc (concave-down)
+    const phi = -a + (s - L_slope) / R;
+    return {
+      x: R * Math.sin(phi),
+      y: R * Math.cos(phi) - R,
+      theta: -phi
+    };
+  } else {
+    // Right down-slope
+    const arc_s = s - L_slope - L_arc;
+    return {
+      x: R * Math.sin(a) + arc_s * Math.cos(a),
+      y: -R * (1 - Math.cos(a)) - arc_s * Math.sin(a),
+      theta: -a
+    };
+  }
+}
+
+function trackTheta(kind, s) {
+  if (kind === 'ramp') return RAMP.alpha_rad;
+  const { alpha_rad: a, R, L_slope, L_arc } = TRACK;
+  let theta;
+  if (s <= L_slope) theta = a;
+  else if (s <= L_slope + L_arc) {
+    const phi = -a + (s - L_slope) / R;
+    theta = -phi;
+  } else theta = -a;
+  if (kind === 'valley') theta = -theta;
+  return theta;
+}
+
+function trackAcceleration(kind, s) {
+  // a in the direction of increasing s
+  return -G * Math.sin(trackTheta(kind, s));
+}
+
+function physToCanvas(p, origin) {
+  return {
+    cx: origin.x + p.x * SCALE,
+    cy: origin.y - p.y * SCALE,
+    canvasAngle: -p.theta
+  };
+}
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+
+const state = {
+  scenario: 'peak',
+  carts: [],            // populated from SCENARIOS[scenario].tracks
+  samples: [],          // array-of-arrays parallel to carts
+  trialActive: false,
+  trialComplete: false,
+  time: 0,
+  scrubbedT: null,
+  lastFrameMs: null,
+};
+
+function buildCarts(scenarioKey) {
+  const def = SCENARIOS[scenarioKey];
+  state.carts = def.tracks.map(t => ({
+    kind: t.kind,
+    origin: t.origin,
+    label: t.label,
+    lineColor: t.lineColor,
+    bodyColor: t.bodyColor,
+    dash: t.dash,
+    s_init: t.s_init,
+    v_init: t.v_init,
+    L_total: t.L_total,
+    s: t.s_init,
+    v: 0,                 // velocity is 0 until PLAY pressed
+    atRest: true,
+    restStartT: 0,
+    atWall: null          // 'start' or 'end' once a wall is touched, null otherwise
+  }));
+  state.samples = def.tracks.map(() => []);
+}
+
+function setScenario(key) {
+  if (!SCENARIOS[key]) return;
+  state.scenario = key;
+  state.trialActive = false;
+  state.trialComplete = false;
+  state.time = 0;
+  state.scrubbedT = null;
+  buildCarts(key);
+  document.getElementById('scenarioDesc').textContent = SCENARIOS[key].description;
+  syncScenarioButtons();
+  syncLegends();
+}
+
+function startTrial() {
+  // Fresh trial: carts to initial state with v_init, clear samples, time=0.
+  state.trialActive = true;
+  state.trialComplete = false;
+  state.time = 0;
+  state.scrubbedT = null;
+  state.samples = state.carts.map(() => []);
+  for (const c of state.carts) {
+    c.s = c.s_init;
+    c.v = c.v_init;
+    c.atRest = (c.v_init === 0);
+    c.restStartT = c.atRest ? 0 : null;
+    c.atWall = (c.s_init === 0) ? 'start' : (c.s_init === c.L_total ? 'end' : null);
+    // If v_init non-zero, cart leaves wall immediately
+    if (c.v_init !== 0) c.atWall = null;
+  }
+}
+
+function resetTrial() {
+  state.trialActive = false;
+  state.trialComplete = false;
+  state.time = 0;
+  state.scrubbedT = null;
+  state.samples = state.carts.map(() => []);
+  for (const c of state.carts) {
+    c.s = c.s_init;
+    c.v = 0;
+    c.atRest = true;
+    c.restStartT = 0;
+    c.atWall = (c.s_init === 0) ? 'start' : 'end';
+  }
+}
+
+/* =====================================================================
+   PHYSICS STEP
+   ===================================================================== */
+
+function physicsStep(dt) {
+  if (!state.trialActive) return;
+  if (state.trialComplete) return;
+
+  state.time += dt;
+
+  for (let i = 0; i < state.carts.length; i++) {
+    const c = state.carts[i];
+
+    // If cart was at rest at a wall and trial just started with v_init non-zero,
+    // it's already launched (handled in startTrial). Otherwise if at-rest with
+    // v=0 and at a wall, gravity at the wall position determines if it stays.
+    if (c.atWall !== null && c.v === 0) {
+      // Wall is holding the cart in place. Record sample with a=0 and skip motion.
+      state.samples[i].push({ t: state.time, x: c.s, v: 0, a: 0 });
+      continue;
+    }
+
+    // Trapezoidal integration (matches cart-track-ms scheme)
+    const a_old = trackAcceleration(c.kind, c.s);
+    const v_old = c.v;
+    const v_new = v_old + a_old * dt;
+    let s_new = c.s + (v_old + v_new) / 2 * dt;
+
+    // Wall handling
+    if (s_new <= 0) {
+      c.s = 0;
+      c.v = 0;
+      c.atRest = true;
+      c.restStartT = state.time;
+      c.atWall = 'start';
+      state.samples[i].push({ t: state.time, x: 0, v: 0, a: 0 });
+    } else if (s_new >= c.L_total) {
+      c.s = c.L_total;
+      c.v = 0;
+      c.atRest = true;
+      c.restStartT = state.time;
+      c.atWall = 'end';
+      state.samples[i].push({ t: state.time, x: c.L_total, v: 0, a: 0 });
+    } else {
+      c.s = s_new;
+      c.v = v_new;
+      c.atRest = false;
+      c.restStartT = null;
+      c.atWall = null;
+      const a_record = trackAcceleration(c.kind, c.s);
+      state.samples[i].push({ t: state.time, x: c.s, v: c.v, a: a_record });
+    }
+  }
+
+  // Trial-complete: ALL carts at rest at walls, last-settling cart held >= TRIAL_HOLD_TIME
+  const allAtRest = state.carts.every(c => c.atRest && c.atWall !== null);
+  if (allAtRest) {
+    const latest = Math.max(...state.carts.map(c => c.restStartT || 0));
+    if (state.time - latest >= TRIAL_HOLD_TIME) {
+      state.trialComplete = true;
+    }
+  }
+
+  // Cap sample buffer per cart (60 fps × 8 substeps × 10s = 4800)
+  for (const arr of state.samples) {
+    if (arr.length > 8000) arr.shift();
+  }
+}
+
+/* =====================================================================
+   RENDERING
+   ===================================================================== */
+
+const sceneCanvas = document.getElementById('scene');
+const sceneCtx = sceneCanvas.getContext('2d');
+
+const graphXCanvas = document.getElementById('graphX');
+const graphVCanvas = document.getElementById('graphV');
+const graphACanvas = document.getElementById('graphA');
+const gXCtx = graphXCanvas.getContext('2d');
+const gVCtx = graphVCanvas.getContext('2d');
+const gACtx = graphACanvas.getContext('2d');
+
+const trialStatusEl = document.getElementById('trialStatus');
+
+/* ----- Scene drawing ----- */
+
+function drawScene() {
+  const ctx = sceneCtx;
+  ctx.fillStyle = '#FAF3DE';
+  ctx.fillRect(0, 0, SCENE_W, SCENE_H);
+
+  // For each cart's track, draw the track, walls, then later the cart
+  for (const c of state.carts) {
+    drawTrack(ctx, c);
+  }
+  for (const c of state.carts) {
+    drawCart(ctx, c);
+  }
+}
+
+function drawTrack(ctx, cart) {
+  const { kind, origin, L_total } = cart;
+  const trackThickness = 8;
+  const trackColor = (kind === 'ramp') ? COLOR_TRACK_STRAIGHT : COLOR_TRACK_CURVED;
+
+  ctx.save();
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = trackColor;
+  ctx.lineWidth = trackThickness;
+
+  if (kind === 'ramp') {
+    // Single straight segment
+    const pStart = physToCanvas(trackPos(kind, 0), origin);
+    const pEnd = physToCanvas(trackPos(kind, L_total), origin);
+    ctx.beginPath();
+    ctx.moveTo(pStart.cx, pStart.cy);
+    ctx.lineTo(pEnd.cx, pEnd.cy);
+    ctx.stroke();
+    // Walls: only at launch end (s=0). Far end is open ramp top.
+    drawWall(ctx, pStart.cx, pStart.cy, -trackTheta(kind, 0));
+  } else {
+    // peak or valley: left-straight + arc + right-straight
+    const { alpha_rad: a, R, L_slope, L_arc } = TRACK;
+    const pStartLeft = physToCanvas(trackPos(kind, 0), origin);
+    const pArcLeft   = physToCanvas(trackPos(kind, L_slope), origin);
+    const pArcRight  = physToCanvas(trackPos(kind, L_slope + L_arc), origin);
+    const pStartRight = physToCanvas(trackPos(kind, 2 * L_slope + L_arc), origin);
+
+    // Left straight
+    ctx.beginPath();
+    ctx.moveTo(pStartLeft.cx, pStartLeft.cy);
+    ctx.lineTo(pArcLeft.cx, pArcLeft.cy);
+    ctx.stroke();
+    // Right straight
+    ctx.beginPath();
+    ctx.moveTo(pArcRight.cx, pArcRight.cy);
+    ctx.lineTo(pStartRight.cx, pStartRight.cy);
+    ctx.stroke();
+    // Arc
+    let arcCenterPhysY;
+    let arcCanvasStart, arcCanvasEnd;
+    if (kind === 'peak') {
+      // arc center is below apex by R: phys (0, -R)
+      arcCenterPhysY = -R;
+      // canvas angles: from -π/2 - α to -π/2 + α (drawn clockwise = false)
+      arcCanvasStart = -Math.PI / 2 - a;
+      arcCanvasEnd   = -Math.PI / 2 + a;
+    } else {
+      // valley: arc center is above valley bottom by R: phys (0, +R)
+      arcCenterPhysY = R;
+      arcCanvasStart = Math.PI / 2 - a;
+      arcCanvasEnd   = Math.PI / 2 + a;
+    }
+    const arcCenter = physToCanvas({ x: 0, y: arcCenterPhysY, theta: 0 }, origin);
+    ctx.beginPath();
+    if (kind === 'peak') {
+      ctx.arc(arcCenter.cx, arcCenter.cy, R * SCALE, arcCanvasStart, arcCanvasEnd, false);
+    } else {
+      ctx.arc(arcCenter.cx, arcCenter.cy, R * SCALE, arcCanvasStart, arcCanvasEnd, false);
+    }
+    ctx.stroke();
+
+    // Walls at both ends
+    drawWall(ctx, pStartLeft.cx, pStartLeft.cy,  -trackTheta(kind, 0));
+    drawWall(ctx, pStartRight.cx, pStartRight.cy, -trackTheta(kind, 2 * L_slope + L_arc));
+  }
+
+  ctx.restore();
+
+  // Distance markers along track
+  drawTrackTicks(ctx, cart);
+
+  // Tiny "0" label near launch wall
+  drawLaunchLabel(ctx, cart);
+}
+
+function drawWall(ctx, x, y, canvasAngle) {
+  // Wall is a rectangle perpendicular to the track surface at the wall location
+  const wallH = 26;
+  const halfW = 3;
+  // Local axes
+  const cosA = Math.cos(canvasAngle);
+  const sinA = Math.sin(canvasAngle);
+  // Perpendicular "up" from track in canvas
+  const nx = -sinA;
+  const ny = -cosA;
+  ctx.save();
+  ctx.fillStyle = COLOR_WALL;
+  ctx.beginPath();
+  const ax = x + halfW * cosA;
+  const ay = y + halfW * sinA;
+  const bx = x - halfW * cosA;
+  const by = y - halfW * sinA;
+  const cx = bx + wallH * nx;
+  const cy = by + wallH * ny;
+  const dx = ax + wallH * nx;
+  const dy = ay + wallH * ny;
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(bx, by);
+  ctx.lineTo(cx, cy);
+  ctx.lineTo(dx, dy);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawTrackTicks(ctx, cart) {
+  const { kind, origin, L_total } = cart;
+  const tickEvery = 0.5;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,0,0,0.20)';
+  ctx.lineWidth = 1;
+  for (let s = tickEvery; s < L_total - 0.01; s += tickEvery) {
+    const p = trackPos(kind, s);
+    const c = physToCanvas(p, origin);
+    // Perpendicular to track tangent
+    const nx = -Math.sin(c.canvasAngle);
+    const ny = -Math.cos(c.canvasAngle);
+    ctx.beginPath();
+    ctx.moveTo(c.cx + 4 * nx, c.cy + 4 * ny);
+    ctx.lineTo(c.cx - 4 * nx, c.cy - 4 * ny);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawLaunchLabel(ctx, cart) {
+  const { kind, origin } = cart;
+  const p = trackPos(kind, 0);
+  const c = physToCanvas(p, origin);
+  // Offset label perpendicular to track, on the "outside" (away from track surface)
+  const nx = Math.sin(c.canvasAngle);
+  const ny = Math.cos(c.canvasAngle);
+  ctx.save();
+  ctx.fillStyle = 'var(--navy)';
+  ctx.fillStyle = '#1E2A5C';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('0', c.cx + 14 * nx, c.cy + 14 * ny);
+  ctx.restore();
+}
+
+function drawCart(ctx, cart) {
+  const { kind, origin } = cart;
+
+  // If scrubbing, place cart at the scrubbed-time x; else live position
+  let s_render = cart.s;
+  if (state.scrubbedT !== null) {
+    const arrIdx = state.carts.indexOf(cart);
+    const sample = findSampleAtT(state.samples[arrIdx], state.scrubbedT);
+    if (sample) s_render = sample.x;
+  }
+
+  const p = trackPos(kind, s_render);
+  const c = physToCanvas(p, origin);
+
+  ctx.save();
+  ctx.translate(c.cx, c.cy);
+  ctx.rotate(c.canvasAngle);
+
+  const cartW = 56;
+  const cartH = 18;
+  const wheelR = 5;
+  const wheelY = -wheelR;
+  const bodyBottom = -2 * wheelR;
+  const bodyTop = bodyBottom - cartH;
+
+  // Wheels
+  ctx.fillStyle = '#202020';
+  for (const wx of [-cartW / 2 + 9, cartW / 2 - 9]) {
+    ctx.beginPath();
+    ctx.arc(wx, wheelY, wheelR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#666';
+    ctx.beginPath();
+    ctx.arc(wx, wheelY, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#202020';
+  }
+
+  // Body
+  ctx.fillStyle = cart.bodyColor;
+  roundRect(ctx, -cartW / 2, bodyTop, cartW, cartH, 3);
+  ctx.fill();
+  ctx.strokeStyle = '#0e1538';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
+  ctx.fillRect(-cartW / 2 + 3, bodyTop + 2, cartW - 6, 3);
+
+  // Red flag on top
+  const flagX = 0;
+  const flagBaseY = bodyTop;
+  const flagH = 14;
+  const flagW = 9;
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(flagX, flagBaseY);
+  ctx.lineTo(flagX, flagBaseY - flagH);
+  ctx.stroke();
+  ctx.fillStyle = '#c03030';
+  ctx.beginPath();
+  ctx.moveTo(flagX, flagBaseY - flagH);
+  ctx.lineTo(flagX + flagW, flagBaseY - flagH + 3);
+  ctx.lineTo(flagX, flagBaseY - flagH + 6);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+/* ----- Graph drawing ----- */
+
+const GRAPH = {
+  padL: 36, padR: 8, padT: 8, padB: 18,
+};
+
+function findSampleAtT(samples, t) {
+  if (samples.length === 0) return null;
+  let lo = 0, hi = samples.length - 1;
+  if (t <= samples[lo].t) return samples[lo];
+  if (t >= samples[hi].t) return samples[hi];
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (samples[mid].t < t) lo = mid; else hi = mid;
+  }
+  const a = samples[lo], b = samples[hi];
+  const f = (t - a.t) / Math.max(1e-9, (b.t - a.t));
+  return {
+    t: t,
+    x: a.x + (b.x - a.x) * f,
+    v: a.v + (b.v - a.v) * f,
+    a: a.a + (b.a - a.a) * f
+  };
+}
+
+function drawAllGraphs() {
+  drawGraph(gXCtx, graphXCanvas, 'x');
+  drawGraph(gVCtx, graphVCanvas, 'v');
+  drawGraph(gACtx, graphACanvas, 'a');
+}
+
+function drawGraph(ctx, canvas, field) {
+  const W = canvas.width;
+  const H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const tMax = Math.max(state.time, GRAPH_WINDOW);
+  const tMin = Math.max(0, tMax - GRAPH_WINDOW);
+
+  // Compute y range across ALL carts' visible samples
+  let yMin = Infinity, yMax = -Infinity;
+  const visibleByCart = state.samples.map(arr => {
+    let startIdx = 0;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (arr[i].t < tMin) { startIdx = i; break; }
+    }
+    return arr.slice(startIdx);
+  });
+  for (const visible of visibleByCart) {
+    for (const s of visible) {
+      const v = s[field];
+      if (v < yMin) yMin = v;
+      if (v > yMax) yMax = v;
+    }
+  }
+  if (!isFinite(yMin) || !isFinite(yMax)) {
+    yMin = -1; yMax = 1;
+  } else {
+    const minRange = (field === 'x') ? 0.5 : (field === 'v') ? 0.3 : 0.3;
+    if (yMax - yMin < minRange) {
+      const mid = (yMin + yMax) / 2;
+      yMin = mid - minRange / 2;
+      yMax = mid + minRange / 2;
+    }
+    const pad = (yMax - yMin) * 0.10;
+    yMin -= pad;
+    yMax += pad;
+    if (field === 'a' && Math.abs(yMax - yMin) < 0.3) {
+      const c = (yMax + yMin) / 2;
+      const r = Math.max(0.5, Math.abs(c) * 2);
+      yMin = c - r; yMax = c + r;
+    }
+  }
+
+  const plotL = GRAPH.padL;
+  const plotR = W - GRAPH.padR;
+  const plotT = GRAPH.padT;
+  const plotB = H - GRAPH.padB;
+
+  // Background
+  ctx.fillStyle = '#fafafa';
+  ctx.fillRect(plotL, plotT, plotR - plotL, plotB - plotT);
+
+  // Gridlines
+  ctx.strokeStyle = '#e5e5e5';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let t = Math.ceil(tMin); t <= Math.floor(tMax); t++) {
+    const x = plotL + ((t - tMin) / GRAPH_WINDOW) * (plotR - plotL);
+    ctx.moveTo(x, plotT);
+    ctx.lineTo(x, plotB);
+  }
+  for (let i = 0; i <= 4; i++) {
+    const y = plotT + (i / 4) * (plotB - plotT);
+    ctx.moveTo(plotL, y);
+    ctx.lineTo(plotR, y);
+  }
+  ctx.stroke();
+
+  // Zero-line
+  if (yMin < 0 && yMax > 0) {
+    const yZero = plotB - ((0 - yMin) / (yMax - yMin)) * (plotB - plotT);
+    ctx.strokeStyle = '#bbb';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(plotL, yZero);
+    ctx.lineTo(plotR, yZero);
+    ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(plotL, plotT);
+  ctx.lineTo(plotL, plotB);
+  ctx.lineTo(plotR, plotB);
+  ctx.stroke();
+
+  // Y labels
+  ctx.fillStyle = '#666';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i <= 2; i++) {
+    const y = plotB - (i / 2) * (plotB - plotT);
+    const val = yMin + (i / 2) * (yMax - yMin);
+    ctx.fillText(val.toFixed(2), plotL - 3, y);
+  }
+
+  // X labels
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (let t = Math.ceil(tMin); t <= Math.floor(tMax); t += Math.max(1, Math.ceil(GRAPH_WINDOW / 5))) {
+    const x = plotL + ((t - tMin) / GRAPH_WINDOW) * (plotR - plotL);
+    ctx.fillText(t.toFixed(0) + 's', x, plotB + 2);
+  }
+
+  // Data lines — one per cart
+  for (let cIdx = 0; cIdx < state.carts.length; cIdx++) {
+    const cart = state.carts[cIdx];
+    const visible = visibleByCart[cIdx];
+    if (visible.length < 2) continue;
+    ctx.save();
+    ctx.strokeStyle = cart.lineColor;
+    ctx.lineWidth = 1.8;
+    if (cart.dash) ctx.setLineDash(cart.dash);
+    ctx.beginPath();
+    for (let i = 0; i < visible.length; i++) {
+      const s = visible[i];
+      const px = plotL + ((s.t - tMin) / GRAPH_WINDOW) * (plotR - plotL);
+      const py = plotB - ((s[field] - yMin) / (yMax - yMin)) * (plotB - plotT);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Frozen indicator dot
+    if (state.trialComplete && visible.length > 0) {
+      const last = visible[visible.length - 1];
+      const px = plotL + ((last.t - tMin) / GRAPH_WINDOW) * (plotR - plotL);
+      const py = plotB - ((last[field] - yMin) / (yMax - yMin)) * (plotB - plotT);
+      ctx.fillStyle = cart.lineColor;
+      ctx.beginPath();
+      ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Scrubber red line + marker dots (one per cart line)
+  if (state.scrubbedT !== null) {
+    const t = state.scrubbedT;
+    if (t >= tMin && t <= tMax) {
+      const px = plotL + ((t - tMin) / GRAPH_WINDOW) * (plotR - plotL);
+      ctx.save();
+      ctx.strokeStyle = '#c62828';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(px, plotT);
+      ctx.lineTo(px, plotB);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      // Dots per cart
+      for (let cIdx = 0; cIdx < state.carts.length; cIdx++) {
+        const sample = findSampleAtT(state.samples[cIdx], t);
+        if (sample) {
+          const py = plotB - ((sample[field] - yMin) / (yMax - yMin)) * (plotB - plotT);
+          ctx.fillStyle = '#c62828';
+          ctx.beginPath();
+          ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+}
+
+/* =====================================================================
+   ANIMATION LOOP
+   ===================================================================== */
+
+function syncGraphCanvasSizes() {
+  for (const cv of [graphXCanvas, graphVCanvas, graphACanvas]) {
+    const w = Math.max(50, Math.round(cv.clientWidth));
+    const h = Math.max(50, Math.round(cv.clientHeight));
+    if (cv.width !== w) cv.width = w;
+    if (cv.height !== h) cv.height = h;
+  }
+}
+
+function frame(nowMs) {
+  if (state.lastFrameMs == null) state.lastFrameMs = nowMs;
+  let dt = (nowMs - state.lastFrameMs) / 1000;
+  state.lastFrameMs = nowMs;
+  if (dt > 0.05) dt = 0.05;
+  if (dt < 0) dt = 0;
+
+  // Apply wall-clock slowdown — physics time advances at TIME_SCALE × real time.
+  // Graph axes plot vs physics time, so they remain correct.
+  dt *= TIME_SCALE;
+
+  // 8 substeps per frame for arc integration accuracy
+  const subSteps = 8;
+  const subDt = dt / subSteps;
+  for (let i = 0; i < subSteps; i++) physicsStep(subDt);
+
+  syncGraphCanvasSizes();
+  drawScene();
+  drawAllGraphs();
+  updateTrialStatus();
+  updateScrubberUI();
+  updateButtons();
+
+  requestAnimationFrame(frame);
+}
+
+function updateTrialStatus() {
+  trialStatusEl.classList.remove('complete', 'active');
+  if (state.trialComplete) {
+    trialStatusEl.textContent = 'TRIAL COMPLETE — press PLAY to repeat, or pick a different scenario';
+    trialStatusEl.classList.add('complete');
+  } else if (state.trialActive) {
+    trialStatusEl.textContent = 'Recording…';
+    trialStatusEl.classList.add('active');
+  } else {
+    trialStatusEl.textContent = 'Ready. Press PLAY to start.';
+  }
+}
+
+/* =====================================================================
+   CONTROLS
+   ===================================================================== */
+
+function syncScenarioButtons() {
+  const group = document.getElementById('scenarioGroup');
+  for (const b of group.querySelectorAll('button')) {
+    b.classList.toggle('active', b.dataset.val === state.scenario);
+  }
+}
+
+function syncLegends() {
+  const isContrast = state.scenario === 'contrast';
+  for (const id of ['legendX', 'legendV', 'legendA']) {
+    const el = document.getElementById(id);
+    el.hidden = !isContrast;
+    if (isContrast) {
+      el.innerHTML =
+        '<span class="legend-item" style="color:' + COLOR_CURVED_LINE + '"><span class="legend-line"></span> curved peak</span>' +
+        '<span class="legend-item" style="color:' + COLOR_STRAIGHT_LINE + '"><span class="legend-line dashed"></span> straight ramp</span>';
+    }
+  }
+}
+
+function updateButtons() {
+  document.getElementById('btnPlay').disabled = state.trialActive && !state.trialComplete;
+}
+
+document.getElementById('scenarioGroup').addEventListener('click', (e) => {
+  const t = e.target.closest('button');
+  if (!t) return;
+  setScenario(t.dataset.val);
+});
+
+document.getElementById('btnPlay').addEventListener('click', () => {
+  startTrial();
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  resetTrial();
+});
+
+/* ----- Scrubber ----- */
+const scrubberRow = document.getElementById('scrubberRow');
+const scrubberEl = document.getElementById('scrubber');
+const scrubberReadout = document.getElementById('scrubberReadout');
+
+scrubberEl.addEventListener('input', (e) => {
+  state.scrubbedT = parseFloat(e.target.value);
+});
+
+function updateScrubberUI() {
+  // Scrubber appears post-trial only
+  const haveAnyData = state.samples.some(arr => arr.length > 1);
+  const canScrub = state.trialComplete && haveAnyData;
+  if (canScrub) {
+    if (scrubberRow.hidden) {
+      scrubberRow.hidden = false;
+      if (state.scrubbedT === null) {
+        // Initialize to last sample of longest-running cart
+        let tMax = 0;
+        for (const arr of state.samples) {
+          if (arr.length > 0 && arr[arr.length - 1].t > tMax) tMax = arr[arr.length - 1].t;
+        }
+        state.scrubbedT = tMax;
+      }
+    }
+    let tMin = Infinity, tMax = -Infinity;
+    for (const arr of state.samples) {
+      if (arr.length === 0) continue;
+      if (arr[0].t < tMin) tMin = arr[0].t;
+      if (arr[arr.length - 1].t > tMax) tMax = arr[arr.length - 1].t;
+    }
+    if (!isFinite(tMin)) tMin = 0;
+    if (!isFinite(tMax)) tMax = 1;
+    scrubberEl.min = tMin;
+    scrubberEl.max = tMax;
+    scrubberEl.step = Math.max(0.001, (tMax - tMin) / 1000);
+    state.scrubbedT = Math.max(tMin, Math.min(tMax, state.scrubbedT));
+    if (document.activeElement !== scrubberEl) {
+      scrubberEl.value = state.scrubbedT;
+    }
+    // Readout
+    const t = state.scrubbedT;
+    let txt = 't=' + t.toFixed(2) + 's';
+    if (state.carts.length === 1) {
+      const s = findSampleAtT(state.samples[0], t);
+      if (s) {
+        txt += ' \u00B7 x=' + s.x.toFixed(2) + ' m \u00B7 v=' + s.v.toFixed(2) + ' m/s \u00B7 a=' + s.a.toFixed(2) + ' m/s\u00B2';
+      }
+    } else {
+      for (let i = 0; i < state.carts.length; i++) {
+        const cart = state.carts[i];
+        const s = findSampleAtT(state.samples[i], t);
+        if (s) {
+          txt += ' \u00A0|\u00A0 ' + cart.label + ': x=' + s.x.toFixed(2) + ' v=' + s.v.toFixed(2) + ' a=' + s.a.toFixed(2);
+        }
+      }
+    }
+    scrubberReadout.textContent = txt;
+  } else {
+    if (!scrubberRow.hidden) {
+      scrubberRow.hidden = true;
+      state.scrubbedT = null;
+    }
+  }
+}
+
+/* =====================================================================
+   INIT
+   ===================================================================== */
+
+function init() {
+  setScenario('peak');
+  resetTrial();
+  requestAnimationFrame(frame);
+}
+
+init();
+
+</script>
+</body>
+</html>
