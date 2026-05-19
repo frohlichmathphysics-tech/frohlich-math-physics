@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Generator — Test Page</title>
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    background: #10121E;
+    color: #e8e8e8;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px 32px;
+    box-sizing: border-box;
+  }
+  h1 {
+    margin: 0 0 4px 0;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  .subtitle {
+    color: #8a8e9a;
+    font-size: 12px;
+    margin-bottom: 18px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+  .instructions {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 12px 18px;
+    font-size: 13px;
+    line-height: 1.55;
+    margin-bottom: 16px;
+  }
+  .instructions strong { color: #f0f0f0; }
+  .instructions ul { margin: 6px 0 0 0; padding-left: 22px; }
+  .instructions li { margin: 3px 0; color: #c8ccd4; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 16px;
+  }
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .frame {
+    position: relative;
+    width: 100%;
+    height: 480px;
+    background: #181b27;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .readouts {
+    background: #181b27;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+  }
+  .readouts h3 {
+    margin: 0 0 10px 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: #8a8e9a;
+    text-transform: uppercase;
+  }
+  .readouts table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .readouts td {
+    padding: 5px 0;
+    border-bottom: 1px dashed rgba(255,255,255,0.06);
+  }
+  .readouts tr:last-child td { border-bottom: none; }
+  .readouts td.lbl { color: #8a8e9a; padding-right: 8px; }
+  .readouts td.val { color: #f0f0f0; text-align: right; }
+
+  .eventlog {
+    margin-top: 14px;
+    background: #181b27;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    height: 160px;
+    overflow-y: auto;
+  }
+  .eventlog .ev {
+    color: #c8ccd4;
+    margin-bottom: 2px;
+    white-space: nowrap;
+  }
+  .eventlog .ev .t { color: #6a6e7a; }
+
+  footer {
+    margin-top: 14px;
+    font-size: 11px;
+    color: #6a6e7a;
+    text-align: center;
+    letter-spacing: 0.3px;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <h1>Signal Generator — Test Page</h1>
+    <div class="subtitle">/_shared/measurement-tools/signal-generator  ·  range: 0–20 Hz  ·  minor step: 0.5 Hz</div>
+
+    <div class="instructions">
+      <strong>What to test:</strong>
+      <ul>
+        <li><strong>Body drag:</strong> click anywhere on the panel <em>outside</em> the sliders and power toggle, drag. Panel should follow your cursor inside the dark frame.</li>
+        <li><strong>Frequency slider:</strong> drag the thumb left/right. The white fiducial line on the thumb is what the student reads against the tick scale above. Reading uncertainty is ±0.25 Hz (half the 0.5 Hz minor tick spacing). The fiducial should align with the scale visually as you drag.</li>
+        <li><strong>Click-to-jump:</strong> click anywhere on the frequency track (not on the thumb). Thumb should jump to that x position. Continue dragging from there.</li>
+        <li><strong>Amplitude slider:</strong> same drag and click-to-jump behavior. No ticks, no readout — pure gradient bar.</li>
+        <li><strong>Power toggle:</strong> click the red OFF button. Should turn green and read ON. Click again → red OFF. The frequency and amplitude values should NOT change when toggling power.</li>
+        <li><strong>Live readout (right panel):</strong> watch <code>getFrequency()</code>, <code>getAmplitude()</code>, and <code>isOn()</code> update as you interact. <code>getReadingUncertainty()</code> stays constant at ±0.25 Hz.</li>
+        <li><strong>Event log (right panel, below readout):</strong> every change should append a line. Verify <code>onChange</code> fires for all three inputs.</li>
+        <li><strong>Touch:</strong> open this page on a phone. Body drag, slider drag, click-to-jump, and power toggle should all work via touch.</li>
+        <li><strong>Idle:</strong> leave the page idle for 60 seconds. No flicker, no console errors, panel state stable.</li>
+        <li><strong>Rapid input:</strong> drag the frequency slider rapidly back and forth for ~10 seconds. No leaks, no freezes, thumb stays in sync with pointer.</li>
+      </ul>
+    </div>
+
+    <div class="layout">
+      <div class="frame" id="frame"></div>
+
+      <div>
+        <div class="readouts">
+          <h3>Live readout</h3>
+          <table>
+            <tr><td class="lbl">getFrequency()</td>          <td class="val" id="r-freq">—</td></tr>
+            <tr><td class="lbl">getReadingUncertainty()</td> <td class="val" id="r-unc">—</td></tr>
+            <tr><td class="lbl">getAmplitude()</td>          <td class="val" id="r-amp">—</td></tr>
+            <tr><td class="lbl">isOn()</td>                  <td class="val" id="r-on">—</td></tr>
+          </table>
+        </div>
+        <div class="eventlog" id="eventlog">
+          <div class="ev"><span class="t">[ready]</span> waiting for onChange events…</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>Mr. Frohlich Math and Physics  ·  Measurement-tool module v1</footer>
+  </div>
+
+  <script src="./signal-generator.js"></script>
+  <script>
+    const sg = new SignalGenerator({
+      container:        document.getElementById('frame'),
+      x: 60, y: 80,
+      minHz: 0, maxHz: 20,
+      majorStep: 2, minorStep: 0.5,
+      defaultFrequency: 0,
+      defaultAmplitude: 0.5,
+      defaultOn: false
+    });
+
+    const rFreq = document.getElementById('r-freq');
+    const rUnc  = document.getElementById('r-unc');
+    const rAmp  = document.getElementById('r-amp');
+    const rOn   = document.getElementById('r-on');
+    const log   = document.getElementById('eventlog');
+
+    function refresh() {
+      rFreq.textContent = sg.getFrequency().toFixed(3) + ' Hz';
+      rUnc.textContent  = '± ' + sg.getReadingUncertainty().toFixed(2) + ' Hz';
+      rAmp.textContent  = sg.getAmplitude().toFixed(3);
+      rOn.textContent   = sg.isOn() ? 'true' : 'false';
+    }
+    refresh();
+
+    sg.onChange(({frequency, amplitude, isOn}) => {
+      refresh();
+      const t = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = 'ev';
+      div.innerHTML = `<span class="t">[${t}]</span> `
+        + `f=${frequency.toFixed(2)}Hz  A=${amplitude.toFixed(2)}  on=${isOn}`;
+      log.insertBefore(div, log.firstChild);
+      // Cap log length so it doesn't grow unbounded during rapid drag
+      while (log.childNodes.length > 80) log.removeChild(log.lastChild);
+    });
+  </script>
+</body>
+</html>
