@@ -52,7 +52,7 @@
     display: block;
     width: 100%;
     height: auto;
-    aspect-ratio: 1080 / 350;
+    aspect-ratio: 1080 / 500;
   }
   .string-pane { /* relative for absolutely-positioned tools and transient msg */ }
   .transient-msg {
@@ -255,8 +255,8 @@
       <!-- Row 2: Tension -->
       <div class="controls-row">
         <span class="control-label">TENSION:</span>
-        <input type="range" id="tension-slider" min="1.0" max="50.0" step="0.1" value="10.0">
-        <span class="readout" id="tension-readout">T = 10.0 &plusmn; 0.60 N</span>
+        <input type="range" id="tension-slider" min="1.0" max="50.0" step="0.1" value="3.0">
+        <span class="readout" id="tension-readout">T = 3.0 &plusmn; 0.53 N</span>
       </div>
 
       <!-- Row 3: Linear density -->
@@ -279,6 +279,7 @@
         <button id="step-forward-btn" disabled>Step &#9654;</button>
         <span class="speed-label">SPEED:</span>
         <div class="seg-toggle">
+          <button class="seg-btn speed-btn" data-speed="0.125">&#8539;&times;</button>
           <button class="seg-btn speed-btn" data-speed="0.25">&frac14;&times;</button>
           <button class="seg-btn speed-btn" data-speed="0.5">&frac12;&times;</button>
           <button class="seg-btn speed-btn active" data-speed="1">1&times;</button>
@@ -306,10 +307,10 @@
 // CONSTANTS
 // ============================================================
 const CANVAS_W = 1080;
-const CANVAS_H = 350;
+const CANVAS_H = 500;
 const X_SOURCE = 58;
-const Y_MID    = 175;
-const PX_PER_M = 600;
+const Y_MID    = 250;
+const PX_PER_M = 300;
 
 // Wave / pulse visualization
 const PULSE_SIGMA_PX = 30;
@@ -327,7 +328,7 @@ const STROKE_MAX = 3.75;
 
 // Marker geometry
 const MARKER_DEFAULT_X = [250, 480, 710, 940];
-const MARKER_DEFAULT_Y = [115, 145, 205, 235];
+const MARKER_DEFAULT_Y = [190, 220, 280, 310];
 const DISC_R           = 12;
 const X_BADGE_R        = 6;
 const MARKER_HIT       = 12;
@@ -370,7 +371,7 @@ const state = {
   f_atLastChange: 10.0,                  // freq value used since the last change
 
   // Physics knobs
-  T: 10.0,
+  T: 3.0,
   muIdx: 3,                              // index into MU_VALUES (default 3 → 0.080)
   damping: 0,
 
@@ -908,8 +909,8 @@ resetBtn.addEventListener('click', () => {
   });
 
   // Physics knobs defaults
-  state.T = 10.0;
-  tensionSlider.value = 10.0;
+  state.T = 3.0;
+  tensionSlider.value = 3.0;
   updateTensionReadout();
   state.muIdx = 3;
   muSlider.value = 3;
@@ -1024,25 +1025,25 @@ const stringPane = document.getElementById('string-pane');
 
 new Ruler({
   container:      stringPane,
-  x: 80, y: 36,
+  x: 80, y: 30,
   orientation:    'horizontal',
-  pixelsPerMeter: 600,
-  lengthMeters:   1.0,
+  pixelsPerMeter: 300,
+  lengthMeters:   2.0,
   thicknessPx:    36
 });
 
 new Ruler({
   container:      stringPane,
-  x: 1020, y: 50,
+  x: 1020, y: 30,
   orientation:    'vertical',
-  pixelsPerMeter: 600,
-  lengthMeters:   0.4,
+  pixelsPerMeter: 300,
+  lengthMeters:   0.7,
   thicknessPx:    36
 });
 
 new Stopwatch({
   container:  stringPane,
-  x: 860, y: 36,
+  x: 860, y: 30,
   maxSeconds: 10,
   size: 140
 });
