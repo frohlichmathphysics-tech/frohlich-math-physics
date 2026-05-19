@@ -15,7 +15,9 @@
     <p class="applet__caption">
       Frequency is the identity of a light wave — it sets the color and is
       conserved across the boundary between media. Wavelength and speed
-      change between media; frequency does not.
+      change between media; frequency does not. Below, a continuous wave
+      and a single pulse cross from Medium 1 into Medium 2 and back into
+      Medium 1.
     </p>
   </header>
 
@@ -51,17 +53,25 @@
   </section>
 
   <section class="stage" aria-label="Wave visualization">
-    <canvas id="wave" width="900" height="360" aria-hidden="true"></canvas>
+    <canvas id="wave" width="900" height="600" aria-hidden="true"></canvas>
   </section>
 
   <div class="toolbar">
+    <button id="btn-pulse" type="button" aria-label="Emit a light pulse">
+      <span class="toolbar__icon" aria-hidden="true">●</span>
+      <span class="toolbar__label">Pulse</span>
+    </button>
     <button id="btn-pause" type="button" aria-pressed="false" aria-label="Pause wave animation">
       <span class="toolbar__icon" aria-hidden="true">❚❚</span>
       <span class="toolbar__label">Pause</span>
     </button>
+    <button id="btn-toggle-values" type="button" aria-pressed="true" aria-label="Hide numerical values">
+      <span class="toolbar__icon" aria-hidden="true">▾</span>
+      <span class="toolbar__label">Hide values</span>
+    </button>
   </div>
 
-  <section class="readouts" aria-label="Numerical results">
+  <section class="readouts" id="readouts" aria-label="Numerical results">
 
     <div class="medium medium--1">
       <h2>Medium 1</h2>
@@ -78,6 +88,15 @@
         <dt>v<sub>2</sub></dt><dd id="readout-v2">2.00 × 10⁸ m/s</dd>
         <dt>f<sub>2</sub></dt><dd id="readout-f2">5.45 × 10¹⁴ Hz</dd>
         <dt>λ<sub>2</sub></dt><dd id="readout-lambda2">367 nm</dd>
+      </dl>
+    </div>
+
+    <div class="medium medium--3">
+      <h2>Medium 1</h2>
+      <dl>
+        <dt>v<sub>3</sub></dt><dd id="readout-v3">3.00 × 10⁸ m/s</dd>
+        <dt>f<sub>3</sub></dt><dd id="readout-f3">5.45 × 10¹⁴ Hz</dd>
+        <dt>λ<sub>3</sub></dt><dd id="readout-lambda3">550 nm</dd>
       </dl>
     </div>
 

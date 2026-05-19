@@ -6,8 +6,8 @@
 :root {
   /* Surfaces */
   --bg:           #FAF8F5;   /* page parchment */
-  --bg-medium-1:  #EFF2F5;   /* cool tint, left side */
-  --bg-medium-2:  #F5EFE6;   /* warm tint, right side */
+  --bg-medium-1:  #EFF2F5;   /* cool tint, Medium 1 (left and right regions) */
+  --bg-medium-2:  #F5EFE6;   /* warm tint, Medium 2 (middle region) */
   --surface:      #FFFFFF;
   --border:       #DDD7CC;
 
@@ -188,16 +188,17 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 5 / 2;
+  aspect-ratio: 3 / 2;
 }
 
 /* -------------------------------------------------------------
-   Toolbar (pause/resume)
+   Toolbar (pulse / pause / show-hide values)
    ------------------------------------------------------------- */
 .toolbar {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  gap: 10px;
   margin-top: 12px;
 }
 
@@ -246,17 +247,28 @@ body.reduced-motion .toolbar { display: none; }
 }
 
 /* -------------------------------------------------------------
-   Numerical readouts
+   Numerical readouts (three regions)
    ------------------------------------------------------------- */
 .readouts {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 1px;
   margin-top: 18px;
   background: var(--border);
   border: 1px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
+  transition: opacity 0.2s ease, max-height 0.25s ease, margin-top 0.2s ease;
+  max-height: 400px;
+}
+
+.readouts[hidden] {
+  display: grid;          /* keep grid for animation; reverse default `display:none` */
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+  border-color: transparent;
+  pointer-events: none;
 }
 
 .medium {
@@ -265,6 +277,7 @@ body.reduced-motion .toolbar { display: none; }
 
 .medium--1 { background: var(--bg-medium-1); }
 .medium--2 { background: var(--bg-medium-2); }
+.medium--3 { background: var(--bg-medium-1); }   /* same as Medium 1 — that IS the lesson */
 
 .medium h2 {
   font-family: var(--font-serif);
@@ -312,4 +325,5 @@ body.reduced-motion .toolbar { display: none; }
   .readouts { grid-template-columns: 1fr; }
   .medium { padding: 14px 16px; }
   .medium dl { font-size: 0.9rem; }
+  .toolbar { flex-wrap: wrap; }
 }
