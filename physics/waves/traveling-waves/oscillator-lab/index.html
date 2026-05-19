@@ -77,15 +77,24 @@
     opacity: 1;
     transition: opacity 0.2s ease;
   }
-  .generator-slot {
+  .instrument-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 16px;
+    margin: 0 auto 12px auto;
+  }
+  .sg-slot {
+    position: relative;
     width: 600px;
     height: 200px;
-    margin: 0 auto 12px auto;
+  }
+  .stopwatch-slot {
     position: relative;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    overflow: visible;
+    width: 150px;
+    height: 200px;
+    overflow: hidden;
   }
   .controls {
     background: #FFFFFF;
@@ -234,8 +243,11 @@
     <div class="transient-msg" id="transient-msg">Medium changed — wave reset</div>
   </div>
 
-  <!-- ───────── SIGNAL GENERATOR SLOT ───────── -->
-  <div class="generator-slot" id="generator-slot"></div>
+  <!-- ───────── INSTRUMENT ROW: SIGNAL GENERATOR + STOPWATCH ───────── -->
+  <div class="instrument-row">
+    <div class="sg-slot" id="generator-slot"></div>
+    <div class="stopwatch-slot" id="stopwatch-slot"></div>
+  </div>
 
   <!-- ───────── MAIN CONTROLS ───────── -->
   <div class="controls">
@@ -1042,10 +1054,10 @@ new Ruler({
 });
 
 new Stopwatch({
-  container:  stringPane,
-  x: 860, y: 30,
+  container:  document.getElementById('stopwatch-slot'),
+  x: 0, y: 0,
   maxSeconds: 10,
-  size: 140
+  size: 150
 });
 
 // ============================================================
