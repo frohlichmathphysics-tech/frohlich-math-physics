@@ -379,7 +379,14 @@ function drawPane() {
   if (boundary === 'fixed') drawFixedWall();
   else                      drawFreeRod();
 
-  // 7. Ghost pulse curve
+  // 7. Ghost pulse curve — IMAGE-METHOD PHANTOM (lives in virtual region x > L)
+  //    The phantom is a left-moving mirror image of the incident pulse, born at
+  //    x = 2L - x0 at t = t_birth, sliding leftward at speed c toward the wall.
+  //    Sign rule (so that incident + phantom satisfies the boundary at x = L):
+  //      Fixed end (y(L,t)=0):     phantom is OPPOSITE sign → cancels at wall
+  //      Free  end (∂y/∂x|L = 0):  phantom is SAME sign     → doubles at wall
+  //    When the phantom crosses x = L, it becomes the reflected pulse on the
+  //    physical string. This is the visible mechanism for WHY reflection works.
   if (state.showGhost && state.pulses.length > 0) {
     ctx.save();
     ctx.strokeStyle = COLOR_GHOST;
@@ -392,9 +399,13 @@ function drawPane() {
     let started = false;
     for (let i = 0; i <= N_GHOST_SAMPLES; i++) {
       const x = x_start + (i / N_GHOST_SAMPLES) * (x_end - x_start);
-      let y_inc_sum = 0;
-      for (const p of state.pulses) y_inc_sum += incidentY(p, x, state.time);
-      const yScreen = Y_MID - y_inc_sum;
+      let y_image_sum = 0;
+      // reflectedY evaluated at x > L gives the image/phantom wave in the
+      // virtual region. Depends on `boundary` so the sign auto-flips on toggle.
+      for (const p of state.pulses) {
+        y_image_sum += reflectedY(p, x, state.time, boundary);
+      }
+      const yScreen = Y_MID - y_image_sum;
       if (!started) { ctx.moveTo(x, yScreen); started = true; }
       else          { ctx.lineTo(x, yScreen); }
     }
