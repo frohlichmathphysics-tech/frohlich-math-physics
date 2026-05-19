@@ -211,8 +211,9 @@ class SignalGenerator {
     this._dragOffsetX = 0;
     this._dragOffsetY = 0;
 
-    // Change callback
+    // Change callback + last-emitted state (for no-op suppression)
     this._changeCallback = null;
+    this._lastEmitted    = null;
 
     this._buildDOM();
     this._attachEvents();
@@ -533,13 +534,28 @@ class SignalGenerator {
   }
 
   _emitChange() {
-    if (this._changeCallback) {
-      this._changeCallback({
-        frequency: this.frequency,
-        amplitude: this.amplitude,
-        isOn:      this._isOn
-      });
+    if (!this._changeCallback) return;
+
+    const state = {
+      frequency: this.frequency,
+      amplitude: this.amplitude,
+      isOn:      this._isOn
+    };
+
+    // No-op suppression: skip if the state tuple is identical to the
+    // last emitted one. Prevents host spam from redundant calls (e.g.,
+    // clicking the freq track at the current thumb position, or any
+    // pointer event that re-runs the computation without an actual
+    // state change).
+    if (this._lastEmitted !== null
+        && this._lastEmitted.frequency === state.frequency
+        && this._lastEmitted.amplitude === state.amplitude
+        && this._lastEmitted.isOn      === state.isOn) {
+      return;
     }
+
+    this._lastEmitted = state;
+    this._changeCallback(state);
   }
 
   // ── Events ────────────────────────────────────────────────────────────
