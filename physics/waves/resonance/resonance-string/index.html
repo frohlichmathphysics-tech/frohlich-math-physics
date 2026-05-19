@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resonance — Standing Waves on a Fixed String</title>
+<style>
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #FAF3DE;
+    color: #1E2A5C;
+  }
+  h1 {
+    margin: 0 0 12px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1E2A5C;
+    letter-spacing: 0.02em;
+  }
+  .app {
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  .pane {
+    position: relative;
+    background: #FAF3DE;
+    border: 1px solid #DDD8C0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .pane-header {
+    position: relative;
+    height: 26px;
+    background: #FFFFFF;
+    border-bottom: 1px solid #DDD8C0;
+  }
+  .wall-label {
+    position: absolute;
+    top: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: #1E2A5C;
+    transform: translateX(-50%);
+  }
+  .wall-label-left  { left: 5%; }
+  .wall-label-right { left: 95%; }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1080 / 350;
+  }
+  .controls {
+    background: #FFFFFF;
+    border: 1px solid #DDD8C0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .controls-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+  }
+  .controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px 14px;
+    border-radius: 4px;
+    border: 1.5px solid #1E2A5C;
+    background: #FFFFFF;
+    color: #1E2A5C;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.1s, color 0.1s;
+  }
+  button:hover:not(:disabled) {
+    background: #1E2A5C;
+    color: #FFFFFF;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  #pulse-btn {
+    background: #1E2A5C;
+    color: #FFFFFF;
+    font-size: 15px;
+    padding: 10px 18px;
+  }
+  #pulse-btn:hover:not(:disabled) { background: #2A3A7C; }
+  .seg-toggle {
+    display: inline-flex;
+    border: 1.5px solid #1E2A5C;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .seg-btn {
+    border: none;
+    border-radius: 0;
+    padding: 8px 12px;
+    background: #FFFFFF;
+    color: #1E2A5C;
+  }
+  .seg-btn.active {
+    background: #1E2A5C;
+    color: #FFFFFF;
+  }
+  .seg-btn:hover:not(.active) {
+    background: #E8E0C4;
+    color: #1E2A5C;
+  }
+  #play-pause-btn.running {
+    background: #a8222a;
+    color: #FFFFFF;
+    border-color: #a8222a;
+  }
+  #play-pause-btn.running:hover { background: #8b1c23; }
+  #play-pause-btn.paused {
+    background: #1f6b3d;
+    color: #FFFFFF;
+    border-color: #1f6b3d;
+  }
+  #play-pause-btn.paused:hover { background: #195530; }
+  .pulse-counter {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1E2A5C;
+    padding: 6px 12px;
+    border-radius: 4px;
+    background: #F5EFD4;
+    border: 1px solid #DDD8C0;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+  .pulse-counter.full {
+    background: #C00000;
+    color: #FFFFFF;
+    border-color: #C00000;
+  }
+  .control-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: #1E2A5C;
+  }
+  .launch-slider {
+    flex: 1;
+    max-width: 320px;
+    accent-color: #2E8B8B;
+    cursor: pointer;
+  }
+  .launch-readout {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1E2A5C;
+    min-width: 60px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .speed-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: #1E2A5C;
+    margin-left: 6px;
+  }
+  .footnote {
+    font-size: 12px;
+    font-style: italic;
+    color: #1E2A5C;
+    padding: 8px 12px 10px 12px;
+    background: #FFFFFF;
+    border-top: 1px dashed #DDD8C0;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Resonance — Standing Waves on a Fixed String</h1>
+
+  <div class="pane">
+    <div class="pane-header">
+      <span class="wall-label wall-label-left">L WALL</span>
+      <span class="wall-label wall-label-right">R WALL</span>
+    </div>
+    <canvas id="main-canvas"></canvas>
+  </div>
+
+  <div class="controls">
+    <div class="controls-inner">
+      <div class="controls-row">
+        <button id="pulse-btn">+ Pulse</button>
+        <div class="seg-toggle">
+          <button class="seg-btn sign-btn active" data-sign="1">&#8593; Up</button>
+          <button class="seg-btn sign-btn" data-sign="-1">&#8595; Down</button>
+        </div>
+        <span class="pulse-counter" id="pulse-counter">0 / 8</span>
+      </div>
+      <div class="controls-row">
+        <button id="play-pause-btn" class="running">&#9208; Pause</button>
+        <button id="step-back-btn" disabled>&#9664; Step</button>
+        <button id="step-forward-btn" disabled>Step &#9654;</button>
+        <span class="speed-label">SPEED:</span>
+        <div class="seg-toggle">
+          <button class="seg-btn speed-btn" data-speed="0.25">&frac14;&times;</button>
+          <button class="seg-btn speed-btn" data-speed="0.5">&frac12;&times;</button>
+          <button class="seg-btn speed-btn active" data-speed="1">1&times;</button>
+        </div>
+        <button id="reset-btn">Reset</button>
+      </div>
+      <div class="controls-row">
+        <span class="control-label">LAUNCH POSITION:</span>
+        <input type="range" id="launch-slider" class="launch-slider" min="0.1" max="0.9" step="0.01" value="0.25">
+        <span class="launch-readout" id="launch-readout">0.25 L</span>
+      </div>
+    </div>
+    <div class="footnote">
+      A pluck really makes two pulses; we show only the right-going half for clarity.
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const CANVAS_W = 1080;
+const CANVAS_H = 350;
+const X_L_WALL = 58;                       // inside face of left wall  (wall occupies x = 50..58)
+const X_R_WALL = 1022;                     // inside face of right wall (wall occupies x = 1022..1030)
+const L_PHYS   = X_R_WALL - X_L_WALL;      // = 964
+const Y_MID    = 175;                      // equilibrium
+
+// Pulse physics
+const PULSE_A      = 20;
+const PULSE_SIGMA  = 30;
+const WAVE_SPEED   = 200;                  // px / s
+const N_IMAGES_HALF = 4;                   // 9 image terms per pulse evaluation
+
+// Visualization
+const N_DOTS    = 40;
+const N_SAMPLES = 300;
+const MAX_PULSES = 8;
+
+// Locked palette
+const COLOR_BG       = '#FAF3DE';
+const COLOR_STRING   = '#1E2A5C';
+const COLOR_DOT      = '#2E8B8B';
+const COLOR_LAUNCH   = '#2E8B8B';
+const COLOR_WALL     = '#000000';
+const COLOR_REF_LINE = '#D6CFB0';
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  pulses: [],            // each: {x_launch, sign, t_birth}
+  time: 0,
+  running: true,
+  pulseSign: 1,
+  launchFraction: 0.25,
+  timeScale: 1.0,
+};
+let lastFrameTime = null;
+
+// ============================================================
+// PHYSICS — Image method for two Dirichlet walls
+// ============================================================
+// For a right-moving Gaussian pulse launched at x_launch (sign s) at time
+// t_birth, the displacement at (x, t) on a string with fixed walls at
+// x = X_L_WALL and x = X_R_WALL is:
+//
+//   y(x, t) = s · Σ_n [profile(x - x_launch - c·Δt - 2nL)
+//                     - profile(2·X_L_WALL - x - x_launch - c·Δt - 2nL)]
+//
+// where Δt = t - t_birth and L = X_R_WALL - X_L_WALL. The first term is the
+// periodic train of right-moving image copies; the second is the train of
+// inverted left-moving image copies that enforces y = 0 at both walls.
+//
+// The sum is truncated to n ∈ [n_center ± N_IMAGES_HALF] where
+// n_center = round(-c·Δt / 2L), which tracks the wall-bounce count so the
+// dominant images are always inside the window regardless of elapsed time.
+
+function pulseProfile(u) {
+  const r = u / PULSE_SIGMA;
+  if (r > 5 || r < -5) return 0;     // > 5σ contributes < 1.4e-11
+  return PULSE_A * Math.exp(-(r * r));
+}
+
+function singlePulseY(p, x, t) {
+  const dt = t - p.t_birth;
+  if (dt < 0) return 0;
+  const n_center = Math.round(-WAVE_SPEED * dt / (2 * L_PHYS));
+  let y = 0;
+  for (let dn = -N_IMAGES_HALF; dn <= N_IMAGES_HALF; dn++) {
+    const n = n_center + dn;
+    const shift = WAVE_SPEED * dt + 2 * n * L_PHYS;
+    y += pulseProfile(x - p.x_launch - shift)
+       - pulseProfile(2 * X_L_WALL - x - p.x_launch - shift);
+  }
+  return p.sign * y;
+}
+
+function totalY(x, t, pulses) {
+  let y = 0;
+  for (const p of pulses) y += singlePulseY(p, x, t);
+  return y;
+}
+
+// ============================================================
+// CANVAS (DPR-aware)
+// ============================================================
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  let cssW = rect.width;
+  let cssH = rect.height;
+  if (!cssW || !cssH) { cssW = CANVAS_W; cssH = CANVAS_H; }
+  canvas.width  = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(canvas.width / CANVAS_W, 0, 0, canvas.height / CANVAS_H, 0, 0);
+  return ctx;
+}
+
+const mainCanvas = document.getElementById('main-canvas');
+let ctx = setupCanvas(mainCanvas);
+window.addEventListener('resize', () => { ctx = setupCanvas(mainCanvas); });
+
+// ============================================================
+// DRAWING
+// ============================================================
+function drawPane() {
+  // 1. Background
+  ctx.fillStyle = COLOR_BG;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // 2. Equilibrium reference line
+  ctx.strokeStyle = COLOR_REF_LINE;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(X_L_WALL, Y_MID);
+  ctx.lineTo(X_R_WALL, Y_MID);
+  ctx.stroke();
+
+  // 3. Bold string curve
+  ctx.strokeStyle = COLOR_STRING;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i <= N_SAMPLES; i++) {
+    const x = X_L_WALL + (i / N_SAMPLES) * L_PHYS;
+    const y = Y_MID - totalY(x, state.time, state.pulses);
+    if (i === 0) ctx.moveTo(x, y);
+    else         ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // 4. Particle dots
+  ctx.fillStyle = COLOR_DOT;
+  for (let i = 0; i < N_DOTS; i++) {
+    const x = X_L_WALL + ((i + 0.5) / N_DOTS) * L_PHYS;
+    const y = Y_MID - totalY(x, state.time, state.pulses);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 5. Walls
+  drawWall(50, true);     // left wall  — hatches go down-left
+  drawWall(1022, false);  // right wall — hatches go down-right
+
+  // 6. Launch indicator
+  drawLaunchIndicator();
+}
+
+function drawWall(wallStartX, hatchesLeft) {
+  const wallW = 8;
+  ctx.fillStyle = COLOR_WALL;
+  ctx.fillRect(wallStartX, 0, wallW, CANVAS_H);
+  ctx.strokeStyle = COLOR_WALL;
+  ctx.lineWidth = 1;
+  const startX = hatchesLeft ? wallStartX : wallStartX + wallW;
+  const dx     = hatchesLeft ? -12 : 12;
+  for (let yy = -12; yy < CANVAS_H + 12; yy += 12) {
+    ctx.beginPath();
+    ctx.moveTo(startX, yy);
+    ctx.lineTo(startX + dx, yy + 9);
+    ctx.stroke();
+  }
+}
+
+function drawLaunchIndicator() {
+  const xLaunch = X_L_WALL + state.launchFraction * L_PHYS;
+  ctx.save();
+  ctx.globalAlpha = 0.8;
+  ctx.fillStyle = COLOR_LAUNCH;
+  ctx.beginPath();
+  ctx.moveTo(xLaunch,     Y_MID + 14);
+  ctx.lineTo(xLaunch - 8, Y_MID + 24);
+  ctx.lineTo(xLaunch + 8, Y_MID + 24);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+function update(dt) {
+  if (state.running) state.time += dt * state.timeScale;
+}
+
+function render() { drawPane(); }
+
+function frame(now) {
+  if (lastFrameTime === null) lastFrameTime = now;
+  let dt = (now - lastFrameTime) / 1000;
+  if (dt > 0.05) dt = 0.05;
+  lastFrameTime = now;
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+
+// ============================================================
+// CONTROLS
+// ============================================================
+const pulseBtn       = document.getElementById('pulse-btn');
+const pulseCounter   = document.getElementById('pulse-counter');
+const playPauseBtn   = document.getElementById('play-pause-btn');
+const stepBackBtn    = document.getElementById('step-back-btn');
+const stepForwardBtn = document.getElementById('step-forward-btn');
+const launchSlider   = document.getElementById('launch-slider');
+const launchReadout  = document.getElementById('launch-readout');
+
+function updatePulseCounter() {
+  const n = state.pulses.length;
+  pulseCounter.textContent = n + ' / ' + MAX_PULSES;
+  pulseCounter.classList.toggle('full', n >= MAX_PULSES);
+  pulseBtn.disabled = n >= MAX_PULSES;
+}
+
+function updateStepButtonStates() {
+  stepForwardBtn.disabled = state.running;
+  stepBackBtn.disabled    = state.running || state.time <= 0;
+}
+
+pulseBtn.addEventListener('click', () => {
+  if (state.pulses.length >= MAX_PULSES) return;
+  state.pulses.push({
+    x_launch: X_L_WALL + state.launchFraction * L_PHYS,
+    sign:     state.pulseSign,
+    t_birth:  state.time,
+  });
+  updatePulseCounter();
+});
+
+document.querySelectorAll('.sign-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sign-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.pulseSign = parseInt(btn.dataset.sign, 10);
+  });
+});
+
+document.querySelectorAll('.speed-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.timeScale = parseFloat(btn.dataset.speed);
+  });
+});
+
+playPauseBtn.addEventListener('click', () => {
+  state.running = !state.running;
+  if (state.running) {
+    playPauseBtn.innerHTML = '&#9208; Pause';
+    playPauseBtn.classList.remove('paused');
+    playPauseBtn.classList.add('running');
+    lastFrameTime = null;
+  } else {
+    playPauseBtn.innerHTML = '&#9654; Start';
+    playPauseBtn.classList.remove('running');
+    playPauseBtn.classList.add('paused');
+  }
+  updateStepButtonStates();
+});
+
+stepForwardBtn.addEventListener('click', () => {
+  if (state.running) return;
+  state.time += (1 / 60) * state.timeScale;
+  updateStepButtonStates();
+  render();
+});
+
+stepBackBtn.addEventListener('click', () => {
+  if (state.running) return;
+  state.time -= (1 / 60) * state.timeScale;
+  if (state.time < 0) state.time = 0;
+  updateStepButtonStates();
+  render();
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  state.pulses = [];
+  state.time = 0;
+  updatePulseCounter();
+  updateStepButtonStates();
+  render();
+});
+
+launchSlider.addEventListener('input', (e) => {
+  state.launchFraction = parseFloat(e.target.value);
+  launchReadout.textContent = state.launchFraction.toFixed(2) + ' L';
+});
+
+updatePulseCounter();
+updateStepButtonStates();
+render();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
