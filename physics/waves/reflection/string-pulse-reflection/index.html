@@ -217,7 +217,8 @@ const X0 = -150;               // pulse launch position (5σ left of canvas)
 // Visualization
 const N_DOTS = 30;             // particle dots along string
 const N_SAMPLES = 240;         // sample points for string polyline
-const N_GHOST_SAMPLES = 90;    // sample points for ghost continuation
+const N_GHOST_SAMPLES = 90;    // sample points for ghost continuation (legacy, retained)
+const N_COMPONENT_SAMPLES = 320; // full-width samples for faded component curves (v4)
 
 // State-dependent thresholds
 const IMPACT_WINDOW = 0.25;    // seconds — force arrow visibility window
@@ -231,6 +232,7 @@ const COLOR_RING = '#2E8B8B';
 const COLOR_FORCE_ARROW = '#C00000';
 const COLOR_VELOCITY_ARROW = '#2E8B8B';
 const COLOR_GHOST = '#2E8B8B';
+const COLOR_GHOST_INCIDENT = '#4A5A8C';  // faded navy for incident component (v4)
 const COLOR_WALL = '#000000';
 const COLOR_ROD = '#3A3A3A';
 const COLOR_REF_LINE = '#D6CFB0';
@@ -353,7 +355,62 @@ function drawPane() {
     ctx.setLineDash([]);
   }
 
-  // 4. String curve
+  // 4. IMAGE-METHOD DECOMPOSITION (v4) — when Ghost is ON, draw the two
+  //    components that sum to the actual string. Drawn BEFORE the bold string
+  //    so the bold string sits on top as the visible reality.
+  //
+  //    Faded incident component (long-dash navy): the right-moving pulse, as
+  //      if no wall existed. Visible across full canvas width.
+  //    Faded phantom component (short-dash teal):  the left-moving image pulse,
+  //      sign chosen so incident + phantom satisfies the boundary at x = L.
+  //      Fixed end → phantom inverted relative to incident (cancels at wall).
+  //      Free  end → phantom same sign as incident (doubles at wall).
+  //
+  //    Watching the two faded curves at the moment they meet at the wall shows
+  //    the algebra of the boundary condition directly: their sum IS the bold
+  //    string. After collision, the phantom continues into the physical region
+  //    AS the reflected pulse — the bold string overlays the phantom there.
+  if (state.showGhost && state.pulses.length > 0) {
+    const X_MAX = L + GHOST_STRIP_W;
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+
+    // 4a. Faded incident component (full width)
+    ctx.strokeStyle = COLOR_GHOST_INCIDENT;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath();
+    for (let i = 0; i <= N_COMPONENT_SAMPLES; i++) {
+      const x = (i / N_COMPONENT_SAMPLES) * X_MAX;
+      let y_inc_sum = 0;
+      for (const p of state.pulses) y_inc_sum += incidentY(p, x, state.time);
+      const yScreen = Y_MID - y_inc_sum;
+      if (i === 0) ctx.moveTo(x, yScreen);
+      else         ctx.lineTo(x, yScreen);
+    }
+    ctx.stroke();
+
+    // 4b. Faded phantom component (full width). Sign depends on boundary.
+    ctx.strokeStyle = COLOR_GHOST;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    for (let i = 0; i <= N_COMPONENT_SAMPLES; i++) {
+      const x = (i / N_COMPONENT_SAMPLES) * X_MAX;
+      let y_image_sum = 0;
+      for (const p of state.pulses) {
+        y_image_sum += reflectedY(p, x, state.time, boundary);
+      }
+      const yScreen = Y_MID - y_image_sum;
+      if (i === 0) ctx.moveTo(x, yScreen);
+      else         ctx.lineTo(x, yScreen);
+    }
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // 5. Bold actual string curve (physical region [0, L] only — this is the sum)
   ctx.strokeStyle = COLOR_STRING;
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -365,7 +422,7 @@ function drawPane() {
   }
   ctx.stroke();
 
-  // 5. Particle dots
+  // 6. Particle dots (on the bold actual string)
   ctx.fillStyle = COLOR_DOT;
   for (let i = 0; i < N_DOTS; i++) {
     const x = ((i + 0.5) / N_DOTS) * L;
@@ -375,45 +432,11 @@ function drawPane() {
     ctx.fill();
   }
 
-  // 6. Boundary
+  // 7. Boundary (drawn over components — wall is opaque at x = L to L+5)
   if (boundary === 'fixed') drawFixedWall();
   else                      drawFreeRod();
 
-  // 7. Ghost pulse curve — IMAGE-METHOD PHANTOM (lives in virtual region x > L)
-  //    The phantom is a left-moving mirror image of the incident pulse, born at
-  //    x = 2L - x0 at t = t_birth, sliding leftward at speed c toward the wall.
-  //    Sign rule (so that incident + phantom satisfies the boundary at x = L):
-  //      Fixed end (y(L,t)=0):     phantom is OPPOSITE sign → cancels at wall
-  //      Free  end (∂y/∂x|L = 0):  phantom is SAME sign     → doubles at wall
-  //    When the phantom crosses x = L, it becomes the reflected pulse on the
-  //    physical string. This is the visible mechanism for WHY reflection works.
-  if (state.showGhost && state.pulses.length > 0) {
-    ctx.save();
-    ctx.strokeStyle = COLOR_GHOST;
-    ctx.lineWidth = 2;
-    ctx.globalAlpha = 0.55;
-    ctx.setLineDash([6, 4]);
-    ctx.beginPath();
-    const x_start = L + 8;
-    const x_end = L + GHOST_STRIP_W;
-    let started = false;
-    for (let i = 0; i <= N_GHOST_SAMPLES; i++) {
-      const x = x_start + (i / N_GHOST_SAMPLES) * (x_end - x_start);
-      let y_image_sum = 0;
-      // reflectedY evaluated at x > L gives the image/phantom wave in the
-      // virtual region. Depends on `boundary` so the sign auto-flips on toggle.
-      for (const p of state.pulses) {
-        y_image_sum += reflectedY(p, x, state.time, boundary);
-      }
-      const yScreen = Y_MID - y_image_sum;
-      if (!started) { ctx.moveTo(x, yScreen); started = true; }
-      else          { ctx.lineTo(x, yScreen); }
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  // 8. Ring (free only, after ghost)
+  // 8. Ring (free only, drawn after boundary so it sits on top)
   if (boundary === 'free') drawFreeRing();
 
   // 9. State-dependent arrows
