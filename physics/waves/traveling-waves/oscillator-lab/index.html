@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave on a String — Oscillator Lab</title>
+<style>
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #FAF3DE;
+    color: #1E2A5C;
+  }
+  h1 {
+    margin: 0 0 12px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1E2A5C;
+    letter-spacing: 0.02em;
+  }
+  .app {
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  .pane {
+    position: relative;
+    background: #FAF3DE;
+    border: 1px solid #DDD8C0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .pane-header {
+    position: relative;
+    height: 26px;
+    background: #FFFFFF;
+    border-bottom: 1px solid #DDD8C0;
+    text-align: center;
+  }
+  .header-label {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: #1E2A5C;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1080 / 350;
+  }
+  .string-pane { /* relative for absolutely-positioned tools and transient msg */ }
+  .transient-msg {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(250, 243, 222, 0.92);
+    color: #1E2A5C;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border: 1px solid #DDD8C0;
+    border-radius: 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 10;
+    white-space: nowrap;
+  }
+  .transient-msg.show {
+    opacity: 1;
+    transition: opacity 0.2s ease;
+  }
+  .generator-slot {
+    width: 600px;
+    height: 200px;
+    margin: 0 auto 12px auto;
+    position: relative;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+  .controls {
+    background: #FFFFFF;
+    border: 1px solid #DDD8C0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .controls-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+  }
+  .controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px 14px;
+    border-radius: 4px;
+    border: 1.5px solid #1E2A5C;
+    background: #FFFFFF;
+    color: #1E2A5C;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.1s, color 0.1s;
+  }
+  button:hover:not(:disabled) {
+    background: #1E2A5C;
+    color: #FFFFFF;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  #pulse-btn {
+    background: #1E2A5C;
+    color: #FFFFFF;
+    font-size: 15px;
+    padding: 10px 18px;
+  }
+  #pulse-btn:hover:not(:disabled) { background: #2A3A7C; }
+  .seg-toggle {
+    display: inline-flex;
+    border: 1.5px solid #1E2A5C;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .seg-btn {
+    border: none;
+    border-radius: 0;
+    padding: 8px 12px;
+    background: #FFFFFF;
+    color: #1E2A5C;
+    font-weight: 600;
+  }
+  .seg-btn.active {
+    background: #1E2A5C;
+    color: #FFFFFF;
+  }
+  .seg-btn:hover:not(.active) {
+    background: #E8E0C4;
+    color: #1E2A5C;
+  }
+  #play-pause-btn.running {
+    background: #a8222a;
+    color: #FFFFFF;
+    border-color: #a8222a;
+  }
+  #play-pause-btn.running:hover { background: #8b1c23; }
+  #play-pause-btn.paused {
+    background: #1f6b3d;
+    color: #FFFFFF;
+    border-color: #1f6b3d;
+  }
+  #play-pause-btn.paused:hover { background: #195530; }
+  .control-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: #1E2A5C;
+    min-width: 110px;
+  }
+  .speed-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: #1E2A5C;
+    margin-left: 6px;
+  }
+  input[type="range"] {
+    flex: 1;
+    max-width: 320px;
+    accent-color: #2E8B8B;
+    cursor: pointer;
+  }
+  .readout {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1E2A5C;
+    min-width: 220px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+  .marker-counter {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1E2A5C;
+    padding: 5px 10px;
+    border-radius: 4px;
+    background: #F5EFD4;
+    border: 1px solid #DDD8C0;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+  .marker-counter.full {
+    background: #C00000;
+    color: #FFFFFF;
+    border-color: #C00000;
+  }
+  .footnote {
+    font-size: 12px;
+    font-style: italic;
+    color: #1E2A5C;
+    padding: 8px 12px 10px 12px;
+    background: #FFFFFF;
+    border-top: 1px dashed #DDD8C0;
+    line-height: 1.45;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Wave on a String</h1>
+
+  <!-- ───────── STRING PANE ───────── -->
+  <div class="pane string-pane" id="string-pane">
+    <div class="pane-header">
+      <span class="header-label">WAVE ON A STRING</span>
+    </div>
+    <canvas id="main-canvas"></canvas>
+    <div class="transient-msg" id="transient-msg">Medium changed — wave reset</div>
+  </div>
+
+  <!-- ───────── SIGNAL GENERATOR SLOT ───────── -->
+  <div class="generator-slot" id="generator-slot"></div>
+
+  <!-- ───────── MAIN CONTROLS ───────── -->
+  <div class="controls">
+    <div class="controls-inner">
+
+      <!-- Row 1: Pulse-mode controls -->
+      <div class="controls-row" id="row-pulse">
+        <button id="pulse-btn">+ Pulse</button>
+        <div class="seg-toggle" id="sign-toggle">
+          <button class="seg-btn sign-btn active" data-sign="1">&#8593; Up</button>
+          <button class="seg-btn sign-btn" data-sign="-1">&#8595; Down</button>
+        </div>
+        <span class="control-label">PULSE AMP:</span>
+        <input type="range" id="pulse-amp-slider" min="0" max="1" step="0.01" value="0.5">
+      </div>
+
+      <!-- Row 2: Tension -->
+      <div class="controls-row">
+        <span class="control-label">TENSION:</span>
+        <input type="range" id="tension-slider" min="1.0" max="50.0" step="0.1" value="10.0">
+        <span class="readout" id="tension-readout">T = 10.0 &plusmn; 0.60 N</span>
+      </div>
+
+      <!-- Row 3: Linear density -->
+      <div class="controls-row">
+        <span class="control-label">LINEAR DENSITY:</span>
+        <input type="range" id="mu-slider" min="0" max="4" step="1" value="3">
+        <span class="readout" id="mu-readout">&mu; = 0.0800 &plusmn; 0.0080 kg/m</span>
+      </div>
+
+      <!-- Row 4: Damping -->
+      <div class="controls-row">
+        <span class="control-label">DAMPING:</span>
+        <input type="range" id="damping-slider" min="0" max="1.0" step="0.01" value="0">
+      </div>
+
+      <!-- Row 5: Transport + markers -->
+      <div class="controls-row">
+        <button id="play-pause-btn" class="running">&#9208; Pause</button>
+        <button id="step-back-btn" disabled>&#9664; Step</button>
+        <button id="step-forward-btn" disabled>Step &#9654;</button>
+        <span class="speed-label">SPEED:</span>
+        <div class="seg-toggle">
+          <button class="seg-btn speed-btn" data-speed="0.25">&frac14;&times;</button>
+          <button class="seg-btn speed-btn" data-speed="0.5">&frac12;&times;</button>
+          <button class="seg-btn speed-btn active" data-speed="1">1&times;</button>
+        </div>
+        <button id="add-v-marker-btn">+ V Marker</button>
+        <span class="marker-counter" id="v-marker-counter">0 / 4</span>
+        <button id="add-h-marker-btn">+ H Marker</button>
+        <span class="marker-counter" id="h-marker-counter">0 / 4</span>
+        <button id="reset-btn">Reset</button>
+      </div>
+    </div>
+    <div class="footnote">
+      <em>Damping is shown as exponential decay in space &mdash; a simplification of real string damping. When you change the tension or linear density, the wave is reset (a real string would show a discontinuity propagating from the source). When the frequency knob is turned during a running continuous wave, the wavelength on the string updates everywhere instantly &mdash; phase at the source remains continuous.</em>
+    </div>
+  </div>
+</div>
+
+<!-- Companion measurement-tool modules -->
+<script src="/_shared/measurement-tools/ruler/ruler.js"></script>
+<script src="/_shared/measurement-tools/manual-stopwatch/stopwatch.js"></script>
+<script src="/_shared/measurement-tools/signal-generator/signal-generator.js"></script>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const CANVAS_W = 1080;
+const CANVAS_H = 350;
+const X_SOURCE = 58;
+const Y_MID    = 175;
+const PX_PER_M = 600;
+
+// Wave / pulse visualization
+const PULSE_SIGMA_PX = 30;
+const A_PEAK_PX      = 60;
+const N_SAMPLES      = 300;
+const N_DOTS         = 40;
+const PULSE_CULL_PX  = (CANVAS_W - X_SOURCE) + 5 * PULSE_SIGMA_PX;  // leading edge past this → cull
+
+// Linear-density discrete values (kg/m)
+const MU_VALUES = [0.005, 0.010, 0.020, 0.040, 0.080];
+
+// String stroke-width vs μ (linear from min to max)
+const STROKE_MIN = 1.5;
+const STROKE_MAX = 3.75;
+
+// Marker geometry
+const MARKER_DEFAULT_X = [250, 480, 710, 940];
+const MARKER_DEFAULT_Y = [115, 145, 205, 235];
+const DISC_R           = 12;
+const X_BADGE_R        = 6;
+const MARKER_HIT       = 12;
+const X_BADGE_HIT      = 10;
+const V_DISC_Y         = DISC_R + X_BADGE_R + 4;  // disc center y; +badge radius so × doesn't clip top edge
+const H_DISC_X         = 70;            // disc center x for horizontal markers (left side)
+
+// Palette (locked)
+const COLOR_BG       = '#FAF3DE';
+const COLOR_STRING   = '#1E2A5C';
+const COLOR_DOT      = '#2E8B8B';
+const COLOR_REF_LINE = '#D6CFB0';
+const COLOR_MARKER   = '#2E8B8B';
+const COLOR_DISC     = '#1E2A5C';
+const COLOR_DISC_TXT = '#FFFFFF';
+const COLOR_X_BG     = '#a8222a';
+const COLOR_X        = '#FFFFFF';
+const COLOR_SOURCE   = '#1E2A5C';
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  time: 0,
+  running: true,
+  timeScale: 1.0,
+
+  // Pulse mode
+  pulses: [],                            // { x_launch, sign, t_birth, A_px }
+  pulseSign: 1,
+  pulseAmp: 0.5,
+
+  // Continuous-wave mode
+  generatorOn: false,
+  t_on: 0,                               // scene time when generator last turned ON
+  freq: 10.0,                            // current freq (Hz) — mirrored from SG
+  ampGen: 0.5,                           // current amplitude (0..1) — mirrored from SG
+  sourcePhase: 0,                        // accumulated phase at source (for f-change continuity)
+  t_lastFreqChange: 0,                   // scene time at last freq change
+  f_atLastChange: 10.0,                  // freq value used since the last change
+
+  // Physics knobs
+  T: 10.0,
+  muIdx: 3,                              // index into MU_VALUES (default 3 → 0.080)
+  damping: 0,
+
+  // Markers
+  vVisible: [false, false, false, false],
+  hVisible: [false, false, false, false],
+  vPos: [...MARKER_DEFAULT_X],
+  hPos: [...MARKER_DEFAULT_Y],
+  drag: null,                            // { kind: 'v'|'h', idx: 0..3 } or null
+};
+let lastFrameTime = null;
+
+// ============================================================
+// PHYSICS HELPERS
+// ============================================================
+function getMu()   { return MU_VALUES[state.muIdx]; }
+function getC()    { return Math.sqrt(state.T / getMu()); }      // m/s
+function getCpx()  { return getC() * PX_PER_M; }                  // px/s
+
+function damp(x) {
+  if (state.damping === 0) return 1;
+  return Math.exp(-state.damping * (x - X_SOURCE) / PX_PER_M);
+}
+
+function pulseY(p, x, t) {
+  const dt = t - p.t_birth;
+  if (dt < 0) return 0;
+  const c_px = getCpx();
+  const u = x - X_SOURCE - c_px * dt;
+  const r = u / PULSE_SIGMA_PX;
+  if (r > 5 || r < -5) return 0;
+  return p.sign * p.A_px * Math.exp(-r * r) * damp(x);
+}
+
+function contY(x, t) {
+  if (!state.generatorOn) return 0;
+  const dt_since_change = t - state.t_lastFreqChange;
+  const dt_since_on     = t - state.t_on;
+  if (dt_since_on < 0) return 0;
+  const c_px = getCpx();
+  if (c_px <= 0) return 0;
+  // Wavefront cutoff: wave only exists from source out to the leading edge
+  if (x > X_SOURCE + c_px * dt_since_on) return 0;
+  // Phase: accumulated phase at source + current-segment phase at this x
+  //   φ(x,t) = φ_source(t) − 2π · f_current · (x − x_source)/c
+  const phase = state.sourcePhase
+              + 2 * Math.PI * state.f_atLastChange * (dt_since_change - (x - X_SOURCE) / c_px);
+  const A_px = state.ampGen * A_PEAK_PX;
+  return A_px * Math.sin(phase) * damp(x);
+}
+
+function totalY(x, t) {
+  let y = 0;
+  for (const p of state.pulses) y += pulseY(p, x, t);
+  y += contY(x, t);
+  return y;
+}
+
+function strokeWidth() {
+  return STROKE_MIN + (state.muIdx / 4) * (STROKE_MAX - STROKE_MIN);
+}
+
+// ============================================================
+// CANVAS — DPR-aware setup (reused from resonance-string)
+// ============================================================
+const mainCanvas = document.getElementById('main-canvas');
+let ctx;
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  let cssW = rect.width;
+  let cssH = rect.height;
+  if (!cssW || !cssH) { cssW = CANVAS_W; cssH = CANVAS_H; }
+  canvas.width  = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  const c = canvas.getContext('2d');
+  c.setTransform(canvas.width / CANVAS_W, 0, 0, canvas.height / CANVAS_H, 0, 0);
+  return c;
+}
+ctx = setupCanvas(mainCanvas);
+window.addEventListener('resize', () => { ctx = setupCanvas(mainCanvas); });
+
+// ============================================================
+// DRAWING
+// ============================================================
+function drawScene() {
+  // 1. Background
+  ctx.fillStyle = COLOR_BG;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // 2. Equilibrium reference line
+  ctx.strokeStyle = COLOR_REF_LINE;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(X_SOURCE, Y_MID);
+  ctx.lineTo(CANVAS_W, Y_MID);
+  ctx.stroke();
+
+  // 3. String curve
+  ctx.strokeStyle = COLOR_STRING;
+  ctx.lineWidth = strokeWidth();
+  ctx.beginPath();
+  for (let i = 0; i <= N_SAMPLES; i++) {
+    const x = X_SOURCE + (i / N_SAMPLES) * (CANVAS_W - X_SOURCE);
+    const y = Y_MID - totalY(x, state.time);
+    if (i === 0) ctx.moveTo(x, y);
+    else         ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // 4. Particle dots
+  ctx.fillStyle = COLOR_DOT;
+  for (let i = 0; i < N_DOTS; i++) {
+    const x = X_SOURCE + ((i + 0.5) / N_DOTS) * (CANVAS_W - X_SOURCE);
+    const y = Y_MID - totalY(x, state.time);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 5. Source marker (triangle below + label above)
+  drawSourceMarker();
+
+  // 6. Phase markers (drawn on top so they're visible against the wave)
+  drawHorizontalMarkers();
+  drawVerticalMarkers();
+}
+
+function drawSourceMarker() {
+  // Triangle below string
+  ctx.fillStyle = COLOR_SOURCE;
+  ctx.beginPath();
+  ctx.moveTo(X_SOURCE,      Y_MID + 14);
+  ctx.lineTo(X_SOURCE - 8,  Y_MID + 24);
+  ctx.lineTo(X_SOURCE + 8,  Y_MID + 24);
+  ctx.closePath();
+  ctx.fill();
+  // Label above string
+  ctx.fillStyle = COLOR_SOURCE;
+  ctx.font = '700 9px Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('SOURCE', X_SOURCE, Y_MID - 18);
+}
+
+function drawVerticalMarkers() {
+  for (let i = 0; i < 4; i++) {
+    if (!state.vVisible[i]) continue;
+    const x = state.vPos[i];
+
+    // Line
+    ctx.strokeStyle = COLOR_MARKER;
+    ctx.globalAlpha = 0.8;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, CANVAS_H);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    // Numbered disc at top
+    drawMarkerDisc(x, V_DISC_Y, i + 1);
+  }
+}
+
+function drawHorizontalMarkers() {
+  for (let i = 0; i < 4; i++) {
+    if (!state.hVisible[i]) continue;
+    const y = state.hPos[i];
+
+    // Line
+    ctx.strokeStyle = COLOR_MARKER;
+    ctx.globalAlpha = 0.8;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(X_SOURCE, y);
+    ctx.lineTo(CANVAS_W, y);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    // Numbered disc on left
+    drawMarkerDisc(H_DISC_X, y, i + 1);
+  }
+}
+
+function drawMarkerDisc(cx, cy, number) {
+  // Disc body
+  ctx.fillStyle = COLOR_DISC;
+  ctx.beginPath();
+  ctx.arc(cx, cy, DISC_R, 0, Math.PI * 2);
+  ctx.fill();
+  // Number
+  ctx.fillStyle = COLOR_DISC_TXT;
+  ctx.font = '700 13px Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(number), cx, cy + 0.5);
+  // × badge (upper-right of disc)
+  const bx = cx + DISC_R * 0.72;
+  const by = cy - DISC_R * 0.72;
+  ctx.fillStyle = COLOR_X_BG;
+  ctx.beginPath();
+  ctx.arc(bx, by, X_BADGE_R, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = COLOR_X;
+  ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.moveTo(bx - 2.5, by - 2.5); ctx.lineTo(bx + 2.5, by + 2.5);
+  ctx.moveTo(bx + 2.5, by - 2.5); ctx.lineTo(bx - 2.5, by + 2.5);
+  ctx.stroke();
+}
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+function update(dt) {
+  if (state.running) state.time += dt * state.timeScale;
+  // Cull pulses that have ridden off the right edge
+  const cpx = getCpx();
+  if (cpx > 0) {
+    const tBirthMin = state.time - PULSE_CULL_PX / cpx;
+    state.pulses = state.pulses.filter(p => p.t_birth > tBirthMin);
+  }
+}
+
+function frame(now) {
+  if (lastFrameTime === null) lastFrameTime = now;
+  let dt = (now - lastFrameTime) / 1000;
+  if (dt > 0.05) dt = 0.05;
+  lastFrameTime = now;
+  update(dt);
+  drawScene();
+  requestAnimationFrame(frame);
+}
+
+// ============================================================
+// MARKER HIT-TESTING AND DRAG
+// ============================================================
+function clientToCanvas(clientX, clientY) {
+  const rect = mainCanvas.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return null;
+  return {
+    x: (clientX - rect.left) / rect.width  * CANVAS_W,
+    y: (clientY - rect.top)  / rect.height * CANVAS_H
+  };
+}
+
+function discXBadgeCenter(cx, cy) {
+  return { bx: cx + DISC_R * 0.72, by: cy - DISC_R * 0.72 };
+}
+
+/** Find what's under (mx, my). Returns { kind, idx, target } or null.
+ *  target: 'x' (remove badge), 'line' (drag line).
+ *  × badges are checked before lines (and before discs themselves). */
+function hitTest(mx, my) {
+  // Check vertical markers first (their discs are at the top, so they win on overlap)
+  for (let i = 0; i < 4; i++) {
+    if (!state.vVisible[i]) continue;
+    const x = state.vPos[i];
+    const { bx, by } = discXBadgeCenter(x, V_DISC_Y);
+    // × badge?
+    const dxB = mx - bx, dyB = my - by;
+    if (dxB * dxB + dyB * dyB <= X_BADGE_HIT * X_BADGE_HIT) {
+      return { kind: 'v', idx: i, target: 'x' };
+    }
+  }
+  for (let i = 0; i < 4; i++) {
+    if (!state.hVisible[i]) continue;
+    const y = state.hPos[i];
+    const { bx, by } = discXBadgeCenter(H_DISC_X, y);
+    const dxB = mx - bx, dyB = my - by;
+    if (dxB * dxB + dyB * dyB <= X_BADGE_HIT * X_BADGE_HIT) {
+      return { kind: 'h', idx: i, target: 'x' };
+    }
+  }
+  // Then check marker lines
+  for (let i = 0; i < 4; i++) {
+    if (!state.vVisible[i]) continue;
+    if (Math.abs(mx - state.vPos[i]) <= MARKER_HIT) {
+      return { kind: 'v', idx: i, target: 'line' };
+    }
+  }
+  for (let i = 0; i < 4; i++) {
+    if (!state.hVisible[i]) continue;
+    if (Math.abs(my - state.hPos[i]) <= MARKER_HIT) {
+      return { kind: 'h', idx: i, target: 'line' };
+    }
+  }
+  return null;
+}
+
+function canvasMouseDown(e) {
+  const ev = (e.touches && e.touches[0]) || e;
+  const pt = clientToCanvas(ev.clientX, ev.clientY);
+  if (!pt) return;
+  const hit = hitTest(pt.x, pt.y);
+  if (!hit) return;
+  e.preventDefault();
+  if (hit.target === 'x') {
+    if (hit.kind === 'v') state.vVisible[hit.idx] = false;
+    else                  state.hVisible[hit.idx] = false;
+    updateMarkerCounters();
+    drawScene();
+    return;
+  }
+  // Start drag
+  state.drag = { kind: hit.kind, idx: hit.idx };
+  document.addEventListener('mousemove', canvasMouseMove);
+  document.addEventListener('mouseup',   canvasMouseUp);
+  document.addEventListener('touchmove', canvasMouseMove, { passive: false });
+  document.addEventListener('touchend',  canvasMouseUp);
+}
+
+function canvasMouseMove(e) {
+  if (!state.drag) return;
+  e.preventDefault();
+  const ev = (e.touches && e.touches[0]) || e;
+  const pt = clientToCanvas(ev.clientX, ev.clientY);
+  if (!pt) return;
+  if (state.drag.kind === 'v') {
+    state.vPos[state.drag.idx] = Math.max(X_SOURCE, Math.min(CANVAS_W, pt.x));
+  } else {
+    state.hPos[state.drag.idx] = Math.max(10, Math.min(CANVAS_H - 10, pt.y));
+  }
+  drawScene();
+}
+
+function canvasMouseUp() {
+  state.drag = null;
+  document.removeEventListener('mousemove', canvasMouseMove);
+  document.removeEventListener('mouseup',   canvasMouseUp);
+  document.removeEventListener('touchmove', canvasMouseMove);
+  document.removeEventListener('touchend',  canvasMouseUp);
+}
+
+function canvasHoverCursor(e) {
+  if (state.drag) return;  // cursor managed during drag
+  const pt = clientToCanvas(e.clientX, e.clientY);
+  if (!pt) return;
+  const hit = hitTest(pt.x, pt.y);
+  if (!hit) { mainCanvas.style.cursor = 'default'; return; }
+  if (hit.target === 'x')      mainCanvas.style.cursor = 'pointer';
+  else if (hit.kind === 'v')   mainCanvas.style.cursor = 'ew-resize';
+  else                         mainCanvas.style.cursor = 'ns-resize';
+}
+
+mainCanvas.addEventListener('mousedown',  canvasMouseDown);
+mainCanvas.addEventListener('touchstart', canvasMouseDown, { passive: false });
+mainCanvas.addEventListener('mousemove',  canvasHoverCursor);
+
+// ============================================================
+// CONTROLS WIRING
+// ============================================================
+const pulseBtn        = document.getElementById('pulse-btn');
+const pulseAmpSlider  = document.getElementById('pulse-amp-slider');
+const tensionSlider   = document.getElementById('tension-slider');
+const tensionReadout  = document.getElementById('tension-readout');
+const muSlider        = document.getElementById('mu-slider');
+const muReadout       = document.getElementById('mu-readout');
+const dampingSlider   = document.getElementById('damping-slider');
+const playPauseBtn    = document.getElementById('play-pause-btn');
+const stepBackBtn     = document.getElementById('step-back-btn');
+const stepForwardBtn  = document.getElementById('step-forward-btn');
+const addVMarkerBtn   = document.getElementById('add-v-marker-btn');
+const addHMarkerBtn   = document.getElementById('add-h-marker-btn');
+const vMarkerCounter  = document.getElementById('v-marker-counter');
+const hMarkerCounter  = document.getElementById('h-marker-counter');
+const resetBtn        = document.getElementById('reset-btn');
+const transientMsg    = document.getElementById('transient-msg');
+
+// ── Pulse button + sign + amp ─────────────────────────────────────────
+pulseBtn.addEventListener('click', () => {
+  if (state.generatorOn) return;
+  state.pulses.push({
+    x_launch: X_SOURCE,
+    sign:     state.pulseSign,
+    t_birth:  state.time,
+    A_px:     state.pulseAmp * A_PEAK_PX
+  });
+});
+
+document.querySelectorAll('#sign-toggle .sign-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (state.generatorOn) return;
+    document.querySelectorAll('#sign-toggle .sign-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.pulseSign = parseInt(btn.dataset.sign, 10);
+  });
+});
+
+pulseAmpSlider.addEventListener('input', e => {
+  state.pulseAmp = parseFloat(e.target.value);
+});
+
+// ── Tension slider + readout ──────────────────────────────────────────
+function updateTensionReadout() {
+  const T = state.T;
+  const sigma = 0.5 + 0.01 * T;
+  tensionReadout.innerHTML = `T = ${T.toFixed(1)} &plusmn; ${sigma.toFixed(2)} N`;
+}
+
+tensionSlider.addEventListener('input', e => {
+  const newT = parseFloat(e.target.value);
+  if (newT === state.T) return;
+  state.T = newT;
+  updateTensionReadout();
+  resetWaveAndMessage();
+});
+
+// ── Mu slider + readout ───────────────────────────────────────────────
+function updateMuReadout() {
+  const mu = getMu();
+  const sigma = 0.10 * mu;
+  muReadout.innerHTML = `&mu; = ${mu.toFixed(4)} &plusmn; ${sigma.toFixed(4)} kg/m`;
+}
+
+muSlider.addEventListener('input', e => {
+  const newIdx = parseInt(e.target.value, 10);
+  if (newIdx === state.muIdx) return;
+  state.muIdx = newIdx;
+  updateMuReadout();
+  resetWaveAndMessage();
+});
+
+// ── Damping slider ────────────────────────────────────────────────────
+dampingSlider.addEventListener('input', e => {
+  state.damping = parseFloat(e.target.value);
+});
+
+// ── Play/pause + step ─────────────────────────────────────────────────
+function updateStepButtonStates() {
+  stepForwardBtn.disabled = state.running;
+  stepBackBtn.disabled    = state.running || state.time <= 0;
+}
+
+playPauseBtn.addEventListener('click', () => {
+  state.running = !state.running;
+  if (state.running) {
+    playPauseBtn.innerHTML = '&#9208; Pause';
+    playPauseBtn.classList.remove('paused');
+    playPauseBtn.classList.add('running');
+    lastFrameTime = null;
+  } else {
+    playPauseBtn.innerHTML = '&#9654; Start';
+    playPauseBtn.classList.remove('running');
+    playPauseBtn.classList.add('paused');
+  }
+  updateStepButtonStates();
+});
+
+stepForwardBtn.addEventListener('click', () => {
+  if (state.running) return;
+  state.time += (1 / 60) * state.timeScale;
+  updateStepButtonStates();
+});
+
+stepBackBtn.addEventListener('click', () => {
+  if (state.running) return;
+  state.time -= (1 / 60) * state.timeScale;
+  if (state.time < 0) state.time = 0;
+  updateStepButtonStates();
+});
+
+// ── Speed toggle ──────────────────────────────────────────────────────
+document.querySelectorAll('.speed-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.timeScale = parseFloat(btn.dataset.speed);
+  });
+});
+
+// ── Marker buttons ────────────────────────────────────────────────────
+function updateMarkerCounters() {
+  const vCount = state.vVisible.filter(Boolean).length;
+  const hCount = state.hVisible.filter(Boolean).length;
+  vMarkerCounter.textContent = `${vCount} / 4`;
+  hMarkerCounter.textContent = `${hCount} / 4`;
+  vMarkerCounter.classList.toggle('full', vCount >= 4);
+  hMarkerCounter.classList.toggle('full', hCount >= 4);
+  addVMarkerBtn.disabled = vCount >= 4;
+  addHMarkerBtn.disabled = hCount >= 4;
+}
+
+addVMarkerBtn.addEventListener('click', () => {
+  for (let i = 0; i < 4; i++) {
+    if (!state.vVisible[i]) {
+      state.vVisible[i] = true;
+      state.vPos[i] = MARKER_DEFAULT_X[i];   // restore to default on spawn
+      break;
+    }
+  }
+  updateMarkerCounters();
+});
+
+addHMarkerBtn.addEventListener('click', () => {
+  for (let i = 0; i < 4; i++) {
+    if (!state.hVisible[i]) {
+      state.hVisible[i] = true;
+      state.hPos[i] = MARKER_DEFAULT_Y[i];
+      break;
+    }
+  }
+  updateMarkerCounters();
+});
+
+// ── Reset ─────────────────────────────────────────────────────────────
+resetBtn.addEventListener('click', () => {
+  // Time + transport
+  state.time = 0;
+  state.timeScale = 1.0;
+  state.running = true;
+  lastFrameTime = null;
+  playPauseBtn.innerHTML = '&#9208; Pause';
+  playPauseBtn.classList.remove('paused');
+  playPauseBtn.classList.add('running');
+  document.querySelectorAll('.speed-btn').forEach(b => {
+    b.classList.toggle('active', parseFloat(b.dataset.speed) === 1);
+  });
+  updateStepButtonStates();
+
+  // Pulses + continuous
+  state.pulses = [];
+  state.generatorOn = false;
+  state.t_on = 0;
+  state.sourcePhase = 0;
+  state.t_lastFreqChange = 0;
+
+  // Pulse slider defaults
+  state.pulseSign = 1;
+  state.pulseAmp = 0.5;
+  pulseAmpSlider.value = 0.5;
+  document.querySelectorAll('#sign-toggle .sign-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.sign, 10) === 1);
+  });
+
+  // Physics knobs defaults
+  state.T = 10.0;
+  tensionSlider.value = 10.0;
+  updateTensionReadout();
+  state.muIdx = 3;
+  muSlider.value = 3;
+  updateMuReadout();
+  state.damping = 0;
+  dampingSlider.value = 0;
+
+  // Signal generator defaults
+  sg.setOn(false);
+  sg.setFrequency(10.0);
+  sg.setAmplitude(0.5);
+  // (the onChange callback will mirror these into state.freq / state.ampGen and state.f_atLastChange)
+  state.f_atLastChange = 10.0;
+  state.freq = 10.0;
+  state.ampGen = 0.5;
+
+  // Markers
+  state.vVisible = [false, false, false, false];
+  state.hVisible = [false, false, false, false];
+  state.vPos = [...MARKER_DEFAULT_X];
+  state.hPos = [...MARKER_DEFAULT_Y];
+  updateMarkerCounters();
+});
+
+// ============================================================
+// TRANSIENT MESSAGE
+// ============================================================
+let transientTimer = null;
+let transientHideTimer = null;
+function showTransientMessage() {
+  clearTimeout(transientTimer);
+  clearTimeout(transientHideTimer);
+  transientMsg.classList.add('show');
+  transientTimer = setTimeout(() => {
+    transientMsg.classList.remove('show');
+  }, 1200);
+}
+
+// ============================================================
+// MEDIUM-CHANGE WAVE RESET
+// ============================================================
+function resetWaveAndMessage() {
+  state.pulses = [];
+  if (state.generatorOn) {
+    // Reset continuous-wave phase tracking — generator stays on but wave restarts
+    state.t_on = state.time;
+    state.sourcePhase = 0;
+    state.t_lastFreqChange = state.time;
+    state.f_atLastChange = state.freq;
+  }
+  showTransientMessage();
+}
+
+// ============================================================
+// SIGNAL GENERATOR INSTANTIATION
+// ============================================================
+const sg = new SignalGenerator({
+  container: document.getElementById('generator-slot'),
+  x: 0, y: 0,
+  minHz: 0, maxHz: 20,
+  majorStep: 2, minorStep: 0.5,
+  defaultFrequency: 10.0,
+  defaultAmplitude: 0.5,
+  defaultOn: false
+});
+
+sg.onChange(({ frequency, amplitude, isOn }) => {
+  // Detect frequency change while generator is on → accumulate phase
+  const freqChanged = (frequency !== state.f_atLastChange);
+  const onTransition = (isOn !== state.generatorOn);
+
+  if (onTransition && isOn) {
+    // OFF → ON: clear existing pulses, reset continuous-wave timing
+    state.pulses = [];
+    state.t_on = state.time;
+    state.sourcePhase = 0;
+    state.t_lastFreqChange = state.time;
+    state.f_atLastChange = frequency;
+  } else if (onTransition && !isOn) {
+    // ON → OFF: continuous wave will read as 0 (generatorOn false)
+    // No phase update needed; next ON resets everything
+  } else if (state.generatorOn && freqChanged) {
+    // Mid-wave frequency change: accumulate phase at source so y(x_source, t) is continuous
+    const dt = state.time - state.t_lastFreqChange;
+    state.sourcePhase += 2 * Math.PI * state.f_atLastChange * dt;
+    state.t_lastFreqChange = state.time;
+    state.f_atLastChange = frequency;
+  } else {
+    // Off-state freq change or amplitude-only change: just mirror values
+    state.f_atLastChange = frequency;
+  }
+
+  state.freq        = frequency;
+  state.ampGen      = amplitude;
+  state.generatorOn = isOn;
+
+  // Toggle pulse controls based on generator state
+  updatePulseControlsEnabled();
+});
+
+function updatePulseControlsEnabled() {
+  const dis = state.generatorOn;
+  pulseBtn.disabled = dis;
+  pulseAmpSlider.disabled = dis;
+  document.querySelectorAll('#sign-toggle .sign-btn').forEach(b => { b.disabled = dis; });
+}
+
+// ============================================================
+// MEASUREMENT TOOL INSTANTIATION
+// ============================================================
+const stringPane = document.getElementById('string-pane');
+
+new Ruler({
+  container:      stringPane,
+  x: 80, y: 36,
+  orientation:    'horizontal',
+  pixelsPerMeter: 600,
+  lengthMeters:   1.0,
+  thicknessPx:    36
+});
+
+new Ruler({
+  container:      stringPane,
+  x: 1020, y: 50,
+  orientation:    'vertical',
+  pixelsPerMeter: 600,
+  lengthMeters:   0.4,
+  thicknessPx:    36
+});
+
+new Stopwatch({
+  container:  stringPane,
+  x: 860, y: 36,
+  maxSeconds: 10,
+  size: 140
+});
+
+// ============================================================
+// INITIAL RENDER
+// ============================================================
+updateTensionReadout();
+updateMuReadout();
+updateMarkerCounters();
+updatePulseControlsEnabled();
+drawScene();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
