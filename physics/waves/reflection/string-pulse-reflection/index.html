@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>String Pulse Reflection</title>
+<style>
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #FAF3DE;
+    color: #1E2A5C;
+  }
+  h1 {
+    margin: 0 0 12px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1E2A5C;
+    letter-spacing: 0.02em;
+  }
+  .app {
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  .pane {
+    position: relative;
+    background: #FAF3DE;
+    border: 1px solid #DDD8C0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .boundary-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: #FFFFFF;
+    border-bottom: 1px solid #DDD8C0;
+  }
+  .boundary-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: #1E2A5C;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1080 / 250;
+  }
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    background: #FFFFFF;
+    border: 1px solid #DDD8C0;
+    border-radius: 4px;
+  }
+  .controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px 14px;
+    border-radius: 4px;
+    border: 1.5px solid #1E2A5C;
+    background: #FFFFFF;
+    color: #1E2A5C;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.1s, color 0.1s;
+  }
+  button:hover:not(:disabled) {
+    background: #1E2A5C;
+    color: #FFFFFF;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  #pulse-btn {
+    background: #1E2A5C;
+    color: #FFFFFF;
+    font-size: 15px;
+    padding: 10px 18px;
+  }
+  #pulse-btn:hover {
+    background: #2A3A7C;
+  }
+  .seg-toggle {
+    display: inline-flex;
+    border: 1.5px solid #1E2A5C;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .seg-btn {
+    border: none;
+    border-radius: 0;
+    padding: 8px 12px;
+    background: #FFFFFF;
+    color: #1E2A5C;
+  }
+  .seg-btn.active {
+    background: #1E2A5C;
+    color: #FFFFFF;
+  }
+  .seg-btn:hover:not(.active) {
+    background: #E8E0C4;
+    color: #1E2A5C;
+  }
+  #play-pause-btn.running {
+    background: #a8222a;
+    color: #FFFFFF;
+    border-color: #a8222a;
+  }
+  #play-pause-btn.running:hover { background: #8b1c23; }
+  #play-pause-btn.paused {
+    background: #1f6b3d;
+    color: #FFFFFF;
+    border-color: #1f6b3d;
+  }
+  #play-pause-btn.paused:hover { background: #195530; }
+  .ghost-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    color: #1E2A5C;
+  }
+  .ghost-toggle input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #2E8B8B;
+  }
+  .speed-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: #1E2A5C;
+    margin-left: 6px;
+  }
+  .spacer { flex: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>String Pulse Reflection</h1>
+
+  <div class="pane">
+    <div class="boundary-header">
+      <span class="boundary-label">BOUNDARY:</span>
+      <div class="seg-toggle">
+        <button class="seg-btn boundary-btn active" data-boundary="fixed">Fixed End</button>
+        <button class="seg-btn boundary-btn" data-boundary="free">Free End</button>
+      </div>
+    </div>
+    <canvas id="main-canvas"></canvas>
+  </div>
+
+  <div class="controls">
+    <div class="controls-row">
+      <button id="pulse-btn">+ Pulse</button>
+      <div class="seg-toggle">
+        <button class="seg-btn sign-btn active" data-sign="1">↑ Up</button>
+        <button class="seg-btn sign-btn" data-sign="-1">↓ Down</button>
+      </div>
+    </div>
+    <div class="controls-row">
+      <button id="play-pause-btn" class="running">⏸ Pause</button>
+      <button id="step-back-btn" disabled>◀ Step</button>
+      <button id="step-forward-btn" disabled>Step ▶</button>
+      <span class="speed-label">SPEED:</span>
+      <div class="seg-toggle">
+        <button class="seg-btn speed-btn" data-speed="0.25">¼×</button>
+        <button class="seg-btn speed-btn" data-speed="0.5">½×</button>
+        <button class="seg-btn speed-btn active" data-speed="1">1×</button>
+      </div>
+      <button id="reset-btn">Reset</button>
+    </div>
+    <div class="controls-row">
+      <label class="ghost-toggle">
+        <input type="checkbox" id="ghost-checkbox">
+        <span>Ghost Pulse</span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const CANVAS_W = 1080;         // total internal canvas width
+const CANVAS_H = 250;          // internal canvas height
+const L = 800;                 // string length / wall position (px)
+const GHOST_STRIP_W = 280;     // ghost strip width to the right of wall
+const Y_MID = 125;             // vertical equilibrium
+
+// Pulse physics
+const PULSE_A = 30;            // amplitude (px)
+const PULSE_SIGMA = 30;        // pulse width parameter (px)
+const WAVE_SPEED = 200;        // px/s
+const X0 = -150;               // pulse launch position (5σ left of canvas)
+
+// Visualization
+const N_DOTS = 30;             // particle dots along string
+const N_SAMPLES = 240;         // sample points for string polyline
+const N_GHOST_SAMPLES = 90;    // sample points for ghost continuation
+
+// State-dependent thresholds
+const IMPACT_WINDOW = 0.25;    // seconds — force arrow visibility window
+const RING_V_THRESHOLD = 50;   // px/s — below this, velocity arrow hidden
+
+// Locked palette
+const COLOR_BG = '#FAF3DE';
+const COLOR_STRING = '#1E2A5C';
+const COLOR_DOT = '#2E8B8B';
+const COLOR_RING = '#2E8B8B';
+const COLOR_FORCE_ARROW = '#C00000';
+const COLOR_VELOCITY_ARROW = '#2E8B8B';
+const COLOR_GHOST = '#2E8B8B';
+const COLOR_WALL = '#000000';
+const COLOR_ROD = '#3A3A3A';
+const COLOR_REF_LINE = '#D6CFB0';
+const COLOR_GHOST_STRIP = 'rgba(46, 139, 139, 0.07)';
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  pulses: [],         // {x0, sign, t_birth}
+  time: 0,
+  running: true,
+  pulseSign: 1,
+  showGhost: false,
+  boundary: 'fixed',
+  timeScale: 1.0,
+};
+
+let lastFrameTime = null;
+
+// ============================================================
+// PHYSICS (Image method — analytical, exact at boundaries)
+// ============================================================
+function pulseProfile(u) {
+  return PULSE_A * Math.exp(-((u / PULSE_SIGMA) ** 2));
+}
+
+function incidentY(p, x, t) {
+  const u = x - p.x0 - WAVE_SPEED * (t - p.t_birth);
+  return p.sign * pulseProfile(u);
+}
+
+// Fixed (Dirichlet, y(L,t)=0): reflected = -sign · profile( 2L - x - x0 - c·Δt )
+// Free  (Neumann,  ∂y/∂x|L=0): reflected = +sign · profile( 2L - x - x0 - c·Δt )
+function reflectedY(p, x, t, boundary) {
+  const u = 2 * L - x - p.x0 - WAVE_SPEED * (t - p.t_birth);
+  const sgn = (boundary === 'fixed') ? -p.sign : p.sign;
+  return sgn * pulseProfile(u);
+}
+
+function totalY(x, t, boundary, pulses) {
+  let y = 0;
+  for (const p of pulses) {
+    y += incidentY(p, x, t);
+    y += reflectedY(p, x, t, boundary);
+  }
+  return y;
+}
+
+function ringVelocity(t, pulses) {
+  let v = 0;
+  for (const p of pulses) {
+    const u = L - p.x0 - WAVE_SPEED * (t - p.t_birth);
+    const dyinc_dt =
+      p.sign * PULSE_A * Math.exp(-((u / PULSE_SIGMA) ** 2)) *
+      (2 * u * WAVE_SPEED / (PULSE_SIGMA ** 2));
+    v += 2 * dyinc_dt;
+  }
+  return v;
+}
+
+function isInImpactWindow(p, t) {
+  const dt_hit = (L - p.x0) / WAVE_SPEED;
+  return Math.abs((t - p.t_birth) - dt_hit) < (IMPACT_WINDOW / 2);
+}
+
+// ============================================================
+// CANVAS SETUP (DPR-aware)
+// ============================================================
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  let cssW = rect.width;
+  let cssH = rect.height;
+  if (!cssW || !cssH) { cssW = CANVAS_W; cssH = CANVAS_H; }
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(canvas.width / CANVAS_W, 0, 0, canvas.height / CANVAS_H, 0, 0);
+  return ctx;
+}
+
+const mainCanvas = document.getElementById('main-canvas');
+let ctx = setupCanvas(mainCanvas);
+
+window.addEventListener('resize', () => {
+  ctx = setupCanvas(mainCanvas);
+});
+
+// ============================================================
+// DRAWING
+// ============================================================
+function drawPane() {
+  const boundary = state.boundary;
+
+  // 1. Background
+  ctx.fillStyle = COLOR_BG;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // 2. Ghost strip tint
+  if (state.showGhost) {
+    ctx.fillStyle = COLOR_GHOST_STRIP;
+    ctx.fillRect(L, 0, GHOST_STRIP_W, CANVAS_H);
+  }
+
+  // 3. Equilibrium reference line
+  ctx.strokeStyle = COLOR_REF_LINE;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, Y_MID);
+  ctx.lineTo(L, Y_MID);
+  ctx.stroke();
+
+  if (state.showGhost) {
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(L, Y_MID);
+    ctx.lineTo(L + GHOST_STRIP_W, Y_MID);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 4. String curve
+  ctx.strokeStyle = COLOR_STRING;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i <= N_SAMPLES; i++) {
+    const x = (i / N_SAMPLES) * L;
+    const y = Y_MID - totalY(x, state.time, boundary, state.pulses);
+    if (i === 0) ctx.moveTo(x, y);
+    else         ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // 5. Particle dots
+  ctx.fillStyle = COLOR_DOT;
+  for (let i = 0; i < N_DOTS; i++) {
+    const x = ((i + 0.5) / N_DOTS) * L;
+    const y = Y_MID - totalY(x, state.time, boundary, state.pulses);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 6. Boundary
+  if (boundary === 'fixed') drawFixedWall();
+  else                      drawFreeRod();
+
+  // 7. Ghost pulse curve
+  if (state.showGhost && state.pulses.length > 0) {
+    ctx.save();
+    ctx.strokeStyle = COLOR_GHOST;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.55;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    const x_start = L + 8;
+    const x_end = L + GHOST_STRIP_W;
+    let started = false;
+    for (let i = 0; i <= N_GHOST_SAMPLES; i++) {
+      const x = x_start + (i / N_GHOST_SAMPLES) * (x_end - x_start);
+      let y_inc_sum = 0;
+      for (const p of state.pulses) y_inc_sum += incidentY(p, x, state.time);
+      const yScreen = Y_MID - y_inc_sum;
+      if (!started) { ctx.moveTo(x, yScreen); started = true; }
+      else          { ctx.lineTo(x, yScreen); }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 8. Ring (free only, after ghost)
+  if (boundary === 'free') drawFreeRing();
+
+  // 9. State-dependent arrows
+  if (boundary === 'fixed') drawForceArrow();
+  else                      drawRingVelocityArrow();
+}
+
+function drawFixedWall() {
+  const wallW = 5;
+  ctx.fillStyle = COLOR_WALL;
+  ctx.fillRect(L, 0, wallW, CANVAS_H);
+  ctx.strokeStyle = COLOR_WALL;
+  ctx.lineWidth = 1;
+  for (let yy = -12; yy < CANVAS_H + 12; yy += 10) {
+    ctx.beginPath();
+    ctx.moveTo(L + wallW, yy);
+    ctx.lineTo(L + wallW + 9, yy + 9);
+    ctx.stroke();
+  }
+}
+
+function drawFreeRod() {
+  ctx.strokeStyle = COLOR_ROD;
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.moveTo(L, 0);
+  ctx.lineTo(L, CANVAS_H);
+  ctx.stroke();
+}
+
+function drawFreeRing() {
+  const yString = Y_MID - totalY(L, state.time, 'free', state.pulses);
+  ctx.fillStyle = COLOR_BG;
+  ctx.beginPath();
+  ctx.arc(L, yString, 10, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = COLOR_RING;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(L, yString, 10, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function drawForceArrow() {
+  let active = null;
+  for (const p of state.pulses) {
+    if (isInImpactWindow(p, state.time)) { active = p; break; }
+  }
+  if (!active) return;
+
+  const screenDir = active.sign;
+  const ARROW_LEN = 28;
+  const startX = L - 5;
+  const startY = Y_MID;
+  const endX = startX;
+  const endY = startY + screenDir * ARROW_LEN;
+
+  ctx.strokeStyle = COLOR_FORCE_ARROW;
+  ctx.fillStyle = COLOR_FORCE_ARROW;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+  drawArrowhead(endX, endY, 0, screenDir, 9);
+}
+
+function drawRingVelocityArrow() {
+  const v = ringVelocity(state.time, state.pulses);
+  if (Math.abs(v) < RING_V_THRESHOLD) return;
+
+  const dirY = -Math.sign(v);
+  const len = Math.min(Math.max(Math.abs(v) / 8, 8), 35);
+
+  const yString = Y_MID - totalY(L, state.time, 'free', state.pulses);
+  const startX = L + 18;
+  const startY = yString;
+  const endX = startX;
+  const endY = startY + dirY * len;
+
+  ctx.strokeStyle = COLOR_VELOCITY_ARROW;
+  ctx.fillStyle = COLOR_VELOCITY_ARROW;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+  drawArrowhead(endX, endY, 0, dirY, 8);
+}
+
+function drawArrowhead(tipX, tipY, dirX, dirY, size) {
+  const baseX = tipX - dirX * size;
+  const baseY = tipY - dirY * size;
+  const halfW = size * 0.55;
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(baseX - dirY * halfW, baseY + dirX * halfW);
+  ctx.lineTo(baseX + dirY * halfW, baseY - dirX * halfW);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+function update(dt) {
+  if (state.running) {
+    state.time += dt * state.timeScale;
+    // No auto-cleanup — pulses persist until Reset (ΔE1)
+  }
+}
+
+function render() { drawPane(); }
+
+function frame(now) {
+  if (lastFrameTime === null) lastFrameTime = now;
+  let dt = (now - lastFrameTime) / 1000;
+  if (dt > 0.05) dt = 0.05;
+  lastFrameTime = now;
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+
+// ============================================================
+// CONTROLS
+// ============================================================
+const playPauseBtn = document.getElementById('play-pause-btn');
+const stepBackBtn = document.getElementById('step-back-btn');
+const stepForwardBtn = document.getElementById('step-forward-btn');
+
+function updateStepButtonStates() {
+  stepForwardBtn.disabled = state.running;
+  stepBackBtn.disabled = state.running || state.time <= 0;
+}
+
+document.getElementById('pulse-btn').addEventListener('click', () => {
+  state.pulses.push({
+    x0: X0,
+    sign: state.pulseSign,
+    t_birth: state.time,
+  });
+});
+
+document.querySelectorAll('.sign-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sign-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.pulseSign = parseInt(btn.dataset.sign, 10);
+  });
+});
+
+document.querySelectorAll('.boundary-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.boundary-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.boundary = btn.dataset.boundary;
+  });
+});
+
+document.querySelectorAll('.speed-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.timeScale = parseFloat(btn.dataset.speed);
+  });
+});
+
+playPauseBtn.addEventListener('click', () => {
+  state.running = !state.running;
+  if (state.running) {
+    playPauseBtn.textContent = '⏸ Pause';
+    playPauseBtn.classList.remove('paused');
+    playPauseBtn.classList.add('running');
+    lastFrameTime = null;
+  } else {
+    playPauseBtn.textContent = '▶ Start';
+    playPauseBtn.classList.remove('running');
+    playPauseBtn.classList.add('paused');
+  }
+  updateStepButtonStates();
+});
+
+stepForwardBtn.addEventListener('click', () => {
+  if (state.running) return;
+  state.time += (1 / 60) * state.timeScale;
+  updateStepButtonStates();
+  render();
+});
+
+stepBackBtn.addEventListener('click', () => {
+  if (state.running) return;
+  state.time -= (1 / 60) * state.timeScale;
+  if (state.time < 0) state.time = 0;
+  updateStepButtonStates();
+  render();
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  state.pulses = [];
+  state.time = 0;
+  updateStepButtonStates();
+  render();
+});
+
+document.getElementById('ghost-checkbox').addEventListener('change', (e) => {
+  state.showGhost = e.target.checked;
+});
+
+updateStepButtonStates();
+render();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
