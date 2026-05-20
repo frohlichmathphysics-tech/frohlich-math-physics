@@ -1,31 +1,27 @@
 /**
- * Ruler — reusable meter-stick measurement-tool module
+ * Ruler — reusable meter-stick measurement-tool module (v1)
  *
  * Mr. Frohlich Math and Physics
- * Canonical archive: /_shared/measurement-tools/ruler-v2/ruler.js
+ * Canonical archive: /_shared/measurement-tools/ruler-v1/ruler.js
  *
- * v2 — adds orientation flag (Applet_Creation v7 §7.7 sibling pattern).
+ * v1 — horizontal-only. Reading edge = BOTTOM edge of the body; ticks rise upward.
+ *
+ * Reconstructed 2026-05-19 from v2 by stripping the orientation-flag branches.
+ * v2's docstring states the default 'horizontal' branch preserves v1 caller
+ * behavior; this file IS that branch with the vertical branches removed.
+ * Behaviorally identical to historical v1 for any caller that did not pass
+ * an 'orientation' option.
  *
  * Visual: wood-toned ruler with tick marks on its reading edge.
  *   - Major ticks every 10 cm, with numerals 0, 10, 20, ..., 100
  *   - Mid ticks every 1 cm, no numerals
  *   - Minor ticks every 0.5 cm
  *
- * Orientation flag (NEW v2):
- *   orientation: "horizontal"  (default — backward-compatible)
- *     reading edge = BOTTOM edge of the body; ticks rise upward.
- *   orientation: "vertical"
- *     reading edge = RIGHT edge of the body; ticks extend leftward.
- *     0 at top, 100 at bottom (matches screen y-axis).
- *     Numerals upright (readable straight on); brand label rotated
- *     90° CW along the left edge, reading top-to-bottom.
- *
  * No digital readout — student reads positions by eye. This is the
  * §3.1 tool-resolution + §3.2 alignment-uncertainty pedagogy.
  *
- * Drag: anywhere on the body. Bounded to parent container.
- *       No rotation handle in v2 — orientation is a constructor flag,
- *       not user-toggleable at runtime (per §7.7 lock).
+ * Drag: anywhere on the body. Bounded to parent container; at least 40 px
+ * along the long axis and 20 px across the thickness stays grabbable.
  *
  * Scale: pixelsPerMeter is configured by the scene. The scene and the
  *        ruler MUST agree on this scale, or measurements will not match
@@ -35,20 +31,9 @@
  * need only load this JS file — no companion stylesheet required.
  *
  * Usage:
- *   // Horizontal (default — backward-compatible with v1 callers)
  *   new Ruler({
  *     container: document.getElementById('frame'),
  *     x: 60, y: 80,
- *     pixelsPerMeter: 600,
- *     lengthMeters: 1.0,
- *     thicknessPx: 36
- *   });
- *
- *   // Vertical (new in v2 — opt-in)
- *   new Ruler({
- *     container: document.getElementById('frame'),
- *     x: 800, y: 40,
- *     orientation: 'vertical',
  *     pixelsPerMeter: 600,
  *     lengthMeters: 1.0,
  *     thicknessPx: 36
@@ -135,17 +120,12 @@ class Ruler {
     this.container       = options.container;
     this.x               = options.x ?? 20;
     this.y               = options.y ?? 20;
-    // NEW v2: orientation flag. Defaults to "horizontal" (backward-compatible).
-    this.orientation     = options.orientation ?? 'horizontal';
     this.pixelsPerMeter  = options.pixelsPerMeter ?? 600;
     this.lengthMeters    = options.lengthMeters ?? 1.0;
     this.thicknessPx     = options.thicknessPx ?? 36;
 
-    // Long-axis length in pixels. In horizontal mode this is the SVG width;
-    // in vertical mode it is the SVG height.
-    this.lengthPx = this.lengthMeters * this.pixelsPerMeter;
-    // Retained for backward compatibility with any v1 callers that read .widthPx.
-    this.widthPx = this.lengthPx;
+    // Long-axis length in pixels (= SVG width for the horizontal ruler).
+    this.widthPx = this.lengthMeters * this.pixelsPerMeter;
 
     this._isDragging = false;
     this._dragOffsetX = 0;
@@ -159,14 +139,13 @@ class Ruler {
 
   _buildDOM() {
     const NS = 'http://www.w3.org/2000/svg';
-    const isVertical = this.orientation === 'vertical';
 
-    const L = this.lengthPx;        // long-axis length
+    const W = this.widthPx;         // long-axis length
     const T = this.thicknessPx;     // thickness across the body
 
-    // SVG canvas dimensions — long axis vs thickness, swapped by orientation.
-    const svgWidth  = isVertical ? T : L;
-    const svgHeight = isVertical ? L : T;
+    // SVG canvas: width = long axis, height = thickness.
+    const svgWidth  = W;
+    const svgHeight = T;
 
     const wrap = document.createElement('div');
     wrap.className = 'rl-wrap';
@@ -194,25 +173,13 @@ class Ruler {
     for (const off of [4, T - 4]) {
       const grain = document.createElementNS(NS, 'line');
       grain.setAttribute('class', 'rl-grain');
-      if (isVertical) {
-        // Vertical grain lines at x=4 and x=T-4, running from near top to near bottom
-        grain.setAttribute('x1', off); grain.setAttribute('y1', 2);
-        grain.setAttribute('x2', off); grain.setAttribute('y2', L - 2);
-      } else {
-        // Horizontal grain lines at y=4 and y=T-4, running from near left to near right
-        grain.setAttribute('x1', 2);     grain.setAttribute('y1', off);
-        grain.setAttribute('x2', L - 2); grain.setAttribute('y2', off);
-      }
+      grain.setAttribute('x1', 2);     grain.setAttribute('y1', off);
+      grain.setAttribute('x2', W - 2); grain.setAttribute('y2', off);
       svg.appendChild(grain);
     }
 
-    // Ticks (every 0.5 cm = 0.005 m)
-    //   Horizontal: reading edge is the BOTTOM (y = T). Ticks rise UP into the body.
-    //   Vertical:   reading edge is the RIGHT  (x = T). Ticks extend LEFT into the body.
-    //
-    // Vertical uses slightly shorter tick lengths than horizontal so the upright
-    // numerals fit comfortably inside the body (3-digit "100" must fit in the
-    // body thickness minus the major-tick length and a 4 px gap).
+    // Ticks (every 0.5 cm = 0.005 m).
+    // Reading edge is the BOTTOM (y = T). Ticks rise UP into the body.
     const cmPerMeter = 100;
     const totalCm = this.lengthMeters * cmPerMeter;
     const pxPerCm = this.pixelsPerMeter / 100;
@@ -227,27 +194,22 @@ class Ruler {
       let cls, tickLen;
       if (halfCm % 20 === 0) {           // every 10 cm — major
         cls = 'rl-tick-major';
-        tickLen = isVertical ? 12 : 14;
+        tickLen = 14;
       } else if (halfCm % 10 === 0) {    // every 5 cm (not 10) — half
         cls = 'rl-tick-half';
-        tickLen = isVertical ? 10 : 12;
+        tickLen = 12;
       } else if (halfCm % 2 === 0) {     // every 1 cm — mid
         cls = 'rl-tick-mid';
-        tickLen = isVertical ? 7 : 9;
+        tickLen = 9;
       } else {                           // every 0.5 cm — minor
         cls = 'rl-tick-minor';
-        tickLen = isVertical ? 4 : 5;
+        tickLen = 5;
       }
 
       const tick = document.createElementNS(NS, 'line');
       tick.setAttribute('class', cls);
-      if (isVertical) {
-        tick.setAttribute('x1', T);            tick.setAttribute('y1', alongPx);
-        tick.setAttribute('x2', T - tickLen);  tick.setAttribute('y2', alongPx);
-      } else {
-        tick.setAttribute('x1', alongPx);      tick.setAttribute('y1', T);
-        tick.setAttribute('x2', alongPx);      tick.setAttribute('y2', T - tickLen);
-      }
+      tick.setAttribute('x1', alongPx);     tick.setAttribute('y1', T);
+      tick.setAttribute('x2', alongPx);     tick.setAttribute('y2', T - tickLen);
       tickGroup.appendChild(tick);
 
       // Major numerals (at every 10 cm)
@@ -256,61 +218,30 @@ class Ruler {
         lbl.setAttribute('class', 'rl-numeral');
         lbl.textContent = cm;
 
-        if (isVertical) {
-          // Upright numerals to the LEFT of the tick, inside the body.
-          // Right-aligned so the rightmost glyph sits 4 px left of the tick start.
-          lbl.setAttribute('x', T - tickLen - 4);
-          lbl.setAttribute('y', alongPx);
+        // Numerals above the tick, inside the body.
+        lbl.setAttribute('x', alongPx);
+        lbl.setAttribute('y', T - tickLen - 4);
+        if (cm === 0) {
+          lbl.setAttribute('text-anchor', 'start');
+          lbl.setAttribute('x', alongPx + 2);
+        } else if (cm === totalCm) {
           lbl.setAttribute('text-anchor', 'end');
-
-          if (cm === 0) {
-            // Top endpoint — nudge down 1 px so glyph doesn't clip the top edge.
-            lbl.setAttribute('y', alongPx + 1);
-            lbl.style.dominantBaseline = 'hanging';
-          } else if (cm === totalCm) {
-            // Bottom endpoint — nudge up 1 px so glyph doesn't clip the bottom edge.
-            lbl.setAttribute('y', alongPx - 1);
-            lbl.style.dominantBaseline = 'alphabetic';
-          } else {
-            // Mid-numerals: visually centered on the tick row.
-            lbl.style.dominantBaseline = 'middle';
-          }
+          lbl.setAttribute('x', alongPx - 2);
         } else {
-          // Horizontal numerals: above the tick, inside the body.
-          lbl.setAttribute('x', alongPx);
-          lbl.setAttribute('y', T - tickLen - 4);
-          if (cm === 0) {
-            lbl.setAttribute('text-anchor', 'start');
-            lbl.setAttribute('x', alongPx + 2);
-          } else if (cm === totalCm) {
-            lbl.setAttribute('text-anchor', 'end');
-            lbl.setAttribute('x', alongPx - 2);
-          } else {
-            lbl.setAttribute('text-anchor', 'middle');
-          }
+          lbl.setAttribute('text-anchor', 'middle');
         }
         tickGroup.appendChild(lbl);
       }
     }
     svg.appendChild(tickGroup);
 
-    // Tiny brand label, centered, very subtle.
-    //   Horizontal: top of body, centered along the length.
-    //   Vertical: hugging the LEFT edge, rotated 90° CW so it reads top-to-bottom.
+    // Tiny brand label, centered along the top of the body.
     const brand = document.createElementNS(NS, 'text');
     brand.setAttribute('class', 'rl-brand');
     brand.textContent = 'Mr. Frohlich Math and Physics';
-    if (isVertical) {
-      brand.setAttribute('x', 11);
-      brand.setAttribute('y', L / 2);
-      brand.setAttribute('text-anchor', 'middle');
-      // rotate(90) in SVG is visually CW; text reads top-to-bottom.
-      brand.setAttribute('transform', `rotate(90 11 ${L / 2})`);
-    } else {
-      brand.setAttribute('x', L / 2);
-      brand.setAttribute('y', 11);
-      brand.setAttribute('text-anchor', 'middle');
-    }
+    brand.setAttribute('x', W / 2);
+    brand.setAttribute('y', 11);
+    brand.setAttribute('text-anchor', 'middle');
     svg.appendChild(brand);
 
     wrap.appendChild(svg);
@@ -320,8 +251,6 @@ class Ruler {
   // ── Drag handling ─────────────────────────────────────────────────────
 
   _attachEvents() {
-    const isVertical = this.orientation === 'vertical';
-
     const onDown = e => {
       e.preventDefault();
       const ev = (e.touches && e.touches[0]) || e;
@@ -344,14 +273,10 @@ class Ruler {
       const h = this.wrap.offsetHeight;
 
       // Allow the ruler to extend beyond the frame on any side, but keep at
-      // least this much visible so it stays grabbable. The constraint that
-      // matters most is along the LONG axis (where the user is most likely
-      // to drag the ruler off-screen).
-      //   Horizontal: long axis is X → keep 40 px visible horizontally,
-      //                                  20 px vertically.
-      //   Vertical:   long axis is Y → swap: 20 px horizontally, 40 px vertically.
-      const minVisibleX = Math.min(isVertical ? 20 : 40, w);
-      const minVisibleY = Math.min(isVertical ? 40 : 20, h);
+      // least this much visible so it stays grabbable. Long axis is X, so the
+      // X-axis sliver-visible minimum is the larger of the two.
+      const minVisibleX = Math.min(40, w);
+      const minVisibleY = Math.min(20, h);
 
       let nx = ev.clientX - parentRect.left - this._dragOffsetX;
       let ny = ev.clientY - parentRect.top  - this._dragOffsetY;
