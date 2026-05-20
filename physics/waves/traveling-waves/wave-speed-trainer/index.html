@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave Speed Trainer</title>
+<style>
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #FAF3DE;
+    color: #1E2A5C;
+  }
+  h1 {
+    margin: 0 0 12px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1E2A5C;
+    letter-spacing: 0.02em;
+  }
+  .app {
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  .pane {
+    position: relative;
+    background: #FAF3DE;
+    border: 1px solid #DDD8C0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .pane-header {
+    position: relative;
+    height: 26px;
+    background: #FFFFFF;
+    border-bottom: 1px solid #DDD8C0;
+    text-align: center;
+  }
+  .header-label {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: #1E2A5C;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1080 / 500;
+  }
+  .string-pane { /* relative for absolutely-positioned tools */ }
+  .instrument-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 16px;
+    margin: 0 auto 12px auto;
+  }
+  .stopwatch-slot {
+    position: relative;
+    width: 150px;
+    height: 200px;
+    overflow: hidden;
+  }
+  .controls {
+    background: #FFFFFF;
+    border: 1px solid #DDD8C0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .controls-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+  }
+  .controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px 14px;
+    border-radius: 4px;
+    border: 1.5px solid #1E2A5C;
+    background: #FFFFFF;
+    color: #1E2A5C;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.1s, color 0.1s;
+  }
+  button:hover:not(:disabled) {
+    background: #1E2A5C;
+    color: #FFFFFF;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  #pulse-btn {
+    background: #1E2A5C;
+    color: #FFFFFF;
+    font-size: 15px;
+    padding: 10px 18px;
+  }
+  #pulse-btn:hover:not(:disabled) { background: #2A3A7C; }
+  .seg-toggle {
+    display: inline-flex;
+    border: 1.5px solid #1E2A5C;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .seg-btn {
+    border: none;
+    border-radius: 0;
+    padding: 8px 12px;
+    background: #FFFFFF;
+    color: #1E2A5C;
+    font-weight: 600;
+  }
+  .seg-btn.active {
+    background: #1E2A5C;
+    color: #FFFFFF;
+  }
+  .seg-btn:hover:not(.active) {
+    background: #E8E0C4;
+    color: #1E2A5C;
+  }
+  #play-pause-btn.running {
+    background: #a8222a;
+    color: #FFFFFF;
+    border-color: #a8222a;
+  }
+  #play-pause-btn.running:hover { background: #8b1c23; }
+  #play-pause-btn.paused {
+    background: #1f6b3d;
+    color: #FFFFFF;
+    border-color: #1f6b3d;
+  }
+  #play-pause-btn.paused:hover { background: #195530; }
+  .speed-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: #1E2A5C;
+    margin-left: 6px;
+  }
+  .footnote {
+    font-size: 12px;
+    font-style: italic;
+    color: #1E2A5C;
+    padding: 8px 12px 10px 12px;
+    background: #FFFFFF;
+    border-top: 1px dashed #DDD8C0;
+    line-height: 1.45;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Wave Speed Trainer</h1>
+
+  <!-- ───────── STRING PANE ───────── -->
+  <div class="pane string-pane" id="string-pane">
+    <div class="pane-header">
+      <span class="header-label">WAVE SPEED TRAINER</span>
+    </div>
+    <canvas id="main-canvas"></canvas>
+  </div>
+
+  <!-- ───────── INSTRUMENT ROW: STOPWATCH ───────── -->
+  <div class="instrument-row">
+    <div class="stopwatch-slot" id="stopwatch-slot"></div>
+  </div>
+
+  <!-- ───────── MAIN CONTROLS ───────── -->
+  <div class="controls">
+    <div class="controls-inner">
+
+      <!-- Row 1: Pulse -->
+      <div class="controls-row">
+        <button id="pulse-btn">+ Pulse</button>
+      </div>
+
+      <!-- Row 2: Transport + speed + reset -->
+      <div class="controls-row">
+        <button id="play-pause-btn" class="running">&#9208; Pause</button>
+        <button id="step-back-btn" disabled>&#9664; Step</button>
+        <button id="step-forward-btn" disabled>Step &#9654;</button>
+        <span class="speed-label">SPEED:</span>
+        <div class="seg-toggle">
+          <button class="seg-btn speed-btn active" data-speed="0.25">&frac14;&times;</button>
+          <button class="seg-btn speed-btn" data-speed="0.5">&frac12;&times;</button>
+          <button class="seg-btn speed-btn" data-speed="1">1&times;</button>
+        </div>
+        <button id="reset-btn">Reset</button>
+      </div>
+    </div>
+    <div class="footnote">
+      <em>Pulse the wave from the source, time it from marker A to marker B with the stopwatch, and measure the distance between the markers with the ruler. The wave speed is c = &Delta;d / t. The stopwatch reads wall-clock seconds; at &frac14;&times; speed the pulse takes 4.0 s on the wall clock to travel 1.0 s in the scene &mdash; divide your stopwatch reading by the speed multiplier to get scene-time.</em>
+    </div>
+  </div>
+</div>
+
+<!-- Companion measurement-tool modules (vendored per Applet_Creation v8 §7.8) -->
+<script src="./stopwatch.js"></script>
+<script src="./ruler.js"></script>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const CANVAS_W = 1080;
+const CANVAS_H = 500;
+const X_SOURCE = 58;
+const Y_MID    = 250;
+const PX_PER_M = 300;
+
+// Wave / pulse visualization
+const PULSE_SIGMA_PX = 30;
+const A_PEAK_PX      = 60;
+const N_SAMPLES      = 300;
+const N_DOTS         = 40;
+const PULSE_CULL_PX  = (CANVAS_W - X_SOURCE) + 5 * PULSE_SIGMA_PX;  // leading edge past this → cull
+
+// Physics — LOCKED CONSTANTS (no sliders)
+const T_TENSION = 0.500;       // N
+const MU_DENSITY = 0.125;       // kg/m
+// c_theoretical = sqrt(T/μ) = sqrt(0.500/0.125) = sqrt(4) = 2.000 m/s
+
+// Pulse amplitude — fixed at 0.5 (no slider per design lock)
+const PULSE_AMP_FIXED = 0.5;
+
+// String stroke width — fixed (μ is locked)
+const STROKE_WIDTH = 3.0;
+
+// Markers — fixed, not draggable, not removable
+const MARKER_A_X = 200;
+const MARKER_B_X = 800;
+const MARKER_LETTERS = ['A', 'B'];
+const MARKER_POSITIONS_PX = [MARKER_A_X, MARKER_B_X];
+const DISC_R = 12;
+const V_DISC_Y = DISC_R + 4;   // disc center y; small top margin
+
+// Palette (locked — same as oscillator-lab)
+const COLOR_BG       = '#FAF3DE';
+const COLOR_STRING   = '#1E2A5C';
+const COLOR_DOT      = '#2E8B8B';
+const COLOR_REF_LINE = '#D6CFB0';
+const COLOR_MARKER   = '#2E8B8B';
+const COLOR_DISC     = '#1E2A5C';
+const COLOR_DISC_TXT = '#FFFFFF';
+const COLOR_SOURCE   = '#1E2A5C';
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  time: 0,
+  running: true,
+  timeScale: 0.25,                         // DEFAULT ¼× per design lock
+
+  // Pulse mode (only mode — no continuous wave)
+  pulses: [],                              // { x_launch, sign, t_birth, A_px }
+};
+let lastFrameTime = null;
+
+// ============================================================
+// PHYSICS HELPERS
+// ============================================================
+function getC()    { return Math.sqrt(T_TENSION / MU_DENSITY); }   // m/s = 2.000
+function getCpx()  { return getC() * PX_PER_M; }                    // px/s = 600
+
+function pulseY(p, x, t) {
+  const dt = t - p.t_birth;
+  if (dt < 0) return 0;
+  const c_px = getCpx();
+  const u = x - X_SOURCE - c_px * dt;
+  const r = u / PULSE_SIGMA_PX;
+  if (r > 5 || r < -5) return 0;
+  return p.sign * p.A_px * Math.exp(-r * r);
+}
+
+function totalY(x, t) {
+  let y = 0;
+  for (const p of state.pulses) y += pulseY(p, x, t);
+  return y;
+}
+
+// ============================================================
+// CANVAS — DPR-aware setup
+// ============================================================
+const mainCanvas = document.getElementById('main-canvas');
+let ctx;
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  let cssW = rect.width;
+  let cssH = rect.height;
+  if (!cssW || !cssH) { cssW = CANVAS_W; cssH = CANVAS_H; }
+  canvas.width  = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  const c = canvas.getContext('2d');
+  c.setTransform(canvas.width / CANVAS_W, 0, 0, canvas.height / CANVAS_H, 0, 0);
+  return c;
+}
+ctx = setupCanvas(mainCanvas);
+window.addEventListener('resize', () => { ctx = setupCanvas(mainCanvas); });
+
+// ============================================================
+// DRAWING
+// ============================================================
+function drawScene() {
+  // 1. Background
+  ctx.fillStyle = COLOR_BG;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // 2. Equilibrium reference line
+  ctx.strokeStyle = COLOR_REF_LINE;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(X_SOURCE, Y_MID);
+  ctx.lineTo(CANVAS_W, Y_MID);
+  ctx.stroke();
+
+  // 3. String curve
+  ctx.strokeStyle = COLOR_STRING;
+  ctx.lineWidth = STROKE_WIDTH;
+  ctx.beginPath();
+  for (let i = 0; i <= N_SAMPLES; i++) {
+    const x = X_SOURCE + (i / N_SAMPLES) * (CANVAS_W - X_SOURCE);
+    const y = Y_MID - totalY(x, state.time);
+    if (i === 0) ctx.moveTo(x, y);
+    else         ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // 4. Particle dots
+  ctx.fillStyle = COLOR_DOT;
+  for (let i = 0; i < N_DOTS; i++) {
+    const x = X_SOURCE + ((i + 0.5) / N_DOTS) * (CANVAS_W - X_SOURCE);
+    const y = Y_MID - totalY(x, state.time);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 5. Source marker (triangle below + label above)
+  drawSourceMarker();
+
+  // 6. Fixed markers A and B (drawn on top so they're visible against the wave)
+  drawFixedMarkers();
+}
+
+function drawSourceMarker() {
+  // Triangle below string
+  ctx.fillStyle = COLOR_SOURCE;
+  ctx.beginPath();
+  ctx.moveTo(X_SOURCE,      Y_MID + 14);
+  ctx.lineTo(X_SOURCE - 8,  Y_MID + 24);
+  ctx.lineTo(X_SOURCE + 8,  Y_MID + 24);
+  ctx.closePath();
+  ctx.fill();
+  // Label above string
+  ctx.fillStyle = COLOR_SOURCE;
+  ctx.font = '700 9px Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('SOURCE', X_SOURCE, Y_MID - 18);
+}
+
+function drawFixedMarkers() {
+  for (let i = 0; i < MARKER_POSITIONS_PX.length; i++) {
+    const x = MARKER_POSITIONS_PX[i];
+
+    // Full-height teal line
+    ctx.strokeStyle = COLOR_MARKER;
+    ctx.globalAlpha = 0.8;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, CANVAS_H);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    // Navy disc at TOP with white letter
+    drawMarkerDisc(x, V_DISC_Y, MARKER_LETTERS[i]);
+  }
+}
+
+function drawMarkerDisc(cx, cy, letter) {
+  // Disc body
+  ctx.fillStyle = COLOR_DISC;
+  ctx.beginPath();
+  ctx.arc(cx, cy, DISC_R, 0, Math.PI * 2);
+  ctx.fill();
+  // Letter
+  ctx.fillStyle = COLOR_DISC_TXT;
+  ctx.font = '700 13px Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(letter, cx, cy + 0.5);
+}
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+function update(dt) {
+  if (state.running) state.time += dt * state.timeScale;
+  // Cull pulses that have ridden off the right edge
+  const cpx = getCpx();
+  if (cpx > 0) {
+    const tBirthMin = state.time - PULSE_CULL_PX / cpx;
+    state.pulses = state.pulses.filter(p => p.t_birth > tBirthMin);
+  }
+}
+
+function frame(now) {
+  if (lastFrameTime === null) lastFrameTime = now;
+  let dt = (now - lastFrameTime) / 1000;
+  if (dt > 0.05) dt = 0.05;
+  lastFrameTime = now;
+  update(dt);
+  drawScene();
+  requestAnimationFrame(frame);
+}
+
+// ============================================================
+// CONTROLS WIRING
+// ============================================================
+const pulseBtn        = document.getElementById('pulse-btn');
+const playPauseBtn    = document.getElementById('play-pause-btn');
+const stepBackBtn     = document.getElementById('step-back-btn');
+const stepForwardBtn  = document.getElementById('step-forward-btn');
+const resetBtn        = document.getElementById('reset-btn');
+
+// ── Pulse button ──────────────────────────────────────────────────────
+pulseBtn.addEventListener('click', () => {
+  state.pulses.push({
+    x_launch: X_SOURCE,
+    sign:     1,                                // fixed at Up per design lock
+    t_birth:  state.time,
+    A_px:     PULSE_AMP_FIXED * A_PEAK_PX
+  });
+});
+
+// ── Play/pause + step ─────────────────────────────────────────────────
+function updateStepButtonStates() {
+  stepForwardBtn.disabled = state.running;
+  stepBackBtn.disabled    = state.running || state.time <= 0;
+}
+
+playPauseBtn.addEventListener('click', () => {
+  state.running = !state.running;
+  if (state.running) {
+    playPauseBtn.innerHTML = '&#9208; Pause';
+    playPauseBtn.classList.remove('paused');
+    playPauseBtn.classList.add('running');
+    lastFrameTime = null;
+  } else {
+    playPauseBtn.innerHTML = '&#9654; Start';
+    playPauseBtn.classList.remove('running');
+    playPauseBtn.classList.add('paused');
+  }
+  updateStepButtonStates();
+});
+
+stepForwardBtn.addEventListener('click', () => {
+  if (state.running) return;
+  state.time += (1 / 60) * state.timeScale;
+  updateStepButtonStates();
+});
+
+stepBackBtn.addEventListener('click', () => {
+  if (state.running) return;
+  state.time -= (1 / 60) * state.timeScale;
+  if (state.time < 0) state.time = 0;
+  updateStepButtonStates();
+});
+
+// ── Speed toggle ──────────────────────────────────────────────────────
+document.querySelectorAll('.speed-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.timeScale = parseFloat(btn.dataset.speed);
+  });
+});
+
+// ── Reset — scene-only (stopwatch has its own Reset button) ──────────
+resetBtn.addEventListener('click', () => {
+  // Time + transport
+  state.time = 0;
+  state.timeScale = 0.25;                       // back to DEFAULT ¼×
+  state.running = true;
+  lastFrameTime = null;
+  playPauseBtn.innerHTML = '&#9208; Pause';
+  playPauseBtn.classList.remove('paused');
+  playPauseBtn.classList.add('running');
+  document.querySelectorAll('.speed-btn').forEach(b => {
+    b.classList.toggle('active', parseFloat(b.dataset.speed) === 0.25);
+  });
+  updateStepButtonStates();
+
+  // Pulses
+  state.pulses = [];
+});
+
+// ============================================================
+// MEASUREMENT TOOL INSTANTIATION
+// ============================================================
+const stringPane = document.getElementById('string-pane');
+
+// Horizontal ruler — vendored ruler v2. Default position is top-left of the
+// string pane, well above the equilibrium line, so students must drag it
+// into position to measure between markers A and B (alignment task).
+// lengthMeters = 2.5 gives 750 px, ~25 cm visible beyond Δd on either side.
+new Ruler({
+  container:      stringPane,
+  x: 80, y: 80,
+  orientation:    'horizontal',
+  pixelsPerMeter: 300,
+  lengthMeters:   2.5,
+  thicknessPx:    36
+});
+
+new Stopwatch({
+  container:  document.getElementById('stopwatch-slot'),
+  x: 0, y: 0,
+  maxSeconds: 10,
+  size: 150
+});
+
+// ============================================================
+// INITIAL RENDER
+// ============================================================
+updateStepButtonStates();
+drawScene();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
