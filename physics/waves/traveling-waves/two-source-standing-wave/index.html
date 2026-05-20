@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Two-Source Standing Wave</title>
+<style>
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #FAF3DE;
+    color: #1E2A5C;
+  }
+  h1 {
+    margin: 0 0 12px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1E2A5C;
+    letter-spacing: 0.02em;
+  }
+  .app {
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  .pane {
+    position: relative;
+    background: #FAF3DE;
+    border: 1px solid #DDD8C0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1080 / 350;
+  }
+  .controls {
+    background: #FFFFFF;
+    border: 1px solid #DDD8C0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .controls-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+  }
+  .controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px 14px;
+    border-radius: 4px;
+    border: 1.5px solid #1E2A5C;
+    background: #FFFFFF;
+    color: #1E2A5C;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.1s, color 0.1s, opacity 0.1s;
+  }
+  button:hover:not(:disabled) {
+    background: #1E2A5C;
+    color: #FFFFFF;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  #play-btn {
+    background: #1E2A5C;
+    color: #FFFFFF;
+    font-size: 15px;
+    padding: 10px 18px;
+  }
+  #play-btn:hover:not(:disabled) { background: #2A3A7C; }
+  #play-btn:disabled {
+    background: #FFFFFF;
+    color: #1E2A5C;
+  }
+  .control-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: #1E2A5C;
+    margin-left: 6px;
+  }
+  .seg-toggle {
+    display: inline-flex;
+    border: 1.5px solid #1E2A5C;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .seg-btn {
+    border: none;
+    border-radius: 0;
+    padding: 8px 14px;
+    background: #FFFFFF;
+    color: #1E2A5C;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .seg-btn.active {
+    background: #1E2A5C;
+    color: #FFFFFF;
+  }
+  .seg-btn:hover:not(.active):not(:disabled) {
+    background: #E8E0C4;
+    color: #1E2A5C;
+  }
+  .seg-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .seg-btn.active:disabled {
+    opacity: 0.85;
+  }
+  .footnote {
+    font-size: 12px;
+    font-style: italic;
+    color: #1E2A5C;
+    padding: 8px 12px 10px 12px;
+    background: #FFFFFF;
+    border-top: 1px dashed #DDD8C0;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Two-Source Standing Wave</h1>
+
+  <div class="pane">
+    <canvas id="main-canvas"></canvas>
+  </div>
+
+  <div class="controls">
+    <div class="controls-inner">
+      <div class="controls-row">
+        <button id="play-btn">&#9654; Play</button>
+        <button id="reset-btn">Reset</button>
+        <span class="control-label">PHASE:</span>
+        <div class="seg-toggle">
+          <button class="seg-btn phase-btn active" data-phase="0">IN PHASE</button>
+          <button class="seg-btn phase-btn" data-phase="3.141592653589793">OUT OF PHASE</button>
+        </div>
+      </div>
+    </div>
+    <div class="footnote">
+      Two continuous sine waves enter from opposite edges and superpose into a standing wave.
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const CANVAS_W = 1080;
+const CANVAS_H = 350;
+const Y_MID    = 175;
+
+// Physics — all hardcoded, no UI exposure
+const C        = 150;                          // wave speed, px/s
+const LAMBDA   = 270;                          // wavelength, px (4 full λ across canvas)
+const K        = 2 * Math.PI / LAMBDA;         // wavenumber, rad/px
+const OMEGA    = K * C;                        // angular frequency, rad/s  (f ≈ 0.556 Hz, T ≈ 1.8 s)
+const AMP      = 30;                           // amplitude per traveling wave, px (max resultant = 60 px)
+
+// Visualization
+const N_SAMPLES = 300;
+const N_DOTS    = 40;
+
+// Locked palette
+const COLOR_BG       = '#FAF3DE';
+const COLOR_STRING   = '#1E2A5C';
+const COLOR_DOT      = '#2E8B8B';
+const COLOR_REF_LINE = '#D6CFB0';
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  time: 0,
+  running: false,
+  phaseDelta: 0,   // 0 (in phase) or π (out of phase)
+};
+let lastFrameTime = null;
+
+// ============================================================
+// PHYSICS — two continuous sine wavetrains with leading-edge initial condition
+// ============================================================
+// y_L(x, t) = AMP * sin(ωt - kx)            for 0 ≤ x ≤ c·t, else 0
+//   Wave entering from the left edge at t=0, propagating right at speed c.
+//
+// y_R(x, t) = AMP * sin(ωt - k(W-x) + Δφ)   for W - c·t ≤ x ≤ W, else 0
+//   Wave entering from the right edge at t=0, propagating left at speed c.
+//
+// Both leading edges enter the canvas at displacement zero (smooth onset).
+// Leading edges meet at midcanvas at t = W/(2c) = 3.6 s.
+// Canvas fully filled at t = W/c = 7.2 s; steady-state standing wave from then on.
+function yLeft(x, t) {
+  if (x > C * t) return 0;
+  return AMP * Math.sin(OMEGA * t - K * x);
+}
+function yRight(x, t) {
+  if (x < CANVAS_W - C * t) return 0;
+  return AMP * Math.sin(OMEGA * t - K * (CANVAS_W - x) + state.phaseDelta);
+}
+function totalY(x, t) {
+  return yLeft(x, t) + yRight(x, t);
+}
+
+// ============================================================
+// CANVAS (DPR-aware)
+// ============================================================
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  let cssW = rect.width;
+  let cssH = rect.height;
+  if (!cssW || !cssH) { cssW = CANVAS_W; cssH = CANVAS_H; }
+  canvas.width  = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(canvas.width / CANVAS_W, 0, 0, canvas.height / CANVAS_H, 0, 0);
+  return ctx;
+}
+
+const mainCanvas = document.getElementById('main-canvas');
+let ctx = setupCanvas(mainCanvas);
+window.addEventListener('resize', () => { ctx = setupCanvas(mainCanvas); });
+
+// ============================================================
+// DRAWING
+// ============================================================
+function drawScene() {
+  // 1. Background
+  ctx.fillStyle = COLOR_BG;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // 2. Equilibrium reference line
+  ctx.strokeStyle = COLOR_REF_LINE;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, Y_MID);
+  ctx.lineTo(CANVAS_W, Y_MID);
+  ctx.stroke();
+
+  // 3. Bold string curve (the resultant)
+  ctx.strokeStyle = COLOR_STRING;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i <= N_SAMPLES; i++) {
+    const x = (i / N_SAMPLES) * CANVAS_W;
+    const y = Y_MID - totalY(x, state.time);
+    if (i === 0) ctx.moveTo(x, y);
+    else         ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // 4. Particle dots (visualize transverse motion of mass elements;
+  //    sit still at nodes, swing maximum at antinodes)
+  ctx.fillStyle = COLOR_DOT;
+  for (let i = 0; i < N_DOTS; i++) {
+    const x = ((i + 0.5) / N_DOTS) * CANVAS_W;
+    const y = Y_MID - totalY(x, state.time);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+function frame(now) {
+  if (lastFrameTime === null) lastFrameTime = now;
+  let dt = (now - lastFrameTime) / 1000;
+  if (dt > 0.05) dt = 0.05;   // clamp on slow frames / tab refocus
+  lastFrameTime = now;
+  if (state.running) state.time += dt;
+  drawScene();
+  requestAnimationFrame(frame);
+}
+
+// ============================================================
+// CONTROLS
+// ============================================================
+const playBtn  = document.getElementById('play-btn');
+const resetBtn = document.getElementById('reset-btn');
+
+function updateControlStates() {
+  playBtn.disabled = state.running;
+  document.querySelectorAll('.phase-btn').forEach(b => {
+    b.disabled = state.running;
+  });
+}
+
+playBtn.addEventListener('click', () => {
+  if (state.running) return;
+  state.running = true;
+  lastFrameTime = null;
+  updateControlStates();
+});
+
+resetBtn.addEventListener('click', () => {
+  state.running = false;
+  state.time = 0;
+  updateControlStates();
+  drawScene();
+});
+
+document.querySelectorAll('.phase-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (state.running) return;   // toggle locked during run; reset first
+    document.querySelectorAll('.phase-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.phaseDelta = parseFloat(btn.dataset.phase);
+    drawScene();
+  });
+});
+
+// ============================================================
+// INIT
+// ============================================================
+updateControlStates();
+drawScene();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
