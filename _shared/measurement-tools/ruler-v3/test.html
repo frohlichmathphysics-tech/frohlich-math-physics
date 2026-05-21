@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruler — Test Page (v3)</title>
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    background: #10121E;
+    color: #e8e8e8;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px 32px;
+    box-sizing: border-box;
+  }
+  h1 {
+    margin: 0 0 4px 0;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  h2 {
+    margin: 22px 0 4px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #e0e4ee;
+  }
+  .subtitle {
+    color: #8a8e9a;
+    font-size: 12px;
+    margin-bottom: 18px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+  .instructions {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 12px 18px;
+    font-size: 13px;
+    line-height: 1.55;
+    margin-bottom: 18px;
+  }
+  .instructions strong { color: #f0f0f0; }
+  .instructions ul { margin: 6px 0 0 0; padding-left: 22px; }
+  .instructions li { margin: 3px 0; color: #c8ccd4; }
+  .case-caption {
+    color: #8a8e9a;
+    font-size: 12px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    margin-bottom: 6px;
+  }
+  .frame {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    background: #181b27;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  /* Blue reference shapes — true known lengths */
+  .ref-shape {
+    position: absolute;
+    background: #5a8ac6;
+    border: 1px solid #8eb4e0;
+  }
+  .ref-label {
+    position: absolute;
+    color: #c8ccd4;
+    font-size: 12px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+
+  footer {
+    margin-top: 22px;
+    font-size: 11px;
+    color: #6a6e7a;
+    text-align: center;
+    letter-spacing: 0.3px;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <h1>Ruler — Test Page (v3)</h1>
+    <div class="subtitle">_shared/measurement-tools/ruler-v3 · v3 adds `range` + `tickScale` (cm | mm); v2-mode regression preserved</div>
+
+    <div class="instructions">
+      <strong>What to test:</strong>
+      <ul>
+        <li><strong>Case 1 (v2 regression)</strong>: must look and behave <strong>identical</strong> to v2 — 600 px/m, cm scale, numerals 0–100, all four tick tiers (0.5 / 1 / 5 / 10 cm) visible. No console warnings expected.</li>
+        <li><strong>Case 2 (Lab side-view)</strong>: 0–3 m range, cm scale, 240 px/m → 720 px wide. Numerals 0, 10, 20, …, 300 (in cm). Minor 0.5 cm ticks omitted by density floor (expected) — one console warn line.</li>
+        <li><strong>Case 3 (Lab screen-view)</strong>: 0–0.3 m range, mm scale, 2400 px/m → 720 px wide. Numerals 0, 10, 20, …, 300 (in mm). Minor 0.5 mm ticks omitted by density floor (expected) — second console warn line.</li>
+        <li>Each ruler is draggable inside its own frame, independently. Drag onto the blue reference shape and verify the reading matches the labeled true length.</li>
+        <li><strong>Note on vertical orientation</strong>: the v2 vertical code path is unchanged in v3 and not exercised on this page. If the cm and mm horizontal cases pass, the vertical paths will follow.</li>
+      </ul>
+    </div>
+
+    <h2>Case 1 — v2-mode regression (no new params)</h2>
+    <div class="case-caption">pixelsPerMeter: 600 · lengthMeters: 1.0 · tickScale: 'cm' (default) · range: derived (0–1 m) · orientation: horizontal</div>
+    <div class="frame" id="frame-v2regr">
+      <!-- 25.0 cm line at 600 px/m = 150 px wide -->
+      <div class="ref-shape" style="left: 60px; top: 140px; width: 150px; height: 4px;"></div>
+      <div class="ref-label" style="left: 60px;  top: 120px;">25.0 cm  →  starts here</div>
+      <div class="ref-label" style="left: 215px; top: 120px;">←  ends here</div>
+      <!-- 45.0 cm block at 600 px/m = 270 px wide -->
+      <div class="ref-shape" style="left: 60px; top: 170px; width: 270px; height: 18px;"></div>
+      <div class="ref-label" style="left: 60px; top: 192px;">45.0 cm block</div>
+    </div>
+
+    <h2>Case 2 — Lab side-view (cm, 0–3 m)</h2>
+    <div class="case-caption">pixelsPerMeter: 240 · range: { min: 0, max: 3.0 } · tickScale: 'cm' · orientation: horizontal · expected warn: minor ticks omitted (0.5 cm = 1.20 px)</div>
+    <div class="frame" id="frame-sideview">
+      <!-- 0.50 m bar at 240 px/m = 120 px wide -->
+      <div class="ref-shape" style="left: 60px; top: 130px; width: 120px; height: 4px;"></div>
+      <div class="ref-label" style="left: 60px; top: 112px;">0.50 m (50 cm)</div>
+      <!-- 1.00 m bar at 240 px/m = 240 px wide -->
+      <div class="ref-shape" style="left: 60px; top: 160px; width: 240px; height: 4px;"></div>
+      <div class="ref-label" style="left: 60px; top: 142px;">1.00 m (100 cm)</div>
+      <!-- 2.50 m bar at 240 px/m = 600 px wide -->
+      <div class="ref-shape" style="left: 60px; top: 190px; width: 600px; height: 4px;"></div>
+      <div class="ref-label" style="left: 60px; top: 172px;">2.50 m (250 cm)</div>
+    </div>
+
+    <h2>Case 3 — Lab screen-view (mm, 0–0.3 m)</h2>
+    <div class="case-caption">pixelsPerMeter: 2400 · range: { min: 0, max: 0.3 } · tickScale: 'mm' · orientation: horizontal · expected warn: minor ticks omitted (0.5 mm = 1.20 px)</div>
+    <div class="frame" id="frame-screenview">
+      <!-- 50 mm bar at 2400 px/m = 120 px wide -->
+      <div class="ref-shape" style="left: 60px; top: 130px; width: 120px; height: 4px;"></div>
+      <div class="ref-label" style="left: 60px; top: 112px;">50 mm (5 cm)</div>
+      <!-- 100 mm bar at 2400 px/m = 240 px wide -->
+      <div class="ref-shape" style="left: 60px; top: 160px; width: 240px; height: 4px;"></div>
+      <div class="ref-label" style="left: 60px; top: 142px;">100 mm (10 cm)</div>
+      <!-- 250 mm bar at 2400 px/m = 600 px wide -->
+      <div class="ref-shape" style="left: 60px; top: 190px; width: 600px; height: 4px;"></div>
+      <div class="ref-label" style="left: 60px; top: 172px;">250 mm (25 cm)</div>
+    </div>
+
+    <footer>Mr. Frohlich Math and Physics  ·  Measurement-tool module v3 (range + tickScale extension)</footer>
+  </div>
+
+  <script src="./ruler.js"></script>
+  <script>
+    // Case 1 — v2-mode regression: no `range`, no `tickScale` ⇒ identical to v2.
+    new Ruler({
+      container:      document.getElementById('frame-v2regr'),
+      x:              60,
+      y:              60,
+      pixelsPerMeter: 600,
+      lengthMeters:   1.0,
+      thicknessPx:    36
+    });
+
+    // Case 2 — Lab side-view config (cm, 0–3 m, 240 px/m).
+    new Ruler({
+      container:      document.getElementById('frame-sideview'),
+      x:              60,
+      y:              60,
+      pixelsPerMeter: 240,
+      range:          { min: 0, max: 3.0 },
+      tickScale:      'cm',
+      thicknessPx:    36
+    });
+
+    // Case 3 — Lab screen-view config (mm, 0–0.3 m, 2400 px/m).
+    new Ruler({
+      container:      document.getElementById('frame-screenview'),
+      x:              60,
+      y:              60,
+      pixelsPerMeter: 2400,
+      range:          { min: 0, max: 0.3 },
+      tickScale:      'mm',
+      thicknessPx:    36
+    });
+  </script>
+</body>
+</html>

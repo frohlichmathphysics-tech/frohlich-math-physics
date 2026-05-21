@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Single-Slit Diffraction Lab · Mr. Frohlich Math and Physics</title>
+<style>
+  :root {
+    --cream:  #FAF3DE;
+    --navy:   #1E2A5C;
+    --teal:   #2E8B8B;
+    --red:    #C00000;
+    --ink:    #1F1F1F;
+    --line:   #c8b890;
+    --panel:  #f0e7c8;
+    --white:  #ffffff;
+    --grey:   #888888;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    padding: 16px;
+    min-height: 100vh;
+  }
+  .applet {
+    width: 800px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  .hdr {
+    background: var(--navy);
+    color: #fff;
+    padding: 11px 16px;
+    font-size: 17px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    border-radius: 6px 6px 0 0;
+  }
+  .hdr .sub {
+    float: right;
+    font-size: 11px;
+    font-weight: normal;
+    font-style: italic;
+    opacity: 0.75;
+    line-height: 22px;
+  }
+  .body {
+    border: 1px solid var(--line);
+    border-top: none;
+    padding: 12px;
+    border-radius: 0 0 6px 6px;
+    background: var(--cream);
+  }
+
+  /* View wrappers — canvas + draggable ruler share an absolute-positioning frame */
+  .view-wrap {
+    position: relative;
+    width: 800px;
+    height: 200px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .view-wrap + .view-wrap { margin-top: 10px; }
+  .view-wrap canvas {
+    display: block;
+    width: 800px;
+    height: 160px;
+  }
+  #side-view { cursor: default; }
+  #side-view.dragging { cursor: ew-resize; }
+
+  .scale-note {
+    margin: 4px 4px 0;
+    font-size: 10px;
+    font-style: italic;
+    color: var(--grey);
+    text-align: center;
+  }
+
+  /* Wavelength readout above the input panel */
+  .lambda-row {
+    margin-top: 14px;
+    padding: 9px 14px;
+    background: var(--white);
+    border-left: 4px solid var(--teal);
+    border-radius: 3px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .lambda-row b {
+    font-family: 'Courier New', monospace;
+    color: var(--navy);
+    font-weight: 700;
+  }
+  .swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 3px;
+    border: 1px solid #555;
+  }
+
+  /* Input panel */
+  .controls {
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: var(--panel);
+    border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .input-row label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .input-row input[type=number] {
+    width: 100px;
+    padding: 6px 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    color: var(--navy);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--white);
+  }
+  .input-row input[type=number]:disabled {
+    background: #e8e0c4;
+    color: #999;
+    cursor: not-allowed;
+  }
+  .action-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .action-row:last-child { margin-bottom: 0; }
+  .btn {
+    border: none;
+    padding: 7px 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: var(--navy);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #2a3978; }
+  .btn-primary:active { background: #14204a; }
+  .btn-primary:disabled {
+    background: #888;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: transparent;
+    color: var(--navy);
+    border: 1px solid var(--navy);
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+  .btn-secondary:hover { background: rgba(30, 42, 92, 0.08); }
+  .btn-secondary:disabled {
+    color: #888;
+    border-color: #888;
+    cursor: not-allowed;
+    background: transparent;
+  }
+  .attempts {
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .attempts b {
+    font-family: 'Courier New', monospace;
+    color: var(--navy);
+    font-weight: 700;
+  }
+  .feedback {
+    font-size: 14px;
+    font-weight: 600;
+    min-height: 18px;
+  }
+  .feedback.pass { color: var(--teal); }
+  .feedback.fail { color: var(--red); }
+  .reveal-readout {
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+    color: var(--teal);
+    font-weight: 700;
+  }
+  .err {
+    color: var(--red);
+    padding: 8px 12px;
+    background: var(--white);
+    border: 1px solid var(--red);
+    border-radius: 3px;
+    margin-top: 8px;
+    font-size: 13px;
+    display: none;
+  }
+  .err.visible { display: block; }
+  .ftr {
+    text-align: right;
+    padding: 8px 4px 0;
+    font-size: 11px;
+    color: #998;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<div class="applet">
+  <div class="hdr">Single-Slit Diffraction <span class="sub">Lab</span></div>
+  <div class="body">
+
+    <!-- Side view: laser → slit → draggable screen + draggable ruler -->
+    <div class="view-wrap" id="side-view-wrap">
+      <canvas id="side-view" width="800" height="160"></canvas>
+      <!-- Side-view ruler injected by Ruler class -->
+    </div>
+    <div class="scale-note">Slit width shown exaggerated for visibility — not to scale. Drag the SCREEN horizontally to change <i>L</i>.</div>
+
+    <!-- Screen view: diffraction pattern + draggable ruler -->
+    <div class="view-wrap" id="screen-view-wrap" style="margin-top: 10px;">
+      <canvas id="screen-view" width="800" height="160"></canvas>
+      <!-- Screen-view ruler injected by Ruler class -->
+    </div>
+
+    <!-- Wavelength readout -->
+    <div class="lambda-row">
+      <span>Wavelength <i>λ</i> = <b id="lam-readout">— nm</b></span>
+      <span class="swatch" id="lam-swatch"></span>
+    </div>
+
+    <!-- Input panel -->
+    <div class="controls">
+      <div class="input-row">
+        <label>Your estimate of <i>a</i> =</label>
+        <input type="number" id="a-input" step="1" min="0" placeholder="μm">
+        <label>μm  ±</label>
+        <input type="number" id="da-input" step="1" min="0" placeholder="μm">
+        <label>μm</label>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-primary" id="submit-btn">Submit</button>
+        <span class="attempts">Attempts: <b id="attempts-count">0</b></span>
+        <span class="feedback" id="feedback"></span>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-primary" id="new-trial-btn">New Trial</button>
+        <button class="btn btn-secondary" id="reveal-btn">Reveal true <i>a</i></button>
+        <span class="reveal-readout" id="reveal-readout"></span>
+      </div>
+      <div class="err" id="err-msg"></div>
+    </div>
+
+    <div class="ftr">Mr. Frohlich Math and Physics</div>
+  </div>
+</div>
+
+<script src="./ruler.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  // ====== Configuration ======
+  // Side view geometry (canvas pixels)
+  const SIDE_PX_PER_M = 240;
+  const SLIT_X  = 70;     // canvas x of slit
+  const BEAM_Y  = 50;     // canvas y of optical axis
+  const L_MIN   = 0.3;    // m — minimum screen distance
+  const L_MAX   = 3.0;    // m — maximum screen distance
+
+  // Screen view geometry (canvas pixels)
+  const BAND_X       = 40;     // pattern band left edge
+  const BAND_W       = 720;    // pattern band width
+  const BAND_TOP     = 32;
+  const BAND_H       = 68;
+  const SCREEN_PX_PER_M = 2400;  // = BAND_W / 0.3
+  const PATTERN_VIEW_HALF_M = 0.15;   // ±150 mm visible window
+  const RULER_CENTER_MM = 150;        // ruler reading at central max
+
+  // Render pipeline (matches Demo: GAMMA=0.35, SUPER=4)
+  const GAMMA = 0.35;
+  const SUPER = 4;
+
+  // Trial parameter ranges
+  const A_MIN_UM = 40, A_MAX_UM = 120;          // step 1 μm
+  const LAMBDAS_NM = [405, 532, 633];
+  const L_INIT_MIN = 0.8, L_INIT_MAX = 2.0;     // step 0.05 m
+
+  // ====== State ======
+  let trial = null;           // { a_um, lam_nm, L_initial_m }
+  let currentL_m = 1.5;       // live screen distance (mutates via drag)
+  let attempts = 0;
+  let revealed = false;
+
+  // Drag state
+  let isDraggingScreen = false;
+  let dragGrabOffsetPx = 0;
+
+  // ====== DOM ======
+  const $ = (id) => document.getElementById(id);
+  const sideCanvas   = $('side-view');
+  const screenCanvas = $('screen-view');
+  if (!sideCanvas || !screenCanvas) {
+    document.body.innerHTML =
+      '<div style="color:red;padding:24px;">Applet failed to load — canvas elements missing.</div>';
+    return;
+  }
+  const sideCtx   = sideCanvas.getContext('2d');
+  const screenCtx = screenCanvas.getContext('2d');
+
+  const lamReadout   = $('lam-readout');
+  const lamSwatch    = $('lam-swatch');
+  const aInput       = $('a-input');
+  const daInput      = $('da-input');
+  const submitBtn    = $('submit-btn');
+  const newTrialBtn  = $('new-trial-btn');
+  const revealBtn    = $('reveal-btn');
+  const attemptsCount= $('attempts-count');
+  const feedbackEl   = $('feedback');
+  const revealReadout= $('reveal-readout');
+  const errMsg       = $('err-msg');
+
+  // ====== Utilities ======
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function showError(msg) { errMsg.textContent = msg; errMsg.classList.add('visible'); }
+  function hideError()    { errMsg.classList.remove('visible'); }
+
+  // ====== Wavelength → RGB (visible spectrum) — verbatim from Demo ======
+  function wavelengthToRGB(nm) {
+    nm = clamp(nm, 380, 780);
+    let R = 0, G = 0, B = 0;
+    if (nm < 440)      { R = -(nm - 440) / 60; G = 0;                B = 1; }
+    else if (nm < 490) { R = 0;                G = (nm - 440) / 50;  B = 1; }
+    else if (nm < 510) { R = 0;                G = 1;                B = -(nm - 510) / 20; }
+    else if (nm < 580) { R = (nm - 510) / 70;  G = 1;                B = 0; }
+    else if (nm < 645) { R = 1;                G = -(nm - 645) / 65; B = 0; }
+    else               { R = 1;                G = 0;                B = 0; }
+
+    let factor = 1;
+    if (nm < 420)      factor = 0.30 + 0.70 * (nm - 380) / 40;
+    else if (nm > 645) factor = 0.30 + 0.70 * (780 - nm) / 135;
+
+    R = Math.pow(clamp(R * factor, 0, 1), 0.8);
+    G = Math.pow(clamp(G * factor, 0, 1), 0.8);
+    B = Math.pow(clamp(B * factor, 0, 1), 0.8);
+    return [Math.round(R * 255), Math.round(G * 255), Math.round(B * 255)];
+  }
+
+  // ====== Physics: Fraunhofer single-slit ======
+  // I(θ)/I₀ = sinc²(π a sinθ / λ), sinθ = y/√(y²+L²)
+  function sincSq(x) {
+    if (Math.abs(x) < 1e-12) return 1;
+    const s = Math.sin(x) / x;
+    return s * s;
+  }
+  function intensity(y_m, a_m, lam_m, L_m) {
+    const r = Math.sqrt(y_m * y_m + L_m * L_m);
+    const sinTheta = y_m / r;
+    const phi = Math.PI * a_m * sinTheta / lam_m;
+    return sincSq(phi);
+  }
+
+  // ====== Trial generation ======
+  function generateTrial() {
+    // a: uniform 40..120 μm, step 1 μm
+    const a_um = Math.floor(Math.random() * (A_MAX_UM - A_MIN_UM + 1)) + A_MIN_UM;
+    // λ: random pick
+    const lam_nm = LAMBDAS_NM[Math.floor(Math.random() * LAMBDAS_NM.length)];
+    // L initial: uniform [0.8, 2.0] step 0.05
+    const Lsteps = Math.round((L_INIT_MAX - L_INIT_MIN) / 0.05) + 1;
+    const L_initial_m = L_INIT_MIN + Math.floor(Math.random() * Lsteps) * 0.05;
+    return { a_um, lam_nm, L_initial_m };
+  }
+
+  // ====== Side view ======
+  function drawSideView() {
+    const c = sideCtx, W = sideCanvas.width, H = sideCanvas.height;
+    c.clearRect(0, 0, W, H);
+    c.fillStyle = '#FAF3DE';
+    c.fillRect(0, 0, W, H);
+
+    // "Side view" label
+    c.fillStyle = '#1E2A5C';
+    c.font = 'italic bold 12px Georgia';
+    c.textAlign = 'left';
+    c.fillText('Side view', 10, 16);
+
+    const screenX = SLIT_X + currentL_m * SIDE_PX_PER_M;
+
+    // Optical axis (faint dashed) from laser through slit to screen
+    c.strokeStyle = '#c8b890';
+    c.setLineDash([3, 3]);
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(10, BEAM_Y);
+    c.lineTo(screenX, BEAM_Y);
+    c.stroke();
+    c.setLineDash([]);
+
+    // Laser body
+    const laserX = 10, laserW = 56, laserH = 28;
+    const laserY = BEAM_Y - laserH / 2;
+    c.fillStyle = '#1E2A5C';
+    c.fillRect(laserX, laserY, laserW, laserH);
+    c.fillStyle = '#fff';
+    c.font = 'bold 11px Georgia';
+    c.textAlign = 'center';
+    c.fillText('LASER', laserX + laserW / 2, BEAM_Y + 4);
+    // λ glyph above laser
+    c.fillStyle = '#1E2A5C';
+    c.font = 'italic 13px Georgia';
+    c.fillText('λ', laserX + laserW / 2, laserY - 4);
+
+    // Beam from laser to slit, in wavelength color
+    const [r, g, b] = wavelengthToRGB(trial.lam_nm);
+    c.strokeStyle = `rgb(${r},${g},${b})`;
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(laserX + laserW, BEAM_Y);
+    c.lineTo(SLIT_X - 5, BEAM_Y);
+    c.stroke();
+
+    // Slit — two short navy bars with a fixed 4 px gap (exaggerated)
+    c.fillStyle = '#1E2A5C';
+    c.fillRect(SLIT_X - 5, BEAM_Y - 32, 10, 30);  // upper bar, y=18..48
+    c.fillRect(SLIT_X - 5, BEAM_Y + 2,  10, 30);  // lower bar, y=52..82
+    // "slit" label
+    c.font = 'italic 11px Georgia';
+    c.textAlign = 'center';
+    c.fillText('slit', SLIT_X, BEAM_Y - 36);
+
+    // Screen graphic — thick navy vertical line at draggable x
+    c.strokeStyle = '#1E2A5C';
+    c.lineWidth = 2.5;
+    c.beginPath();
+    c.moveTo(screenX, BEAM_Y - 35);
+    c.lineTo(screenX, BEAM_Y + 35);
+    c.stroke();
+    // "SCREEN" label
+    c.fillStyle = '#1E2A5C';
+    c.font = 'bold 10px Georgia';
+    c.textAlign = 'center';
+    c.fillText('SCREEN', screenX, BEAM_Y - 42);
+    // "(drag ↔)" hint below
+    c.fillStyle = '#888';
+    c.font = 'italic 9px Georgia';
+    c.fillText('(drag ↔)', screenX, BEAM_Y + 52);
+
+    // L bracket — visual indicator of slit-to-screen span (no number)
+    const Ly = 112;
+    c.strokeStyle = '#1E2A5C';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(SLIT_X, Ly - 4);   c.lineTo(SLIT_X, Ly + 4);
+    c.moveTo(screenX, Ly - 4);  c.lineTo(screenX, Ly + 4);
+    c.moveTo(SLIT_X, Ly);       c.lineTo(screenX, Ly);
+    c.stroke();
+    // "L" italic label in a cream gap (so it sits cleanly on the line)
+    const Lcx = (SLIT_X + screenX) / 2;
+    c.fillStyle = '#FAF3DE';
+    c.fillRect(Lcx - 6, Ly - 9, 12, 10);
+    c.fillStyle = '#1E2A5C';
+    c.font = 'italic 13px Georgia';
+    c.textAlign = 'center';
+    c.fillText('L', Lcx, Ly - 1);
+  }
+
+  // ====== Screen view (pattern band) ======
+  function drawScreenView() {
+    const c = screenCtx, W = screenCanvas.width, H = screenCanvas.height;
+    c.fillStyle = '#FAF3DE';
+    c.fillRect(0, 0, W, H);
+
+    // "Screen view" label
+    c.fillStyle = '#1E2A5C';
+    c.font = 'italic bold 12px Georgia';
+    c.textAlign = 'left';
+    c.fillText('Screen view', 10, 16);
+    // Right-side label
+    c.fillStyle = '#888';
+    c.font = 'italic 11px Georgia';
+    c.textAlign = 'right';
+    c.fillText('(diffraction pattern as seen on screen)', W - 10, 16);
+
+    // Dark "screen" backdrop for the pattern band
+    c.fillStyle = '#000';
+    c.fillRect(BAND_X, BAND_TOP, BAND_W, BAND_H);
+
+    const a_m   = trial.a_um   * 1e-6;
+    const lam_m = trial.lam_nm * 1e-9;
+    const L_m   = currentL_m;
+
+    // Defensive: should never happen given trial generation
+    if (!isFinite(a_m) || !isFinite(lam_m) || !isFinite(L_m) ||
+        a_m <= 0 || lam_m <= 0 || L_m <= 0) {
+      showError('Internal error — invalid physics parameters.');
+      return;
+    }
+    hideError();
+
+    const [rC, gC, bC] = wavelengthToRGB(trial.lam_nm);
+    const img = c.createImageData(BAND_W, BAND_H);
+
+    // Map: pattern column px ∈ [0, BAND_W)
+    //   ruler reading (mm) = px * 1000 / SCREEN_PX_PER_M     (0 to 300)
+    //   physical y (m)      = (ruler_mm - 150) / 1000        (−0.15 to +0.15)
+    // Supersample 4× along x for smooth side-fringe rendering.
+    for (let px = 0; px < BAND_W; px++) {
+      let acc = 0;
+      for (let s = 0; s < SUPER; s++) {
+        const subPx = px + (s + 0.5) / SUPER;
+        const y_mm_ruler = subPx * 1000 / SCREEN_PX_PER_M;
+        const y_m_phys = (y_mm_ruler - RULER_CENTER_MM) / 1000;
+        acc += intensity(y_m_phys, a_m, lam_m, L_m);
+      }
+      const I = acc / SUPER;
+      const disp = Math.pow(clamp(I, 0, 1), GAMMA);
+      const r = Math.round(rC * disp);
+      const g = Math.round(gC * disp);
+      const b = Math.round(bC * disp);
+      for (let row = 0; row < BAND_H; row++) {
+        const idx = (row * BAND_W + px) * 4;
+        img.data[idx]     = r;
+        img.data[idx + 1] = g;
+        img.data[idx + 2] = b;
+        img.data[idx + 3] = 255;
+      }
+    }
+    c.putImageData(img, BAND_X, BAND_TOP);
+
+    // Thin navy border around the pattern band
+    c.strokeStyle = '#1E2A5C';
+    c.lineWidth = 1;
+    c.strokeRect(BAND_X - 0.5, BAND_TOP - 0.5, BAND_W + 1, BAND_H + 1);
+  }
+
+  // ====== Screen-drag interaction (side view) ======
+  function getCanvasXY(evt, canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width  / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const ev = (evt.touches && evt.touches[0]) || evt;
+    return {
+      x: (ev.clientX - rect.left) * scaleX,
+      y: (ev.clientY - rect.top)  * scaleY
+    };
+  }
+
+  function isOverScreen(x, y) {
+    const screenX = SLIT_X + currentL_m * SIDE_PX_PER_M;
+    // Generous hit zone: ±10 px around the screen line, vertically the full graphic
+    return Math.abs(x - screenX) < 10 && y > 10 && y < 100;
+  }
+
+  function setupScreenDrag() {
+    const onDown = (e) => {
+      const { x, y } = getCanvasXY(e, sideCanvas);
+      if (!isOverScreen(x, y)) return;
+      isDraggingScreen = true;
+      const screenX = SLIT_X + currentL_m * SIDE_PX_PER_M;
+      dragGrabOffsetPx = x - screenX;
+      sideCanvas.classList.add('dragging');
+      e.preventDefault();
+    };
+    const onMove = (e) => {
+      // Cursor-feedback: ew-resize when hovering the screen graphic
+      if (!isDraggingScreen) {
+        const { x, y } = getCanvasXY(e, sideCanvas);
+        sideCanvas.style.cursor = isOverScreen(x, y) ? 'ew-resize' : 'default';
+        return;
+      }
+      e.preventDefault();
+      const { x } = getCanvasXY(e, sideCanvas);
+      const newScreenX = x - dragGrabOffsetPx;
+      let newL = (newScreenX - SLIT_X) / SIDE_PX_PER_M;
+      newL = clamp(newL, L_MIN, L_MAX);
+      if (newL !== currentL_m) {
+        currentL_m = newL;
+        drawSideView();
+        drawScreenView();
+      }
+    };
+    const onUp = () => {
+      isDraggingScreen = false;
+      sideCanvas.classList.remove('dragging');
+    };
+
+    sideCanvas.addEventListener('mousedown',  onDown);
+    sideCanvas.addEventListener('mousemove',  onMove);
+    document.addEventListener  ('mousemove',  onMove);
+    document.addEventListener  ('mouseup',    onUp);
+    sideCanvas.addEventListener('touchstart', onDown, { passive: false });
+    sideCanvas.addEventListener('touchmove',  onMove, { passive: false });
+    document.addEventListener  ('touchend',   onUp);
+  }
+
+  // ====== Input panel actions ======
+  function readNumericInput(el) {
+    const v = el.value.trim();
+    if (v === '') return null;
+    const n = Number(v);
+    if (!isFinite(n)) return null;
+    return n;
+  }
+
+  function setFeedback(text, cls) {
+    feedbackEl.textContent = text;
+    feedbackEl.classList.remove('pass', 'fail');
+    if (cls) feedbackEl.classList.add(cls);
+  }
+
+  function onSubmit() {
+    if (revealed) return;  // safety; button should be disabled
+
+    const a_guess  = readNumericInput(aInput);
+    const da_guess = readNumericInput(daInput);
+
+    if (a_guess === null || da_guess === null) {
+      setFeedback('Enter values for both a and Δa.', 'fail');
+      return;
+    }
+    if (a_guess <= 0) {
+      setFeedback('a must be positive.', 'fail');
+      return;
+    }
+    if (da_guess < 0) {
+      setFeedback('Δa must be ≥ 0.', 'fail');
+      return;
+    }
+
+    attempts += 1;
+    attemptsCount.textContent = attempts;
+
+    const trueA = trial.a_um;
+    const diff  = Math.abs(trueA - a_guess);
+    if (diff <= da_guess) {
+      setFeedback('✓ Correct! Your range contained the true value.', 'pass');
+    } else {
+      setFeedback('✗ Not yet — try again.', 'fail');
+    }
+  }
+
+  function onReveal() {
+    if (revealed) return;
+    revealed = true;
+    revealReadout.textContent = `True a = ${trial.a_um} μm`;
+    aInput.disabled = true;
+    daInput.disabled = true;
+    submitBtn.disabled = true;
+    revealBtn.disabled = true;
+  }
+
+  function onNewTrial() {
+    trial = generateTrial();
+    currentL_m = trial.L_initial_m;
+    attempts = 0;
+    revealed = false;
+
+    // Reset UI
+    aInput.value = '';
+    daInput.value = '';
+    aInput.disabled = false;
+    daInput.disabled = false;
+    submitBtn.disabled = false;
+    revealBtn.disabled = false;
+    attemptsCount.textContent = '0';
+    setFeedback('', null);
+    revealReadout.textContent = '';
+    hideError();
+
+    // Update λ readout
+    lamReadout.textContent = `${trial.lam_nm} nm`;
+    const [r, g, b] = wavelengthToRGB(trial.lam_nm);
+    lamSwatch.style.background = `rgb(${r},${g},${b})`;
+
+    // Redraw
+    drawSideView();
+    drawScreenView();
+  }
+
+  // ====== Rulers (vendored ruler-v3) ======
+  // Side-view ruler: horizontal, 0–3 m, cm scale, 240 px/m. Positioned with
+  // its "0" aligned with the slit (canvas x=70 → wrap x=70). Sits just below
+  // the side-view canvas in the wrapper (canvas height 160, ruler at y=164).
+  // Screen-view ruler: horizontal, 0–0.3 m, mm scale, 2400 px/m. Positioned
+  // with its "0" aligned with the left edge of the pattern band (wrap x=40)
+  // and "150" reading aligned with the central maximum (wrap x=400).
+  function initRulers() {
+    new Ruler({
+      container:      $('side-view-wrap'),
+      x:              SLIT_X,         // = 70, slit position in side canvas
+      y:              164,
+      pixelsPerMeter: SIDE_PX_PER_M,  // 240
+      range:          { min: 0, max: 3.0 },
+      tickScale:      'cm',
+      thicknessPx:    32
+    });
+    new Ruler({
+      container:      $('screen-view-wrap'),
+      x:              BAND_X,             // = 40, band left edge
+      y:              164,
+      pixelsPerMeter: SCREEN_PX_PER_M,    // 2400
+      range:          { min: 0, max: 0.3 },
+      tickScale:      'mm',
+      thicknessPx:    32
+    });
+  }
+
+  // ====== Wire up ======
+  submitBtn.addEventListener  ('click', onSubmit);
+  newTrialBtn.addEventListener('click', onNewTrial);
+  revealBtn.addEventListener  ('click', onReveal);
+
+  // Submit on Enter from either input field
+  [aInput, daInput].forEach(el => {
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); onSubmit(); }
+    });
+  });
+
+  // ====== Init ======
+  initRulers();
+  setupScreenDrag();
+  onNewTrial();
+})();
+</script>
+</body>
+</html>
