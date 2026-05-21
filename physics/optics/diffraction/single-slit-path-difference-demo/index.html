@@ -1,0 +1,585 @@
+<!--
+  single-slit-path-difference-demo
+  See slide.md in this folder for narration script and slide-build instructions.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Single-Slit Diffraction: Path Difference</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #FAF3DE; overflow: hidden; }
+  body { font-family: Georgia, 'Times New Roman', serif; }
+  canvas { display: block; margin: 0 auto; }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="1280" height="720"></canvas>
+<script>
+(function(){
+  'use strict';
+
+  // ===========================================================================
+  // Canvas
+  // ===========================================================================
+  const W = 1280, H = 720;
+
+  // ===========================================================================
+  // Optical region (y in [0, 540])
+  // ===========================================================================
+  const SLIT_X        = 120;
+  const SCREEN_X      = 1160;
+  const STRIP_X       = SCREEN_X;
+  const STRIP_W       = 30;
+  const L_VIS         = SCREEN_X - SLIT_X;          // 1040
+  const MIDPOINT_Y    = 285;
+  const A_VIS         = 60;
+  const HALF_A        = A_VIS / 2;                  // 30
+  const SLIT_TOP_Y    = MIDPOINT_Y - HALF_A;        // 255
+  const SLIT_BOT_Y    = MIDPOINT_Y + HALF_A;        // 315
+  const LAM_VIS       = 10;
+  const MARKER_Y_MIN  = 85;
+  const MARKER_Y_MAX  = 485;
+  const STRIP_TOP_Y   = MARKER_Y_MIN;
+  const STRIP_BOT_Y   = MARKER_Y_MAX;
+  const STRIP_H       = STRIP_BOT_Y - STRIP_TOP_Y;  // 400
+
+  // ===========================================================================
+  // Bottom region (y in [540, 720]) — schematic + readouts + reset
+  // ===========================================================================
+  const BOT_TOP       = 540;
+
+  // Schematic Δr triangle (magnified ×4, lives inside a small framed box)
+  const SCHEM_SCALE   = 4;
+  const SCHEM_HALF_A  = HALF_A * SCHEM_SCALE;       // 120
+
+  // Schematic box layout
+  const SCHEM_BOX_X   = 60;
+  const SCHEM_BOX_Y   = 560;
+  const SCHEM_BOX_W   = 270;
+  const SCHEM_BOX_H   = 150;
+  // Top vertex of the triangle inside the box (positioned so the triangle
+  // sits comfortably with the Δr leg pointing into open space):
+  const SCHEM_TOP_X   = SCHEM_BOX_X + 60;           // 120
+  const SCHEM_TOP_Y   = SCHEM_BOX_Y + 14;           // 574
+  const SCHEM_BOT_Y   = SCHEM_TOP_Y + SCHEM_HALF_A; // 694
+
+  // Readouts row
+  const READOUT_BASE_Y = 622;
+  const READOUT_X_T    = 410;
+  const READOUT_X_S    = 620;
+  const READOUT_X_R    = 830;
+
+  // Reset button
+  const RESET_X = 1030;
+  const RESET_Y = 595;
+  const RESET_W = 180;
+  const RESET_H = 56;
+
+  // ===========================================================================
+  // Wavelength color (633 nm, fixed)
+  // ===========================================================================
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function wavelengthToRGB(nm) {
+    nm = clamp(nm, 380, 780);
+    let R = 0, G = 0, B = 0;
+    if (nm < 440)      { R = -(nm - 440) / 60; G = 0;                B = 1; }
+    else if (nm < 490) { R = 0;                G = (nm - 440) / 50;  B = 1; }
+    else if (nm < 510) { R = 0;                G = 1;                B = -(nm - 510) / 20; }
+    else if (nm < 580) { R = (nm - 510) / 70;  G = 1;                B = 0; }
+    else if (nm < 645) { R = 1;                G = -(nm - 645) / 65; B = 0; }
+    else               { R = 1;                G = 0;                B = 0; }
+    let factor = 1;
+    if (nm < 420)      factor = 0.30 + 0.70 * (nm - 380) / 40;
+    else if (nm > 645) factor = 0.30 + 0.70 * (780 - nm) / 135;
+    R = Math.pow(clamp(R * factor, 0, 1), 0.8);
+    G = Math.pow(clamp(G * factor, 0, 1), 0.8);
+    B = Math.pow(clamp(B * factor, 0, 1), 0.8);
+    return [Math.round(R * 255), Math.round(G * 255), Math.round(B * 255)];
+  }
+  const [LAM_R, LAM_G, LAM_B] = wavelengthToRGB(633);
+  const LAM_RGB       = `rgb(${LAM_R},${LAM_G},${LAM_B})`;
+  const LAM_RGB_FAINT = `rgba(${LAM_R},${LAM_G},${LAM_B},0.4)`;
+
+  // Render constants for the intensity strip
+  const GAMMA = 0.35;
+  const SUPER = 4;
+
+  // ===========================================================================
+  // State
+  // ===========================================================================
+  let yMarker = MIDPOINT_Y;
+  let isDragging = false;
+
+  // ===========================================================================
+  // DOM + canvas
+  // ===========================================================================
+  const canvas = document.getElementById('canvas');
+  const ctx    = canvas.getContext('2d');
+
+  // ===========================================================================
+  // Physics
+  // ===========================================================================
+  function thetaOf(yM) {
+    return Math.atan((yM - MIDPOINT_Y) / L_VIS);
+  }
+  function deltaRPx(yM) {
+    return HALF_A * Math.sin(thetaOf(yM));
+  }
+  function sincSq(x) {
+    if (Math.abs(x) < 1e-12) return 1;
+    const s = Math.sin(x) / x;
+    return s * s;
+  }
+  function intensity(yScreen) {
+    const y_phys = yScreen - MIDPOINT_Y;
+    const r      = Math.sqrt(y_phys * y_phys + L_VIS * L_VIS);
+    const sinTh  = y_phys / r;
+    const phi    = Math.PI * A_VIS * sinTh / LAM_VIS;
+    return sincSq(phi);
+  }
+
+  // ===========================================================================
+  // Drawing — optical region
+  // ===========================================================================
+  function drawOpticalAxis() {
+    ctx.strokeStyle = '#c8b890';
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(40, MIDPOINT_Y);
+    ctx.lineTo(SCREEN_X - 2, MIDPOINT_Y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function drawSlit() {
+    // Two navy bars defining the exaggerated slit
+    ctx.fillStyle = '#1E2A5C';
+    ctx.fillRect(SLIT_X - 6, 50,         12, SLIT_TOP_Y - 50);
+    ctx.fillRect(SLIT_X - 6, SLIT_BOT_Y, 12, 510 - SLIT_BOT_Y);
+
+    // "a" bracket on the right of the slit gap
+    ctx.strokeStyle = '#1E2A5C';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(SLIT_X + 16, SLIT_TOP_Y); ctx.lineTo(SLIT_X + 16, SLIT_BOT_Y);
+    ctx.moveTo(SLIT_X + 11, SLIT_TOP_Y); ctx.lineTo(SLIT_X + 21, SLIT_TOP_Y);
+    ctx.moveTo(SLIT_X + 11, SLIT_BOT_Y); ctx.lineTo(SLIT_X + 21, SLIT_BOT_Y);
+    ctx.stroke();
+    ctx.fillStyle = '#1E2A5C';
+    ctx.font = 'italic 16px Georgia';
+    ctx.textAlign = 'left';
+    ctx.fillText('a', SLIT_X + 26, MIDPOINT_Y + 6);
+
+    // "a/2" bracket on the left of the slit, between top edge and midpoint
+    ctx.strokeStyle = '#C00000';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(SLIT_X - 70, SLIT_TOP_Y); ctx.lineTo(SLIT_X - 60, SLIT_TOP_Y);
+    ctx.moveTo(SLIT_X - 70, MIDPOINT_Y); ctx.lineTo(SLIT_X - 60, MIDPOINT_Y);
+    ctx.moveTo(SLIT_X - 65, SLIT_TOP_Y); ctx.lineTo(SLIT_X - 65, MIDPOINT_Y);
+    ctx.stroke();
+    ctx.fillStyle = '#C00000';
+    ctx.font = 'italic 14px Georgia';
+    ctx.textAlign = 'right';
+    ctx.fillText('a/2', SLIT_X - 72, (SLIT_TOP_Y + MIDPOINT_Y) / 2 + 5);
+
+    // Red dots marking the two ray sources
+    ctx.fillStyle = '#C00000';
+    ctx.beginPath(); ctx.arc(SLIT_X, SLIT_TOP_Y, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(SLIT_X, MIDPOINT_Y, 4, 0, Math.PI * 2); ctx.fill();
+
+    // Labels for the two ray sources
+    ctx.fillStyle = '#1E2A5C';
+    ctx.font = 'italic 12px Georgia';
+    ctx.textAlign = 'right';
+    ctx.fillText('top edge', SLIT_X - 10, SLIT_TOP_Y + 4);
+    ctx.fillText('midpoint', SLIT_X - 10, MIDPOINT_Y + 4);
+  }
+
+  // CONVERGING rays — both rays go from their slit-edge to the marker.
+  // The Δr we DISPLAY uses the Fraunhofer formula (a/2) sin θ.
+  // With L=1040 and a=60, a/L ≈ 0.058 — the visual angle mismatch between
+  // the two rays is small and the approximation is essentially indistinguishable
+  // from the exact path difference.
+  function drawRays() {
+    const theta = thetaOf(yMarker);
+
+    ctx.strokeStyle = LAM_RGB;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(SLIT_X, SLIT_TOP_Y);  ctx.lineTo(SCREEN_X, yMarker);
+    ctx.moveTo(SLIT_X, MIDPOINT_Y);  ctx.lineTo(SCREEN_X, yMarker);
+    ctx.stroke();
+
+    // θ angle arc at the slit midpoint, between the optical axis and the mid ray
+    if (Math.abs(theta) > 0.005) {
+      const arcR = 60;
+      ctx.strokeStyle = '#1E2A5C';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      if (theta > 0) ctx.arc(SLIT_X, MIDPOINT_Y, arcR, 0, theta);
+      else           ctx.arc(SLIT_X, MIDPOINT_Y, arcR, theta, 0);
+      ctx.stroke();
+      ctx.fillStyle = '#1E2A5C';
+      ctx.font = 'italic 16px Georgia';
+      ctx.textAlign = 'left';
+      const labelTheta = theta * 0.5;
+      const lx = SLIT_X + (arcR + 10) * Math.cos(labelTheta);
+      const ly = MIDPOINT_Y + (arcR + 10) * Math.sin(labelTheta) + 6;
+      ctx.fillText('θ', lx, ly);
+    }
+  }
+
+  function drawScreen() {
+    ctx.strokeStyle = '#1E2A5C';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(SCREEN_X, 40);
+    ctx.lineTo(SCREEN_X, 520);
+    ctx.stroke();
+  }
+
+  function drawIntensityStrip() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(STRIP_X, STRIP_TOP_Y, STRIP_W, STRIP_H);
+
+    const img = ctx.createImageData(STRIP_W, STRIP_H);
+    for (let row = 0; row < STRIP_H; row++) {
+      let acc = 0;
+      for (let s = 0; s < SUPER; s++) {
+        const sub = row + (s + 0.5) / SUPER;
+        acc += intensity(STRIP_TOP_Y + sub);
+      }
+      const I    = acc / SUPER;
+      const disp = Math.pow(clamp(I, 0, 1), GAMMA);
+      const r = Math.round(LAM_R * disp);
+      const g = Math.round(LAM_G * disp);
+      const b = Math.round(LAM_B * disp);
+      for (let col = 0; col < STRIP_W; col++) {
+        const idx = (row * STRIP_W + col) * 4;
+        img.data[idx]     = r;
+        img.data[idx + 1] = g;
+        img.data[idx + 2] = b;
+        img.data[idx + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, STRIP_X, STRIP_TOP_Y);
+
+    ctx.strokeStyle = '#1E2A5C';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(STRIP_X - 0.5, STRIP_TOP_Y - 0.5, STRIP_W + 1, STRIP_H + 1);
+
+    // m=±1 minima ticks
+    const sinT1 = LAM_VIS / A_VIS;
+    const cosT1 = Math.sqrt(1 - sinT1 * sinT1);
+    const y1    = L_VIS * sinT1 / cosT1;
+    const yTop  = MIDPOINT_Y - y1;
+    const yBot  = MIDPOINT_Y + y1;
+    ctx.strokeStyle = '#2E8B8B';
+    ctx.fillStyle   = '#2E8B8B';
+    ctx.lineWidth   = 1.2;
+    ctx.font = 'bold 13px Georgia';
+    ctx.textAlign = 'left';
+    [yTop, yBot].forEach((y, i) => {
+      ctx.beginPath();
+      ctx.moveTo(STRIP_X + STRIP_W + 1, y);
+      ctx.lineTo(STRIP_X + STRIP_W + 10, y);
+      ctx.stroke();
+      const label = (i === 0) ? 'm = +1' : 'm = −1';
+      ctx.fillText(label, STRIP_X + STRIP_W + 14, y + 4);
+    });
+  }
+
+  function drawMarker() {
+    const mx = STRIP_X + STRIP_W / 2;
+    const my = yMarker;
+    ctx.beginPath();
+    ctx.arc(mx, my, 9, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.strokeStyle = '#1E2A5C';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(mx, my, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#1E2A5C';
+    ctx.fill();
+  }
+
+  // ===========================================================================
+  // Drawing — bottom region (schematic + readouts + reset)
+  // ===========================================================================
+  function drawSeparator() {
+    ctx.strokeStyle = '#c8b890';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(20, BOT_TOP);
+    ctx.lineTo(W - 20, BOT_TOP);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function drawSchematic() {
+    // Frame the schematic so it reads as a "small picture / callout"
+    ctx.strokeStyle = '#c8b890';
+    ctx.fillStyle   = '#f5ecd0';
+    ctx.lineWidth   = 1;
+    roundRect(SCHEM_BOX_X, SCHEM_BOX_Y, SCHEM_BOX_W, SCHEM_BOX_H, 6, true, true);
+
+    // Header
+    ctx.fillStyle = '#1E2A5C';
+    ctx.font = 'italic bold 12px Georgia';
+    ctx.textAlign = 'left';
+    ctx.fillText('Δr geometry  (magnified ×4)', SCHEM_BOX_X + 10, SCHEM_BOX_Y + 16);
+
+    const theta = thetaOf(yMarker);
+    const sn = Math.sin(theta);
+    const cs = Math.cos(theta);
+
+    const Tx = SCHEM_TOP_X, Ty = SCHEM_TOP_Y;
+    const Bx = SCHEM_TOP_X, By = SCHEM_BOT_Y;
+    const footX = Tx + SCHEM_HALF_A * sn * cs;
+    const footY = Ty + SCHEM_HALF_A * sn * sn;
+
+    // Faint extension of the two rays past the foot
+    const rayLen = SCHEM_HALF_A * 1.4;
+    ctx.strokeStyle = LAM_RGB_FAINT;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(Tx, Ty); ctx.lineTo(Tx + rayLen * cs, Ty + rayLen * sn);
+    ctx.moveTo(Bx, By); ctx.lineTo(Bx + rayLen * cs, By + rayLen * sn);
+    ctx.stroke();
+
+    // Vertical side (a/2)
+    ctx.strokeStyle = '#1E2A5C';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(Tx, Ty); ctx.lineTo(Bx, By);
+    ctx.stroke();
+
+    // Perpendicular side: bottom vertex to foot
+    ctx.strokeStyle = '#1E2A5C';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(Bx, By); ctx.lineTo(footX, footY);
+    ctx.stroke();
+
+    // Δr side: top vertex to foot — highlighted in red
+    ctx.strokeStyle = '#C00000';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(Tx, Ty); ctx.lineTo(footX, footY);
+    ctx.stroke();
+
+    // Right-angle marker at the foot (small L inside the corner)
+    if (Math.abs(theta) > 0.015) {
+      const sz = 7;
+      const u1x = -cs, u1y = -sn;                              // toward top vertex
+      const lenB = Math.hypot(Bx - footX, By - footY) || 1;
+      const u2x = (Bx - footX) / lenB, u2y = (By - footY) / lenB;  // toward bottom vertex
+      ctx.strokeStyle = '#1E2A5C';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(footX + u1x * sz,         footY + u1y * sz);
+      ctx.lineTo(footX + (u1x + u2x) * sz, footY + (u1y + u2y) * sz);
+      ctx.lineTo(footX + u2x * sz,         footY + u2y * sz);
+      ctx.stroke();
+    }
+
+    // Vertex dots
+    ctx.fillStyle = '#C00000';
+    ctx.beginPath(); ctx.arc(Tx, Ty, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(Bx, By, 3.5, 0, Math.PI * 2); ctx.fill();
+
+    // a/2 label to the left of the vertical side
+    ctx.fillStyle = '#1E2A5C';
+    ctx.font = 'italic 13px Georgia';
+    ctx.textAlign = 'right';
+    ctx.fillText('a/2', Tx - 8, (Ty + By) / 2 + 5);
+
+    // Δr label in red — live value
+    ctx.fillStyle = '#C00000';
+    ctx.font = 'italic bold 13px Georgia';
+    ctx.textAlign = 'left';
+    const drInLam = deltaRPx(yMarker) / LAM_VIS;
+    ctx.fillText(`Δr = ${drInLam.toFixed(3)} λ`, SCHEM_BOX_X + 10, SCHEM_BOX_Y + SCHEM_BOX_H - 10);
+  }
+
+  function drawReadouts() {
+    const theta  = thetaOf(yMarker);
+    const sinT   = Math.sin(theta);
+    const dr     = deltaRPx(yMarker);
+    const drLam  = dr / LAM_VIS;
+    const phiDeg = drLam * 360;
+
+    // Header
+    ctx.fillStyle = '#1E2A5C';
+    ctx.font = 'italic bold 12px Georgia';
+    ctx.textAlign = 'left';
+    ctx.fillText('live values', READOUT_X_T, SCHEM_BOX_Y + 16);
+
+    // Decide highlight state from |Δr|
+    const absDr = Math.abs(drLam);
+    let drColor = '#1E2A5C';
+    if (absDr < 0.015)                drColor = '#2E8B8B';   // teal at central max
+    else if (Math.abs(absDr - 0.5) < 0.015) drColor = '#C00000'; // red at first minimum
+
+    // θ
+    drawReadout(READOUT_X_T, READOUT_BASE_Y, 'θ',     `${(theta * 180 / Math.PI).toFixed(2)}°`, '#1E2A5C');
+    // sin θ
+    drawReadout(READOUT_X_S, READOUT_BASE_Y, 'sin θ', `${sinT.toFixed(3)}`,                     '#1E2A5C');
+    // Δr  (highlighted)
+    drawReadout(READOUT_X_R, READOUT_BASE_Y, 'Δr',    `${drLam.toFixed(3)} λ`,                  drColor, true);
+
+    // Tiny status pip below Δr — visual cue, no narration-duplicating text
+    if (drColor === '#C00000' || drColor === '#2E8B8B') {
+      ctx.fillStyle = drColor;
+      ctx.beginPath();
+      ctx.arc(READOUT_X_R + 100, READOUT_BASE_Y - 13, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawReadout(x, y, label, value, color, emphasized) {
+    ctx.fillStyle = '#666';
+    ctx.font = 'italic 15px Georgia';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, x, y - 16);
+
+    ctx.fillStyle = color;
+    ctx.font = `bold ${emphasized ? 26 : 22}px "Courier New", monospace`;
+    ctx.fillText(value, x, y + 12);
+  }
+
+  function drawResetButton() {
+    ctx.fillStyle = '#1E2A5C';
+    roundRect(RESET_X, RESET_Y, RESET_W, RESET_H, 5, true, false);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px Georgia';
+    ctx.textAlign = 'center';
+    ctx.fillText('Reset', RESET_X + RESET_W / 2, RESET_Y + RESET_H / 2 + 6);
+  }
+
+  // Utility — rounded rectangle (fill and/or stroke)
+  function roundRect(x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    if (fill)   ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+  // ===========================================================================
+  // Master draw
+  // ===========================================================================
+  function draw() {
+    ctx.fillStyle = '#FAF3DE';
+    ctx.fillRect(0, 0, W, H);
+
+    drawOpticalAxis();
+    drawSlit();
+    drawRays();
+    drawScreen();
+    drawIntensityStrip();
+    drawMarker();
+
+    drawSeparator();
+    drawSchematic();
+    drawReadouts();
+    drawResetButton();
+  }
+
+  // ===========================================================================
+  // Interaction
+  // ===========================================================================
+  function getCanvasXY(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width  / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const ev = (evt.touches && evt.touches[0]) || evt;
+    return {
+      x: (ev.clientX - rect.left) * scaleX,
+      y: (ev.clientY - rect.top)  * scaleY
+    };
+  }
+  function isOverMarker(x, y) {
+    const mx = STRIP_X + STRIP_W / 2;
+    const my = yMarker;
+    const dx = x - mx, dy = y - my;
+    return (dx * dx + dy * dy) < 24 * 24;
+  }
+  function isOnStripBand(x, y) {
+    return x >= STRIP_X - 12 && x <= STRIP_X + STRIP_W + 16 &&
+           y >= MARKER_Y_MIN - 12 && y <= MARKER_Y_MAX + 12;
+  }
+  function isOverResetButton(x, y) {
+    return x >= RESET_X && x <= RESET_X + RESET_W &&
+           y >= RESET_Y && y <= RESET_Y + RESET_H;
+  }
+
+  function onDown(e) {
+    const { x, y } = getCanvasXY(e);
+    if (isOverResetButton(x, y)) {
+      yMarker = MIDPOINT_Y;
+      draw();
+      e.preventDefault();
+      return;
+    }
+    if (isOverMarker(x, y) || isOnStripBand(x, y)) {
+      isDragging = true;
+      canvas.style.cursor = 'grabbing';
+      if (isOnStripBand(x, y) && !isOverMarker(x, y)) {
+        yMarker = clamp(y, MARKER_Y_MIN, MARKER_Y_MAX);
+        draw();
+      }
+      e.preventDefault();
+    }
+  }
+  function onMove(e) {
+    if (!isDragging) {
+      const { x, y } = getCanvasXY(e);
+      if (isOverResetButton(x, y))       canvas.style.cursor = 'pointer';
+      else if (isOverMarker(x, y) || isOnStripBand(x, y))
+                                          canvas.style.cursor = 'grab';
+      else                                canvas.style.cursor = 'default';
+      return;
+    }
+    e.preventDefault();
+    const { y } = getCanvasXY(e);
+    const newY = clamp(y, MARKER_Y_MIN, MARKER_Y_MAX);
+    if (newY !== yMarker) {
+      yMarker = newY;
+      draw();
+    }
+  }
+  function onUp() {
+    if (isDragging) {
+      isDragging = false;
+      canvas.style.cursor = 'default';
+    }
+  }
+
+  canvas.addEventListener('mousedown',  onDown);
+  canvas.addEventListener('mousemove',  onMove);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup',   onUp);
+  canvas.addEventListener('touchstart', onDown, { passive: false });
+  canvas.addEventListener('touchmove',  onMove, { passive: false });
+  document.addEventListener('touchend', onUp);
+
+  draw();
+})();
+</script>
+</body>
+</html>
