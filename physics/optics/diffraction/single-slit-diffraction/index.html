@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<title>Single-Slit Diffraction · Mr. Frohlich Math and Physics</title>
+<style>
+  :root {
+    --cream: #FAF3DE;
+    --navy: #1E2A5C;
+    --teal: #2E8B8B;
+    --red: #C00000;
+    --ink: #1F1F1F;
+    --line: #c8b890;
+    --panel: #f0e7c8;
+    --readout-bg: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    padding: 16px;
+    min-height: 100vh;
+  }
+  .applet {
+    max-width: 780px;
+    margin: 0 auto;
+  }
+  .hdr {
+    background: var(--navy);
+    color: #fff;
+    padding: 11px 16px;
+    font-size: 17px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    border-radius: 6px 6px 0 0;
+  }
+  .hdr .sub {
+    float: right;
+    font-size: 11px;
+    font-weight: normal;
+    font-style: italic;
+    opacity: 0.75;
+    line-height: 22px;
+  }
+  .body {
+    border: 1px solid var(--line);
+    border-top: none;
+    padding: 12px;
+    border-radius: 0 0 6px 6px;
+    background: var(--cream);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: #FAF3DE;
+  }
+  #schematic { height: 110px; }
+  #pattern { height: 200px; margin-top: 10px; }
+  .controls {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--panel);
+    border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 150px 1fr 90px 28px;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 9px;
+  }
+  .row label { font-weight: 600; font-size: 14px; color: var(--ink); }
+  .row label i { color: var(--navy); }
+  .row input[type=range] {
+    width: 100%;
+    accent-color: var(--teal);
+    height: 22px;
+  }
+  .row .val {
+    text-align: right;
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: var(--navy);
+    font-size: 13px;
+  }
+  .swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 3px;
+    border: 1px solid #555;
+  }
+  .toggles {
+    margin-top: 8px;
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+  }
+  .toggles label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .toggles input[type=checkbox] {
+    accent-color: var(--teal);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+  .readout {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--readout-bg);
+    border-left: 4px solid var(--teal);
+    border-radius: 3px;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .readout .line { margin: 2px 0; }
+  .readout b {
+    color: var(--navy);
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+  }
+  .btn-row { margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px; }
+  .btn {
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    padding: 7px 18px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .btn:hover { background: #2a3978; }
+  .btn:active { background: #14204a; }
+  .ftr {
+    text-align: right;
+    padding: 6px 4px 0;
+    font-size: 11px;
+    color: #998;
+    font-style: italic;
+  }
+  .err {
+    color: var(--red);
+    padding: 10px;
+    text-align: center;
+    background: #fff;
+    border: 1px solid var(--red);
+    border-radius: 3px;
+    margin-top: 10px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div class="applet">
+  <div class="hdr">Single-Slit Diffraction <span class="sub">Demo</span></div>
+  <div class="body">
+    <canvas id="schematic" width="720" height="110"></canvas>
+    <canvas id="pattern" width="720" height="200"></canvas>
+
+    <div class="controls">
+      <div class="row">
+        <label>Slit width <i>a</i></label>
+        <input type="range" id="a-slider" min="10" max="300" step="1" value="100">
+        <span class="val"><span id="a-val">100</span> μm</span>
+        <span></span>
+      </div>
+      <div class="row">
+        <label>Wavelength <i>λ</i></label>
+        <input type="range" id="lam-slider" min="380" max="700" step="1" value="633">
+        <span class="val"><span id="lam-val">633</span> nm</span>
+        <span class="swatch" id="lam-swatch"></span>
+      </div>
+      <div class="row">
+        <label>Screen distance <i>L</i></label>
+        <input type="range" id="L-slider" min="0.5" max="3.0" step="0.05" value="1.5">
+        <span class="val"><span id="L-val">1.50</span> m</span>
+        <span></span>
+      </div>
+
+      <div class="toggles">
+        <label><input type="checkbox" id="envelope-toggle"> Show intensity envelope</label>
+        <label><input type="checkbox" id="markers-toggle"> Show minima markers</label>
+      </div>
+
+      <div class="readout">
+        <div class="line">At first minimum (<i>m</i> = 1): <i>y</i><sub>1</sub> = <b id="y1-out">9.50 mm</b>, θ<sub>1</sub> = <b id="th1-out">0.363°</b></div>
+        <div class="line">Check: <i>a</i> sin θ<sub>1</sub> = (<b id="a-eq">100</b> μm)(<b id="sin-eq">0.00633</b>) = <b id="lam-eq">633 nm</b> = <i>λ</i> <span id="check-mark">✓</span></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="reset-btn">Reset</button>
+      </div>
+
+      <div class="err" id="err-msg"></div>
+    </div>
+
+    <div class="ftr">Mr. Frohlich Math and Physics</div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+
+  // ====== Configuration ======
+  const PATTERN_W_MM = 200;   // visible extent on screen: ±100 mm
+  const GAMMA = 0.35;         // brightness gamma for side-fringe visibility
+  const SUPER = 4;            // supersample per pixel along x
+
+  const DEFAULTS = { a: 100, lam: 633, L: 1.5, envelope: false, markers: false };
+
+  // ====== DOM ======
+  const $ = (id) => document.getElementById(id);
+  const schematicCanvas = $('schematic');
+  const patternCanvas   = $('pattern');
+  const aSlider   = $('a-slider');
+  const lamSlider = $('lam-slider');
+  const LSlider   = $('L-slider');
+  const aVal      = $('a-val');
+  const lamVal    = $('lam-val');
+  const LVal      = $('L-val');
+  const lamSwatch = $('lam-swatch');
+  const envToggle  = $('envelope-toggle');
+  const markToggle = $('markers-toggle');
+  const y1Out  = $('y1-out');
+  const th1Out = $('th1-out');
+  const aEq    = $('a-eq');
+  const sinEq  = $('sin-eq');
+  const lamEq  = $('lam-eq');
+  const checkMark = $('check-mark');
+  const resetBtn = $('reset-btn');
+  const errMsg = $('err-msg');
+
+  if (!schematicCanvas || !patternCanvas) {
+    document.body.innerHTML = '<div style="color:red;padding:24px;">Applet failed to load — canvas elements missing.</div>';
+    return;
+  }
+
+  const schCtx = schematicCanvas.getContext('2d');
+  const patCtx = patternCanvas.getContext('2d');
+
+  // ====== Utilities ======
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  function showError(msg) { errMsg.textContent = msg; errMsg.style.display = 'block'; }
+  function hideError() { errMsg.style.display = 'none'; }
+
+  // ====== Wavelength → RGB (visible spectrum) ======
+  function wavelengthToRGB(nm) {
+    nm = clamp(nm, 380, 780);
+    let R = 0, G = 0, B = 0;
+    if (nm < 440)      { R = -(nm - 440) / 60; G = 0;                B = 1; }
+    else if (nm < 490) { R = 0;                G = (nm - 440) / 50;  B = 1; }
+    else if (nm < 510) { R = 0;                G = 1;                B = -(nm - 510) / 20; }
+    else if (nm < 580) { R = (nm - 510) / 70;  G = 1;                B = 0; }
+    else if (nm < 645) { R = 1;                G = -(nm - 645) / 65; B = 0; }
+    else               { R = 1;                G = 0;                B = 0; }
+
+    let factor = 1;
+    if (nm < 420)      factor = 0.30 + 0.70 * (nm - 380) / 40;
+    else if (nm > 645) factor = 0.30 + 0.70 * (780 - nm) / 135;
+
+    R = Math.pow(clamp(R * factor, 0, 1), 0.8);
+    G = Math.pow(clamp(G * factor, 0, 1), 0.8);
+    B = Math.pow(clamp(B * factor, 0, 1), 0.8);
+    return [Math.round(R * 255), Math.round(G * 255), Math.round(B * 255)];
+  }
+
+  // ====== Physics: single-slit intensity ======
+  // I(θ)/I₀ = sinc²(π a sinθ / λ), where sinc(x) = sin(x)/x.
+  // y on screen → θ via sinθ = y/√(y²+L²).
+  function sincSq(x) {
+    if (Math.abs(x) < 1e-12) return 1;
+    const s = Math.sin(x) / x;
+    return s * s;
+  }
+  function intensity(y_m, a_m, lam_m, L_m) {
+    const r = Math.sqrt(y_m * y_m + L_m * L_m);
+    const sinTheta = y_m / r;
+    const phi = Math.PI * a_m * sinTheta / lam_m;
+    return sincSq(phi);
+  }
+
+  // ====== Schematic (static; drawn once) ======
+  function drawSchematic() {
+    const W = schematicCanvas.width, H = schematicCanvas.height;
+    schCtx.clearRect(0, 0, W, H);
+    schCtx.fillStyle = '#FAF3DE';
+    schCtx.fillRect(0, 0, W, H);
+
+    const beamY = H / 2 - 4;
+
+    // Optical axis (faint dashed)
+    schCtx.strokeStyle = '#c8b890';
+    schCtx.setLineDash([3, 3]);
+    schCtx.lineWidth = 1;
+    schCtx.beginPath(); schCtx.moveTo(50, beamY); schCtx.lineTo(W - 80, beamY); schCtx.stroke();
+    schCtx.setLineDash([]);
+
+    // Laser body (left)
+    const laserX = 65, laserY = beamY - 14, laserW = 56, laserH = 28;
+    schCtx.fillStyle = '#1E2A5C';
+    schCtx.fillRect(laserX, laserY, laserW, laserH);
+    schCtx.fillStyle = '#fff';
+    schCtx.font = 'bold 11px Georgia';
+    schCtx.textAlign = 'center';
+    schCtx.fillText('LASER', laserX + laserW/2, beamY + 4);
+    // λ label above laser
+    schCtx.fillStyle = '#1E2A5C';
+    schCtx.font = 'italic 14px Georgia';
+    schCtx.fillText('λ', laserX + laserW/2, laserY - 5);
+
+    // Beam from laser to slit (red)
+    const slitX = W / 2 - 20;
+    schCtx.strokeStyle = '#C00000';
+    schCtx.lineWidth = 2;
+    schCtx.beginPath(); schCtx.moveTo(laserX + laserW, beamY); schCtx.lineTo(slitX - 4, beamY); schCtx.stroke();
+
+    // Slit (two navy bars with a gap)
+    schCtx.fillStyle = '#1E2A5C';
+    schCtx.fillRect(slitX - 4, beamY - 38, 8, 30);  // upper bar
+    schCtx.fillRect(slitX - 4, beamY + 8,  8, 30);  // lower bar
+
+    // a-label bracket on slit gap
+    schCtx.strokeStyle = '#1E2A5C';
+    schCtx.lineWidth = 1.2;
+    schCtx.beginPath();
+    schCtx.moveTo(slitX + 14, beamY - 8); schCtx.lineTo(slitX + 14, beamY + 8);
+    schCtx.moveTo(slitX + 10, beamY - 7); schCtx.lineTo(slitX + 18, beamY - 7);
+    schCtx.moveTo(slitX + 10, beamY + 7); schCtx.lineTo(slitX + 18, beamY + 7);
+    schCtx.stroke();
+    schCtx.fillStyle = '#1E2A5C';
+    schCtx.font = 'italic bold 14px Georgia';
+    schCtx.textAlign = 'left';
+    schCtx.fillText('a', slitX + 22, beamY + 5);
+
+    // Diffracted beams (fan from slit to screen)
+    const scrX = W - 75;
+    schCtx.strokeStyle = '#C00000';
+    schCtx.lineWidth = 1.2;
+    schCtx.globalAlpha = 0.85;
+    schCtx.beginPath();
+    schCtx.moveTo(slitX, beamY); schCtx.lineTo(scrX - 2, beamY);
+    schCtx.globalAlpha = 0.55;
+    schCtx.moveTo(slitX, beamY); schCtx.lineTo(scrX - 2, beamY - 26);
+    schCtx.moveTo(slitX, beamY); schCtx.lineTo(scrX - 2, beamY + 26);
+    schCtx.globalAlpha = 0.30;
+    schCtx.moveTo(slitX, beamY); schCtx.lineTo(scrX - 2, beamY - 40);
+    schCtx.moveTo(slitX, beamY); schCtx.lineTo(scrX - 2, beamY + 40);
+    schCtx.stroke();
+    schCtx.globalAlpha = 1;
+
+    // Screen (right vertical line)
+    schCtx.strokeStyle = '#1E2A5C';
+    schCtx.lineWidth = 2.5;
+    schCtx.beginPath(); schCtx.moveTo(scrX, beamY - 44); schCtx.lineTo(scrX, beamY + 44); schCtx.stroke();
+    // Screen label
+    schCtx.fillStyle = '#1E2A5C';
+    schCtx.font = '11px Georgia';
+    schCtx.textAlign = 'left';
+    schCtx.fillText('SCREEN', scrX + 5, beamY + 3);
+
+    // L-dimension bracket between slit and screen
+    const Ly = H - 12;
+    schCtx.strokeStyle = '#1E2A5C';
+    schCtx.lineWidth = 1;
+    schCtx.beginPath();
+    schCtx.moveTo(slitX, Ly - 4); schCtx.lineTo(slitX, Ly + 4);
+    schCtx.moveTo(scrX, Ly - 4); schCtx.lineTo(scrX, Ly + 4);
+    schCtx.moveTo(slitX, Ly); schCtx.lineTo(scrX, Ly);
+    schCtx.stroke();
+    schCtx.fillStyle = '#1E2A5C';
+    schCtx.font = 'italic 13px Georgia';
+    schCtx.textAlign = 'center';
+    // L-label sits in a small cream gap so it's readable
+    const lblX = (slitX + scrX) / 2;
+    schCtx.fillStyle = '#FAF3DE';
+    schCtx.fillRect(lblX - 8, Ly - 9, 16, 10);
+    schCtx.fillStyle = '#1E2A5C';
+    schCtx.fillText('L', lblX, Ly - 1);
+  }
+
+  // ====== Pattern strip with optional overlays ======
+  function drawPattern(a_um, lam_nm, L_m, showEnv, showMark) {
+    const W = patternCanvas.width, H = patternCanvas.height;
+    const a_m = a_um * 1e-6;
+    const lam_m = lam_nm * 1e-9;
+
+    // Validate
+    if (!isFinite(a_m) || !isFinite(lam_m) || !isFinite(L_m) ||
+        a_m <= 0 || lam_m <= 0 || L_m <= 0) {
+      patCtx.fillStyle = '#000';
+      patCtx.fillRect(0, 0, W, H);
+      showError('Invalid parameter — physics undefined.');
+      return;
+    }
+    hideError();
+
+    // Layout: cream margin top (ruler scale), dark band (pattern), cream margin bottom (labels)
+    const marginTop = 24;
+    const marginBot = 24;
+    const bandTop = marginTop;
+    const bandBot = H - marginBot;
+    const bandH = bandBot - bandTop;
+
+    // Clear full canvas
+    patCtx.fillStyle = '#FAF3DE';
+    patCtx.fillRect(0, 0, W, H);
+
+    // Dark band background (the "screen")
+    patCtx.fillStyle = '#000';
+    patCtx.fillRect(0, bandTop, W, bandH);
+
+    // Compute intensity for each x pixel, then paint as a vertical column
+    const [rC, gC, bC] = wavelengthToRGB(lam_nm);
+    const mmPerPx = PATTERN_W_MM / W;
+    const img = patCtx.createImageData(W, bandH);
+
+    for (let px = 0; px < W; px++) {
+      let acc = 0;
+      for (let s = 0; s < SUPER; s++) {
+        const subPx = px + (s + 0.5) / SUPER;
+        const y_mm = (subPx - W / 2) * mmPerPx;
+        const y_m = y_mm * 1e-3;
+        acc += intensity(y_m, a_m, lam_m, L_m);
+      }
+      const I = acc / SUPER;
+      const disp = Math.pow(clamp(I, 0, 1), GAMMA);
+      const r = Math.round(rC * disp);
+      const g = Math.round(gC * disp);
+      const b = Math.round(bC * disp);
+      for (let row = 0; row < bandH; row++) {
+        const idx = (row * W + px) * 4;
+        img.data[idx]     = r;
+        img.data[idx + 1] = g;
+        img.data[idx + 2] = b;
+        img.data[idx + 3] = 255;
+      }
+    }
+    patCtx.putImageData(img, 0, bandTop);
+
+    // Ruler scale across the top (y-position in mm)
+    drawScale(W, marginTop);
+
+    // Optional intensity envelope overlay
+    if (showEnv) {
+      patCtx.strokeStyle = '#1E2A5C';
+      patCtx.lineWidth = 1.6;
+      patCtx.beginPath();
+      for (let px = 0; px < W; px++) {
+        const y_mm = (px - W/2) * mmPerPx;
+        const y_m = y_mm * 1e-3;
+        const I = intensity(y_m, a_m, lam_m, L_m);
+        const yPlot = bandBot - I * (bandH - 4);
+        if (px === 0) patCtx.moveTo(px, yPlot);
+        else patCtx.lineTo(px, yPlot);
+      }
+      patCtx.stroke();
+      // Tag
+      patCtx.fillStyle = '#1E2A5C';
+      patCtx.font = 'italic 11px Georgia';
+      patCtx.textAlign = 'left';
+      patCtx.fillText('I/I₀', 6, bandTop + 12);
+    }
+
+    // Optional minima markers (m = ±1, ±2, ±3)
+    if (showMark) {
+      patCtx.strokeStyle = '#2E8B8B';
+      patCtx.fillStyle = '#2E8B8B';
+      patCtx.lineWidth = 1.4;
+      patCtx.font = 'bold 11px Georgia';
+      patCtx.textAlign = 'center';
+      patCtx.setLineDash([3, 3]);
+      for (let m = -3; m <= 3; m++) {
+        if (m === 0) continue;
+        const sinT = m * lam_m / a_m;
+        if (Math.abs(sinT) >= 1) continue; // minimum doesn't exist (mλ/a ≥ 1)
+        const theta = Math.asin(sinT);
+        const y_m = L_m * Math.tan(theta);
+        const y_mm = y_m * 1000;
+        const px = W / 2 + y_mm / mmPerPx;
+        if (px < 0 || px > W) continue;
+        // dashed vertical line through band
+        patCtx.beginPath();
+        patCtx.moveTo(px, bandTop);
+        patCtx.lineTo(px, bandBot);
+        patCtx.stroke();
+        // label below
+        const lbl = (m > 0 ? '+' : '') + m;
+        patCtx.fillText('m=' + lbl, px, bandBot + 16);
+      }
+      patCtx.setLineDash([]);
+    }
+  }
+
+  // Ruler scale across top of pattern strip
+  function drawScale(W, scaleH) {
+    const mmPerPx = PATTERN_W_MM / W;
+    patCtx.fillStyle = '#1F1F1F';
+    patCtx.strokeStyle = '#1F1F1F';
+    patCtx.lineWidth = 1;
+    patCtx.font = '10px Georgia';
+    patCtx.textAlign = 'center';
+
+    // baseline of ticks
+    const yBase = scaleH - 1;
+    patCtx.beginPath();
+    patCtx.moveTo(0, yBase); patCtx.lineTo(W, yBase);
+    patCtx.stroke();
+
+    for (let mm = -100; mm <= 100; mm += 10) {
+      const px = W / 2 + mm / mmPerPx;
+      const major = (mm % 20 === 0);
+      patCtx.beginPath();
+      patCtx.moveTo(px, yBase);
+      patCtx.lineTo(px, yBase - (major ? 7 : 4));
+      patCtx.stroke();
+      if (major) {
+        patCtx.fillText(String(mm), px, yBase - 9);
+      }
+    }
+    // axis label, right side
+    patCtx.font = 'italic 10px Georgia';
+    patCtx.textAlign = 'right';
+    patCtx.fillText('y (mm)', W - 4, 10);
+  }
+
+  // ====== Readout ======
+  function updateReadout(a_um, lam_nm, L_m) {
+    const a_m = a_um * 1e-6;
+    const lam_m = lam_nm * 1e-9;
+
+    const sin1 = lam_m / a_m;
+    if (sin1 >= 1) {
+      y1Out.textContent = '— (off-screen)';
+      th1Out.textContent = '> 90°';
+      aEq.textContent = a_um.toFixed(0);
+      sinEq.textContent = '—';
+      lamEq.textContent = '— (λ/a ≥ 1)';
+      checkMark.textContent = '⚠';
+      checkMark.style.color = '#C00000';
+      return;
+    }
+    const theta1 = Math.asin(sin1);
+    const y1_m = L_m * Math.tan(theta1);
+    const y1_mm = y1_m * 1000;
+    const theta1_deg = theta1 * 180 / Math.PI;
+
+    y1Out.textContent  = y1_mm.toFixed(2) + ' mm';
+    th1Out.textContent = theta1_deg.toFixed(3) + '°';
+    aEq.textContent    = a_um.toFixed(0);
+    sinEq.textContent  = sin1.toFixed(5);
+    lamEq.textContent  = lam_nm.toFixed(0) + ' nm';
+    checkMark.textContent = '✓';
+    checkMark.style.color = '#2E8B8B';
+  }
+
+  // ====== Main update ======
+  function update() {
+    const a   = clamp(parseFloat(aSlider.value),   10,  300);
+    const lam = clamp(parseFloat(lamSlider.value), 380, 700);
+    const L   = clamp(parseFloat(LSlider.value),   0.5, 3.0);
+
+    aVal.textContent   = a.toFixed(0);
+    lamVal.textContent = lam.toFixed(0);
+    LVal.textContent   = L.toFixed(2);
+
+    const [r, g, b] = wavelengthToRGB(lam);
+    lamSwatch.style.background = 'rgb(' + r + ',' + g + ',' + b + ')';
+
+    try {
+      drawPattern(a, lam, L, envToggle.checked, markToggle.checked);
+      updateReadout(a, lam, L);
+    } catch (e) {
+      showError('Render error: ' + e.message);
+    }
+  }
+
+  // ====== Reset ======
+  function reset() {
+    aSlider.value   = DEFAULTS.a;
+    lamSlider.value = DEFAULTS.lam;
+    LSlider.value   = DEFAULTS.L;
+    envToggle.checked  = DEFAULTS.envelope;
+    markToggle.checked = DEFAULTS.markers;
+    update();
+  }
+
+  // ====== Wire up ======
+  [aSlider, lamSlider, LSlider].forEach(s => s.addEventListener('input', update));
+  [envToggle, markToggle].forEach(t => t.addEventListener('change', update));
+  resetBtn.addEventListener('click', reset);
+
+  // ====== Initial render ======
+  drawSchematic();
+  update();
+})();
+</script>
+</body>
+</html>
