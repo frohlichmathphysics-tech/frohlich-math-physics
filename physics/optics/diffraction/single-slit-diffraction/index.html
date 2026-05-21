@@ -456,8 +456,7 @@
 
     // Optional intensity envelope overlay
     if (showEnv) {
-      patCtx.strokeStyle = '#1E2A5C';
-      patCtx.lineWidth = 1.6;
+      // Build the path once
       patCtx.beginPath();
       for (let px = 0; px < W; px++) {
         const y_mm = (px - W/2) * mmPerPx;
@@ -467,6 +466,15 @@
         if (px === 0) patCtx.moveTo(px, yPlot);
         else patCtx.lineTo(px, yPlot);
       }
+      patCtx.lineJoin = 'round';
+      patCtx.lineCap = 'round';
+      // Cream halo underneath so the line stays legible over bright fringes
+      patCtx.strokeStyle = '#FAF3DE';
+      patCtx.lineWidth = 5.5;
+      patCtx.stroke();
+      // Main navy stroke on top
+      patCtx.strokeStyle = '#1E2A5C';
+      patCtx.lineWidth = 3.0;
       patCtx.stroke();
       // Tag
       patCtx.fillStyle = '#1E2A5C';
