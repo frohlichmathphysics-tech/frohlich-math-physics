@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Cumulative Binomial Visualizer</title>
+<style>
+:root {
+  --cream: #FAF3DE;
+  --navy:  #1E2A5C;
+  --teal:  #2E8B8B;
+  --red:   #C00000;
+  --grey:  #D9D9D9;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--cream);
+  color: var(--navy);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-text-size-adjust: 100%;
+}
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 12px 16px 24px;
+}
+h1 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 4px 0 12px;
+  text-align: center;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 280px;
+  background: var(--cream);
+  touch-action: manipulation;
+}
+@media (min-width: 600px) {
+  canvas { height: 380px; }
+  h1 { font-size: 22px; }
+}
+.readout {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  margin: 12px 0 4px;
+  color: var(--navy);
+}
+@media (min-width: 600px) { .readout { font-size: 28px; } }
+.expression {
+  text-align: center;
+  font-family: "SFMono-Regular", "Menlo", "Consolas", "Courier New", monospace;
+  font-size: 13px;
+  margin: 4px 0 12px;
+  color: var(--navy);
+  overflow-wrap: break-word;
+  line-height: 1.5;
+}
+@media (min-width: 600px) { .expression { font-size: 16px; } }
+.expression.hidden { display: none; }
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.slider-row label {
+  flex: 0 0 84px;
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.slider-row .valnum { color: var(--teal); }
+.slider-row input[type=range] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: var(--navy);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  min-width: 0;
+}
+.slider-row input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--teal);
+  border: 2px solid var(--navy);
+  cursor: pointer;
+}
+.slider-row input[type=range]::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--teal);
+  border: 2px solid var(--navy);
+  cursor: pointer;
+}
+.hidden { display: none !important; }
+.ineq-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.ineq-btn {
+  flex: 1 1 100px;
+  min-height: 48px;
+  padding: 6px 4px;
+  border: 2px solid var(--navy);
+  background: var(--cream);
+  color: var(--navy);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.15;
+  touch-action: manipulation;
+}
+.ineq-btn .label { font-weight: 600; font-size: 13px; }
+.ineq-btn .sym   { font-size: 12px; opacity: 0.85; }
+.ineq-btn.active {
+  background: var(--navy);
+  color: var(--cream);
+}
+.ineq-btn.active .sym { opacity: 1; }
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.toggle-row input[type=checkbox] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--teal);
+  margin: 0;
+}
+.toggle-row label { font-size: 15px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Cumulative Binomial Visualizer</h1>
+  <canvas id="hist"></canvas>
+  <div id="readout" class="readout"></div>
+  <div id="expression" class="expression hidden"></div>
+  <div class="controls">
+    <div class="slider-row">
+      <label for="nSlider">n = <span class="valnum" id="nVal">20</span></label>
+      <input type="range" id="nSlider" min="5" max="50" step="1" value="20">
+    </div>
+    <div class="slider-row">
+      <label for="pSlider">p = <span class="valnum" id="pVal">0.30</span></label>
+      <input type="range" id="pSlider" min="0.05" max="0.95" step="0.05" value="0.30">
+    </div>
+    <div id="singleKRow" class="slider-row">
+      <label for="kSlider">k = <span class="valnum" id="kVal">5</span></label>
+      <input type="range" id="kSlider" min="0" max="20" step="1" value="5">
+    </div>
+    <div id="abRow" class="hidden">
+      <div class="slider-row">
+        <label for="aSlider">a = <span class="valnum" id="aVal">4</span></label>
+        <input type="range" id="aSlider" min="0" max="20" step="1" value="4">
+      </div>
+      <div class="slider-row" style="margin-top:10px">
+        <label for="bSlider">b = <span class="valnum" id="bVal">6</span></label>
+        <input type="range" id="bSlider" min="0" max="20" step="1" value="6">
+      </div>
+    </div>
+    <div class="ineq-selector" id="ineqSelector">
+      <button type="button" class="ineq-btn active" data-mode="at-most-k">
+        <span class="label">at most k</span><span class="sym">P(X &le; k)</span>
+      </button>
+      <button type="button" class="ineq-btn" data-mode="fewer-than-k">
+        <span class="label">fewer than k</span><span class="sym">P(X &lt; k)</span>
+      </button>
+      <button type="button" class="ineq-btn" data-mode="more-than-k">
+        <span class="label">more than k</span><span class="sym">P(X &gt; k)</span>
+      </button>
+      <button type="button" class="ineq-btn" data-mode="at-least-k">
+        <span class="label">at least k</span><span class="sym">P(X &ge; k)</span>
+      </button>
+      <button type="button" class="ineq-btn" data-mode="between-a-b">
+        <span class="label">between a and b</span><span class="sym">P(a &le; X &le; b)</span>
+      </button>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="exprToggle">
+      <label for="exprToggle">Show binomcdf expression</label>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  'use strict';
+
+  // ---- Palette ----------------------------------------------------------
+  const C = {
+    cream: '#FAF3DE',
+    navy:  '#1E2A5C',
+    teal:  '#2E8B8B',
+    red:   '#C00000',
+    grey:  '#D9D9D9',
+  };
+
+  // ---- State ------------------------------------------------------------
+  const state = {
+    n: 20,
+    p: 0.30,
+    k: 5,           // for single-k modes
+    a: 4,           // for between-mode (lower)
+    b: 6,           // for between-mode (upper)
+    mode: 'at-most-k',
+    showExpression: false,
+    pmf: [],
+    cdf: [],
+  };
+
+  // ---- Math -------------------------------------------------------------
+  // Stable incremental PMF: avoids overflow, exact-ish for n<=50.
+  function computePMF(n, p) {
+    const out = new Array(n + 1).fill(0);
+    if (p <= 0) { out[0] = 1; return out; }
+    if (p >= 1) { out[n] = 1; return out; }
+    out[0] = Math.pow(1 - p, n);
+    const ratio = p / (1 - p);
+    for (let k = 1; k <= n; k++) {
+      out[k] = out[k - 1] * (n - k + 1) / k * ratio;
+    }
+    return out;
+  }
+
+  function computeCDF(pmf) {
+    const cdf = new Array(pmf.length);
+    let s = 0;
+    for (let i = 0; i < pmf.length; i++) {
+      s += pmf[i];
+      cdf[i] = s;
+    }
+    return cdf;
+  }
+
+  function cdfAt(cdf, k) {
+    if (k < 0) return 0;
+    if (k >= cdf.length) return 1;
+    return cdf[k];
+  }
+
+  function computeProb() {
+    const { mode, k, a, b, cdf } = state;
+    let q;
+    switch (mode) {
+      case 'at-most-k':    q = cdfAt(cdf, k);              break;
+      case 'fewer-than-k': q = cdfAt(cdf, k - 1);          break;
+      case 'more-than-k':  q = 1 - cdfAt(cdf, k);          break;
+      case 'at-least-k':   q = 1 - cdfAt(cdf, k - 1);      break;
+      case 'between-a-b':  q = cdfAt(cdf, b) - cdfAt(cdf, a - 1); break;
+      default:             q = 0;
+    }
+    return Math.max(0, Math.min(1, q));
+  }
+
+  function getIncludedAndBoundary() {
+    const { mode, n, k, a, b } = state;
+    const included = new Set();
+    const boundary = new Set();
+    switch (mode) {
+      case 'at-most-k':
+        for (let i = 0; i <= k; i++) included.add(i);
+        boundary.add(k);
+        break;
+      case 'fewer-than-k':
+        for (let i = 0; i <= k - 1; i++) included.add(i);
+        boundary.add(k);
+        break;
+      case 'more-than-k':
+        for (let i = k + 1; i <= n; i++) included.add(i);
+        boundary.add(k);
+        break;
+      case 'at-least-k':
+        for (let i = k; i <= n; i++) included.add(i);
+        boundary.add(k);
+        break;
+      case 'between-a-b':
+        for (let i = a; i <= b; i++) included.add(i);
+        boundary.add(a);
+        boundary.add(b);
+        break;
+    }
+    return { included, boundary };
+  }
+
+  // ---- Formatting -------------------------------------------------------
+  function formatProb(q) {
+    // 3 significant figures. toPrecision keeps trailing zeros (informative).
+    return q.toPrecision(3);
+  }
+
+  function formatReadout() {
+    const { mode, k, a, b } = state;
+    const q = computeProb();
+    const lhs = {
+      'at-most-k':    'P(X \u2264 ' + k + ')',
+      'fewer-than-k': 'P(X < '      + k + ')',
+      'more-than-k':  'P(X > '      + k + ')',
+      'at-least-k':   'P(X \u2265 ' + k + ')',
+      'between-a-b':  'P(' + a + ' \u2264 X \u2264 ' + b + ')',
+    }[mode];
+    return lhs + ' = ' + formatProb(q);
+  }
+
+  function formatExpression() {
+    const { mode, n, p, k, a, b } = state;
+    const q = computeProb();
+    const pStr = p.toFixed(2);
+    const expr = {
+      'at-most-k':    'binomcdf(' + n + ', ' + pStr + ', ' + k + ')',
+      'fewer-than-k': 'binomcdf(' + n + ', ' + pStr + ', ' + (k - 1) + ')',
+      'more-than-k':  '1 \u2212 binomcdf(' + n + ', ' + pStr + ', ' + k + ')',
+      'at-least-k':   '1 \u2212 binomcdf(' + n + ', ' + pStr + ', ' + (k - 1) + ')',
+      'between-a-b':  'binomcdf(' + n + ', ' + pStr + ', ' + b + ') \u2212 binomcdf(' + n + ', ' + pStr + ', ' + (a - 1) + ')',
+    }[mode];
+    return expr + ' = ' + formatProb(q);
+  }
+
+  // ---- Canvas drawing ---------------------------------------------------
+  const canvas = document.getElementById('hist');
+  const ctx = canvas.getContext('2d');
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width  = Math.max(1, Math.floor(rect.width  * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function getXLabelSet(n, boundaries) {
+    const s = new Set();
+    if (n <= 20) {
+      for (let k = 0; k <= n; k++) s.add(k);
+    } else {
+      for (let k = 0; k <= n; k += 5) s.add(k);
+      s.add(n);
+    }
+    boundaries.forEach(b => s.add(b));
+    return s;
+  }
+
+  function draw() {
+    const rect = canvas.getBoundingClientRect();
+    const W = rect.width;
+    const H = rect.height;
+
+    // Clear with cream
+    ctx.fillStyle = C.cream;
+    ctx.fillRect(0, 0, W, H);
+
+    const { pmf, n } = state;
+    if (!pmf || pmf.length === 0) return;
+
+    const padL = 40, padR = 12, padT = 12, padB = 30;
+    const plotW = Math.max(10, W - padL - padR);
+    const plotH = Math.max(10, H - padT - padB);
+
+    let yMax = 0;
+    for (let i = 0; i < pmf.length; i++) if (pmf[i] > yMax) yMax = pmf[i];
+    if (yMax <= 0) yMax = 1;
+
+    const barSpacing = plotW / (n + 1);
+    const barWidth   = barSpacing * 0.85;
+
+    const { included, boundary } = getIncludedAndBoundary();
+
+    // Gridlines at 0.5*max and 1.0*max
+    ctx.strokeStyle = C.navy;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT);
+    ctx.lineTo(padL + plotW, padT);
+    ctx.moveTo(padL, padT + plotH / 2);
+    ctx.lineTo(padL + plotW, padT + plotH / 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // X-axis baseline
+    ctx.strokeStyle = C.navy;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT + plotH);
+    ctx.lineTo(padL + plotW, padT + plotH);
+    ctx.stroke();
+
+    // Y-axis labels
+    ctx.fillStyle = C.navy;
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(yMax.toPrecision(2),       padL - 4, padT);
+    ctx.fillText((yMax / 2).toPrecision(2), padL - 4, padT + plotH / 2);
+    ctx.fillText('0',                       padL - 4, padT + plotH);
+
+    // Bars (fills first, then outlines on top)
+    // Outline lineWidth scales gently with bar width so small bars stay readable.
+    const outlineW = Math.max(1.5, Math.min(2.5, barWidth * 0.35));
+
+    for (let k = 0; k <= n; k++) {
+      const cx   = padL + (k + 0.5) * barSpacing;
+      const barH = (pmf[k] / yMax) * plotH;
+      const x    = cx - barWidth / 2;
+      const y    = padT + plotH - barH;
+
+      ctx.fillStyle = included.has(k) ? C.teal : C.grey;
+      ctx.fillRect(x, y, barWidth, barH);
+    }
+    // Boundary outlines drawn last so they sit on top
+    ctx.strokeStyle = C.navy;
+    ctx.lineWidth = outlineW;
+    for (const k of boundary) {
+      const cx   = padL + (k + 0.5) * barSpacing;
+      const barH = (pmf[k] / yMax) * plotH;
+      const x    = cx - barWidth / 2;
+      const y    = padT + plotH - barH;
+      // Ensure the boundary is always visible even for near-zero PMF:
+      // outline a minimum-height ghost from baseline.
+      const minH = 6;
+      const drawH = Math.max(barH, minH);
+      const drawY = padT + plotH - drawH;
+      ctx.strokeRect(x, drawY, barWidth, drawH);
+    }
+
+    // X-axis labels
+    const labels = getXLabelSet(n, boundary);
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'center';
+    for (const k of labels) {
+      const cx = padL + (k + 0.5) * barSpacing;
+      const isBoundary = boundary.has(k);
+      ctx.fillStyle = C.navy;
+      ctx.font = isBoundary
+        ? 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        : '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(String(k), cx, padT + plotH + 6);
+    }
+  }
+
+  // ---- Update / wire-up -------------------------------------------------
+  function recompute() {
+    state.pmf = computePMF(state.n, state.p);
+    state.cdf = computeCDF(state.pmf);
+  }
+
+  function clampKAB() {
+    // Clamp to [0, n] (state.n may have changed)
+    state.k = Math.max(0, Math.min(state.n, state.k));
+    state.a = Math.max(0, Math.min(state.n, state.a));
+    state.b = Math.max(0, Math.min(state.n, state.b));
+    if (state.a > state.b) state.a = state.b;
+    // Sync slider max attributes + values
+    const kS = document.getElementById('kSlider');
+    const aS = document.getElementById('aSlider');
+    const bS = document.getElementById('bSlider');
+    kS.max = state.n; kS.value = state.k;
+    aS.max = state.n; aS.value = state.a;
+    bS.max = state.n; bS.value = state.b;
+  }
+
+  function updateReadout() {
+    document.getElementById('readout').textContent = formatReadout();
+    const exprDiv = document.getElementById('expression');
+    if (state.showExpression) {
+      exprDiv.textContent = formatExpression();
+      exprDiv.classList.remove('hidden');
+    } else {
+      exprDiv.classList.add('hidden');
+    }
+  }
+
+  function refresh() {
+    document.getElementById('nVal').textContent = String(state.n);
+    document.getElementById('pVal').textContent = state.p.toFixed(2);
+    document.getElementById('kVal').textContent = String(state.k);
+    document.getElementById('aVal').textContent = String(state.a);
+    document.getElementById('bVal').textContent = String(state.b);
+    updateReadout();
+    draw();
+  }
+
+  function setMode(mode) {
+    const wasBetween     = state.mode === 'between-a-b';
+    const becomingBetween = mode === 'between-a-b';
+    state.mode = mode;
+    document.querySelectorAll('.ineq-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+    document.getElementById('singleKRow').classList.toggle('hidden', becomingBetween);
+    document.getElementById('abRow').classList.toggle('hidden', !becomingBetween);
+    // Entering between-mode: init a, b around current k
+    if (becomingBetween && !wasBetween) {
+      state.a = Math.max(0, state.k - 1);
+      state.b = Math.min(state.n, state.k + 1);
+      if (state.a > state.b) state.a = state.b;
+      document.getElementById('aSlider').value = state.a;
+      document.getElementById('bSlider').value = state.b;
+    }
+    // Leaving between-mode preserves state.k (no action needed)
+    refresh();
+  }
+
+  // ---- Listeners --------------------------------------------------------
+  document.getElementById('nSlider').addEventListener('input', e => {
+    state.n = parseInt(e.target.value, 10);
+    clampKAB();
+    recompute();
+    refresh();
+  });
+  document.getElementById('pSlider').addEventListener('input', e => {
+    state.p = parseFloat(e.target.value);
+    recompute();
+    refresh();
+  });
+  document.getElementById('kSlider').addEventListener('input', e => {
+    state.k = parseInt(e.target.value, 10);
+    refresh();
+  });
+  document.getElementById('aSlider').addEventListener('input', e => {
+    state.a = parseInt(e.target.value, 10);
+    if (state.a > state.b) {
+      state.b = state.a;
+      document.getElementById('bSlider').value = state.b;
+    }
+    refresh();
+  });
+  document.getElementById('bSlider').addEventListener('input', e => {
+    state.b = parseInt(e.target.value, 10);
+    if (state.b < state.a) {
+      state.a = state.b;
+      document.getElementById('aSlider').value = state.a;
+    }
+    refresh();
+  });
+  document.querySelectorAll('.ineq-btn').forEach(btn => {
+    btn.addEventListener('click', () => setMode(btn.dataset.mode));
+  });
+  document.getElementById('exprToggle').addEventListener('change', e => {
+    state.showExpression = e.target.checked;
+    updateReadout();
+  });
+
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+    draw();
+  });
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => { resizeCanvas(); draw(); }, 50);
+  });
+
+  // ---- Init -------------------------------------------------------------
+  function init() {
+    recompute();
+    resizeCanvas();
+    refresh();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
