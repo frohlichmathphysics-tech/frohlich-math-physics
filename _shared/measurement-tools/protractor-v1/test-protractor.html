@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Protractor — Test Harness</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #FAF3DE;     /* cream — locked applet scene color */
+    color: #1F1F1F;
+    font-family: Cambria, Georgia, "Times New Roman", serif;
+    min-height: 100vh;
+  }
+  .wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+    gap: 16px;
+  }
+  h1 {
+    font-size: 18px;
+    font-weight: normal;
+    margin: 0;
+    color: #1E2A5C;     /* navy */
+  }
+  .hint {
+    font-size: 13px;
+    color: #333;
+    max-width: 700px;
+    text-align: center;
+    line-height: 1.45;
+  }
+  .hint b { color: #1E2A5C; }
+  canvas {
+    background: #FAF3DE;
+    border: 1px solid rgba(30, 42, 92, 0.25);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    touch-action: none;       /* critical: prevents touch scroll/pan/zoom hijacking drag */
+    user-select: none;
+    -webkit-user-select: none;
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 13px;
+  }
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 6px 14px;
+    background: #1E2A5C;
+    color: #FAF3DE;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  button:hover { background: #2A3C7A; }
+  .readout {
+    font-family: "Cambria Math", Cambria, Georgia, serif;
+    color: #1E2A5C;
+    min-width: 220px;
+  }
+  label.size {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #1E2A5C;
+  }
+  input[type="range"] { width: 140px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Protractor — test harness</h1>
+  <div class="hint">
+    Red reference line is <b>30°</b> above horizontal, anchored at the protractor's center.
+    Drag the body to translate. Drag the <b>teal knob</b> at the right baseline endpoint to rotate.
+    When the baseline is horizontal (rot = 0°), the outer scale should read <b>30°</b> where the red line crosses the curve.
+  </div>
+  <canvas id="stage" width="700" height="500"></canvas>
+  <div class="controls">
+    <button id="reset">Reset position &amp; rotation</button>
+    <label class="size">Diameter:
+      <input type="range" id="diam" min="120" max="480" step="10" value="280">
+      <span id="diamVal">280 px</span>
+    </label>
+    <div class="readout" id="readout">rot = 0.0°</div>
+  </div>
+</div>
+
+<script src="./protractor.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const canvas   = document.getElementById('stage');
+  const readout  = document.getElementById('readout');
+  const resetBtn = document.getElementById('reset');
+  const diamInput = document.getElementById('diam');
+  const diamVal   = document.getElementById('diamVal');
+
+  const CSS_W = 700, CSS_H = 500;
+  const ctx = canvas.getContext('2d');
+
+  // DPR-aware sizing: CSS pixels stay 700×500; backing store scales for retina.
+  function setupCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width  = CSS_W + 'px';
+    canvas.style.height = CSS_H + 'px';
+    canvas.width  = Math.round(CSS_W * dpr);
+    canvas.height = Math.round(CSS_H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // draw in CSS-pixel coords
+  }
+  setupCanvas();
+  window.addEventListener('resize', setupCanvas);
+
+  // --- Reference line: 30° above horizontal, anchored at protractor center ---
+  const REF_ANGLE_DEG = 30;
+  const REF_LENGTH    = 220;
+
+  function drawReferenceLine() {
+    const c = protractor.getCenter();
+    const a = REF_ANGLE_DEG * Math.PI / 180;
+    const ex = c.x + REF_LENGTH * Math.cos(a);
+    const ey = c.y - REF_LENGTH * Math.sin(a); // negate: Canvas y is flipped vs math
+    ctx.save();
+    ctx.strokeStyle = '#C00000';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+    // small endpoint dot
+    ctx.fillStyle = '#C00000';
+    ctx.beginPath();
+    ctx.arc(ex, ey, 3, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // --- Protractor instance ---
+  const protractor = new Protractor(canvas, {
+    x: CSS_W / 2,
+    y: CSS_H / 2,
+    rotation: 0,
+    diameter: 280, // default; below 340 → 0.5° ticks are hidden
+    visible: true,
+  });
+
+  // --- Render loop ---
+  function render() {
+    ctx.clearRect(0, 0, CSS_W, CSS_H);
+    drawReferenceLine();   // under the protractor
+    protractor.draw(ctx);  // on top, semi-transparent
+
+    const degs = (protractor.getRotation() * 180 / Math.PI);
+    // Normalize for readability: keep it in (-180, 180]
+    let norm = degs % 360;
+    if (norm > 180)  norm -= 360;
+    if (norm <= -180) norm += 360;
+    readout.textContent = 'rot = ' + norm.toFixed(1) + '°';
+
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+
+  // --- Pointer event plumbing ---
+  function localPointer(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (CSS_W / rect.width),
+      y: (e.clientY - rect.top)  * (CSS_H / rect.height),
+    };
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    const p = localPointer(e);
+    if (protractor.handlePointerDown(p.x, p.y)) {
+      canvas.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    const p = localPointer(e);
+    protractor.handlePointerMove(p.x, p.y);
+  });
+  function endDrag(e) {
+    protractor.handlePointerUp();
+    if (canvas.hasPointerCapture && canvas.hasPointerCapture(e.pointerId)) {
+      canvas.releasePointerCapture(e.pointerId);
+    }
+  }
+  canvas.addEventListener('pointerup',     endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('pointerleave',  endDrag);
+
+  // --- Reset button ---
+  resetBtn.addEventListener('click', () => {
+    protractor.x = CSS_W / 2;
+    protractor.y = CSS_H / 2;
+    protractor.rotation = 0;
+  });
+
+  // --- Diameter slider (lets you verify the 340 px half-degree threshold) ---
+  diamInput.addEventListener('input', () => {
+    const v = parseInt(diamInput.value, 10);
+    protractor.diameter = v;
+    diamVal.textContent = v + ' px' + (v >= 340 ? ' (0.5° ticks shown)' : ' (0.5° ticks hidden)');
+  });
+})();
+</script>
+</body>
+</html>

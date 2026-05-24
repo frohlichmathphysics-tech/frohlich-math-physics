@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Binomial Mean &amp; SD Comparator · Mr. Frohlich Math and Physics</title>
+<style>
+  :root {
+    --navy: #1E2A5C;
+    --teal: #2E8B8B;
+    --cream: #FAF3DE;
+    --red: #C00000;
+    --ink: #1F1F1F;
+    --grey: #666;
+    --light-grey: #ddd;
+    --panel-bg: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    padding: 16px;
+    background: var(--cream);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  header {
+    max-width: 1100px;
+    margin: 0 auto 12px;
+  }
+  h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--navy);
+    margin: 0 0 4px;
+    letter-spacing: -0.005em;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: var(--grey);
+    font-style: italic;
+    margin: 0;
+  }
+  .presets {
+    max-width: 1100px;
+    margin: 0 auto 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .presets-label {
+    font-size: 11px;
+    color: var(--navy);
+    font-weight: 700;
+    margin-right: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  button.preset {
+    background: var(--panel-bg);
+    border: 1.5px solid var(--navy);
+    color: var(--navy);
+    padding: 7px 13px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  button.preset:hover { background: var(--navy); color: var(--cream); }
+  button.preset:active { transform: translateY(1px); }
+  button.preset.reset {
+    border-color: var(--red);
+    color: var(--red);
+    margin-left: auto;
+  }
+  button.preset.reset:hover { background: var(--red); color: var(--cream); }
+  .panels {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .panel {
+    background: var(--panel-bg);
+    border-radius: 8px;
+    padding: 14px 16px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .panel-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--navy);
+    margin: 0 0 8px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: pan-y;
+  }
+  .tooltip {
+    position: absolute;
+    background: var(--navy);
+    color: var(--cream);
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+    white-space: nowrap;
+    z-index: 10;
+    transform: translateX(-50%);
+    font-variant-numeric: tabular-nums;
+  }
+  .controls {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .slider-label {
+    font-size: 14px;
+    color: var(--navy);
+    font-weight: 700;
+    min-width: 14px;
+    font-style: italic;
+  }
+  .slider-row input[type=range] {
+    flex: 1;
+    accent-color: var(--teal);
+    cursor: pointer;
+  }
+  .slider-value {
+    font-size: 13px;
+    color: var(--ink);
+    min-width: 56px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  .readout {
+    margin-top: 12px;
+    padding: 10px;
+    background: var(--cream);
+    border-radius: 4px;
+    border: 1px solid var(--light-grey);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .stat-label {
+    font-size: 13px;
+    color: var(--grey);
+    letter-spacing: 0.02em;
+    font-weight: 600;
+    font-style: italic;
+  }
+  .stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--navy);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  footer {
+    max-width: 1100px;
+    margin: 14px auto 0;
+    text-align: center;
+    font-size: 11px;
+    color: var(--grey);
+    font-style: italic;
+  }
+  @media (max-width: 700px) {
+    body { padding: 12px; }
+    .panels { grid-template-columns: 1fr; gap: 12px; }
+    h1 { font-size: 16px; }
+    .subtitle { font-size: 12px; }
+    button.preset { padding: 6px 10px; font-size: 12px; }
+    button.preset.reset { margin-left: 0; }
+    .stat-value { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Binomial Distribution — Mean &amp; Standard Deviation Comparator</h1>
+  <p class="subtitle">Both charts share the same x- and y-scales. Compare the spread of the two distributions directly.</p>
+</header>
+
+<div class="presets">
+  <span class="presets-label">Presets</span>
+  <button class="preset" data-preset="canonical">Same μ, different σ</button>
+  <button class="preset" data-preset="symmetric-base">Symmetric base</button>
+  <button class="preset" data-preset="skew-vs-sym">Skewed vs symmetric</button>
+  <button class="preset reset" data-preset="reset">Reset</button>
+</div>
+
+<div class="panels">
+  <div class="panel" id="panel-a">
+    <h2 class="panel-title">Distribution A</h2>
+    <div class="chart-wrap">
+      <canvas id="chart-a"></canvas>
+      <div class="tooltip" id="tip-a"></div>
+    </div>
+    <div class="controls">
+      <div class="slider-row">
+        <span class="slider-label">n</span>
+        <input type="range" id="n-a" min="20" max="300" step="1" value="20" aria-label="Number of trials, Distribution A">
+        <span class="slider-value" id="n-a-val">20</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">p</span>
+        <input type="range" id="p-a" min="0.01" max="0.99" step="0.01" value="0.30" aria-label="Probability of success, Distribution A">
+        <span class="slider-value" id="p-a-val">0.30</span>
+      </div>
+    </div>
+    <div class="readout">
+      <div class="stat"><span class="stat-label">μ</span><span class="stat-value" id="mu-a">6.00</span></div>
+      <div class="stat"><span class="stat-label">σ²</span><span class="stat-value" id="var-a">4.20</span></div>
+      <div class="stat"><span class="stat-label">σ</span><span class="stat-value" id="sd-a">2.05</span></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-b">
+    <h2 class="panel-title">Distribution B</h2>
+    <div class="chart-wrap">
+      <canvas id="chart-b"></canvas>
+      <div class="tooltip" id="tip-b"></div>
+    </div>
+    <div class="controls">
+      <div class="slider-row">
+        <span class="slider-label">n</span>
+        <input type="range" id="n-b" min="20" max="300" step="1" value="20" aria-label="Number of trials, Distribution B">
+        <span class="slider-value" id="n-b-val">20</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">p</span>
+        <input type="range" id="p-b" min="0.01" max="0.99" step="0.01" value="0.30" aria-label="Probability of success, Distribution B">
+        <span class="slider-value" id="p-b-val">0.30</span>
+      </div>
+    </div>
+    <div class="readout">
+      <div class="stat"><span class="stat-label">μ</span><span class="stat-value" id="mu-b">6.00</span></div>
+      <div class="stat"><span class="stat-label">σ²</span><span class="stat-value" id="var-b">4.20</span></div>
+      <div class="stat"><span class="stat-label">σ</span><span class="stat-value" id="sd-b">2.05</span></div>
+    </div>
+  </div>
+</div>
+
+<footer>Mr. Frohlich Math and Physics · IB MAI SL 4.8.3 · Binomial Mean &amp; SD Comparator</footer>
+
+<script>
+(() => {
+  'use strict';
+
+  // ===========================================================
+  // Math: log-gamma (Lanczos) and log-binomial PMF
+  // Numerically stable for n up to ~1000+
+  // ===========================================================
+  function lgamma(x) {
+    const g = 7;
+    const c = [
+      0.99999999999980993,
+      676.5203681218851,
+      -1259.1392167224028,
+      771.32342877765313,
+      -176.61502916214059,
+      12.507343278686905,
+      -0.13857109526572012,
+      9.9843695780195716e-6,
+      1.5056327351493116e-7
+    ];
+    if (x < 0.5) {
+      return Math.log(Math.PI / Math.sin(Math.PI * x)) - lgamma(1 - x);
+    }
+    x -= 1;
+    let a = c[0];
+    const t = x + g + 0.5;
+    for (let i = 1; i < g + 2; i++) {
+      a += c[i] / (x + i);
+    }
+    return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+  }
+
+  function logBinom(n, k, p) {
+    if (k < 0 || k > n) return -Infinity;
+    if (p <= 0) return k === 0 ? 0 : -Infinity;
+    if (p >= 1) return k === n ? 0 : -Infinity;
+    const logC = lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1);
+    return logC + k * Math.log(p) + (n - k) * Math.log(1 - p);
+  }
+
+  function pmfArray(n, p) {
+    const arr = new Array(n + 1);
+    for (let k = 0; k <= n; k++) {
+      arr[k] = Math.exp(logBinom(n, k, p));
+    }
+    return arr;
+  }
+
+  // ===========================================================
+  // State
+  // ===========================================================
+  const state = {
+    a: { n: 20, p: 0.30, pmf: [], mu: 0, sigma: 0, variance: 0 },
+    b: { n: 20, p: 0.30, pmf: [], mu: 0, sigma: 0, variance: 0 },
+    shared: { xMin: 0, xMax: 20, yMax: 0.25 }
+  };
+
+  function recompute(side) {
+    const s = state[side];
+    s.pmf = pmfArray(s.n, s.p);
+    s.mu = s.n * s.p;
+    s.variance = s.n * s.p * (1 - s.p);
+    s.sigma = Math.sqrt(s.variance);
+  }
+
+  function recomputeShared() {
+    const a = state.a, b = state.b;
+    // Union of [μ - 4σ, μ + 4σ] for each, clipped to [0, n_max], integer-rounded.
+    const aLo = Math.max(0, Math.floor(a.mu - 4 * a.sigma));
+    const aHi = Math.min(a.n, Math.ceil(a.mu + 4 * a.sigma));
+    const bLo = Math.max(0, Math.floor(b.mu - 4 * b.sigma));
+    const bHi = Math.min(b.n, Math.ceil(b.mu + 4 * b.sigma));
+    state.shared.xMin = Math.min(aLo, bLo);
+    state.shared.xMax = Math.max(aHi, bHi);
+    // Shared y-max: the taller of the two peaks, with a little padding.
+    let aPeak = 0, bPeak = 0;
+    for (const v of a.pmf) if (v > aPeak) aPeak = v;
+    for (const v of b.pmf) if (v > bPeak) bPeak = v;
+    state.shared.yMax = Math.max(aPeak, bPeak) * 1.08;
+  }
+
+  // ===========================================================
+  // Number formatting — 3 significant figures for IB MAI default
+  // ===========================================================
+  function fmt3sf(x) {
+    if (!isFinite(x)) return '—';
+    if (x === 0) return '0.00';
+    const sign = x < 0 ? '-' : '';
+    const ax = Math.abs(x);
+    const mag = Math.floor(Math.log10(ax));
+    const factor = Math.pow(10, 2 - mag);
+    const rounded = Math.round(ax * factor) / factor;
+    let dp;
+    if (mag >= 2) dp = 0;
+    else if (mag === 1) dp = 1;
+    else if (mag === 0) dp = 2;
+    else dp = 2 - mag;
+    return sign + rounded.toFixed(Math.max(0, dp));
+  }
+
+  // ===========================================================
+  // Canvas rendering
+  // ===========================================================
+  function setupCanvas(canvas) {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w: rect.width, h: rect.height };
+  }
+
+  function drawChart(side, canvas) {
+    const { ctx, w, h } = setupCanvas(canvas);
+    const s = state[side];
+    const sh = state.shared;
+
+    const ml = 36, mr = 8, mt = 32, mb = 36;
+    const plotW = Math.max(1, w - ml - mr);
+    const plotH = Math.max(1, h - mt - mb);
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Plot area background
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(ml, mt, plotW, plotH);
+
+    const xCount = sh.xMax - sh.xMin + 1;
+    const barSlot = plotW / xCount;
+    const barW = Math.max(0.7, barSlot * 0.86);
+    const yMax = sh.yMax;
+
+    const xForK = k => ml + (k - sh.xMin + 0.5) * barSlot;
+    const yForP = p => mt + plotH - (p / yMax) * plotH;
+
+    // --- μ ± σ band (behind bars) ---
+    const bandLeft = ml + ((s.mu - s.sigma) - sh.xMin) * barSlot;
+    const bandRight = ml + ((s.mu + s.sigma) - sh.xMin) * barSlot;
+    const clipL = Math.max(ml, bandLeft);
+    const clipR = Math.min(ml + plotW, bandRight);
+    if (clipR > clipL) {
+      ctx.fillStyle = 'rgba(46, 139, 139, 0.18)'; // teal at 18%
+      ctx.fillRect(clipL, mt, clipR - clipL, plotH);
+    }
+
+    // --- subtle horizontal gridlines ---
+    ctx.strokeStyle = '#EAEAEA';
+    ctx.lineWidth = 1;
+    const yTicks = 5;
+    for (let i = 1; i <= yTicks; i++) {
+      const yVal = (i / yTicks) * yMax;
+      const y = yForP(yVal);
+      ctx.beginPath();
+      ctx.moveTo(ml, y);
+      ctx.lineTo(ml + plotW, y);
+      ctx.stroke();
+    }
+
+    // --- bars ---
+    ctx.fillStyle = '#2E8B8B';
+    ctx.strokeStyle = '#1E2A5C';
+    const outlined = barW > 3.5;
+    ctx.lineWidth = outlined ? 1 : 0;
+    for (let k = sh.xMin; k <= sh.xMax; k++) {
+      if (k < 0 || k > s.n) continue;
+      const p = s.pmf[k] || 0;
+      if (p <= 0) continue;
+      const xCenter = xForK(k);
+      const yTop = yForP(p);
+      const barH = (mt + plotH) - yTop;
+      if (barH < 0.5) continue;
+      const x = xCenter - barW / 2;
+      ctx.fillRect(x, yTop, barW, barH);
+      if (outlined) ctx.strokeRect(x, yTop, barW, barH);
+    }
+
+    // --- μ vertical line (navy dashed) ---
+    const muX = ml + (s.mu - sh.xMin) * barSlot;
+    if (muX >= ml && muX <= ml + plotW) {
+      ctx.strokeStyle = '#1E2A5C';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(muX, mt);
+      ctx.lineTo(muX, mt + plotH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // μ label
+      ctx.fillStyle = '#1E2A5C';
+      ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(`μ = ${fmt3sf(s.mu)}`, muX, mt - 3);
+    }
+
+    // --- axes ---
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(ml, mt);
+    ctx.lineTo(ml, mt + plotH);
+    ctx.lineTo(ml + plotW, mt + plotH);
+    ctx.stroke();
+
+    // x-axis ticks
+    const range = sh.xMax - sh.xMin;
+    let tickStep;
+    if (range <= 10) tickStep = 1;
+    else if (range <= 20) tickStep = 2;
+    else if (range <= 50) tickStep = 5;
+    else if (range <= 100) tickStep = 10;
+    else if (range <= 200) tickStep = 20;
+    else tickStep = 50;
+
+    ctx.fillStyle = '#555';
+    ctx.font = '10.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.strokeStyle = '#444';
+    const firstTick = Math.ceil(sh.xMin / tickStep) * tickStep;
+    for (let t = firstTick; t <= sh.xMax; t += tickStep) {
+      const x = ml + (t - sh.xMin) * barSlot;
+      ctx.beginPath();
+      ctx.moveTo(x, mt + plotH);
+      ctx.lineTo(x, mt + plotH + 4);
+      ctx.stroke();
+      ctx.fillText(String(t), x, mt + plotH + 6);
+    }
+
+    // y-axis labels
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    const yDp = yMax >= 0.1 ? 2 : (yMax >= 0.01 ? 3 : 4);
+    for (let i = 0; i <= yTicks; i++) {
+      const yVal = (i / yTicks) * yMax;
+      const y = yForP(yVal);
+      ctx.fillText(yVal.toFixed(yDp), ml - 5, y);
+    }
+
+    // Axis titles
+    ctx.fillStyle = '#1E2A5C';
+    ctx.font = 'italic 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('k  (number of successes)', ml + plotW / 2, h - 2);
+
+    // y-axis label — horizontal at top-left (avoids overlap with tick numbers on narrow viewports)
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('P(X = k)', 4, 4);
+
+    canvas._geom = { ml, mt, plotW, plotH, barSlot, xMin: sh.xMin, xMax: sh.xMax, yMax, n: s.n };
+  }
+
+  // ===========================================================
+  // Tooltip / hit testing
+  // ===========================================================
+  function attachHover(canvas, tooltip, side) {
+    const wrap = canvas.parentElement;
+    function showAt(clientX, clientY) {
+      const g = canvas._geom;
+      if (!g) return;
+      const rect = canvas.getBoundingClientRect();
+      const wrapRect = wrap.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      if (x < g.ml || x > g.ml + g.plotW || y < g.mt || y > g.mt + g.plotH) {
+        tooltip.style.opacity = 0;
+        return;
+      }
+      const kFloat = (x - g.ml) / g.barSlot + g.xMin - 0.5;
+      const k = Math.round(kFloat);
+      if (k < 0 || k > g.n) {
+        tooltip.style.opacity = 0;
+        return;
+      }
+      const p = state[side].pmf[k] || 0;
+      const pStr = p < 0.0005 ? '< 0.001' : p.toFixed(3);
+      tooltip.textContent = `k = ${k},  P = ${pStr}`;
+      const barCenterX = g.ml + (k - g.xMin + 0.5) * g.barSlot;
+      const barTopY = g.mt + g.plotH - (p / g.yMax) * g.plotH;
+      tooltip.style.left = `${barCenterX + (rect.left - wrapRect.left)}px`;
+      tooltip.style.top = `${barTopY - 28 + (rect.top - wrapRect.top)}px`;
+      tooltip.style.opacity = 1;
+    }
+    canvas.addEventListener('mousemove', e => showAt(e.clientX, e.clientY));
+    canvas.addEventListener('mouseleave', () => tooltip.style.opacity = 0);
+    canvas.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      if (t) showAt(t.clientX, t.clientY);
+    }, { passive: true });
+    canvas.addEventListener('touchmove', e => {
+      const t = e.touches[0];
+      if (t) showAt(t.clientX, t.clientY);
+    }, { passive: true });
+    canvas.addEventListener('touchend', () => {
+      setTimeout(() => tooltip.style.opacity = 0, 1200);
+    });
+  }
+
+  // ===========================================================
+  // DOM wiring
+  // ===========================================================
+  const els = {
+    nA: document.getElementById('n-a'),
+    pA: document.getElementById('p-a'),
+    nAv: document.getElementById('n-a-val'),
+    pAv: document.getElementById('p-a-val'),
+    muA: document.getElementById('mu-a'),
+    varA: document.getElementById('var-a'),
+    sdA: document.getElementById('sd-a'),
+    nB: document.getElementById('n-b'),
+    pB: document.getElementById('p-b'),
+    nBv: document.getElementById('n-b-val'),
+    pBv: document.getElementById('p-b-val'),
+    muB: document.getElementById('mu-b'),
+    varB: document.getElementById('var-b'),
+    sdB: document.getElementById('sd-b'),
+    canvasA: document.getElementById('chart-a'),
+    canvasB: document.getElementById('chart-b'),
+    tipA: document.getElementById('tip-a'),
+    tipB: document.getElementById('tip-b'),
+  };
+
+  // p-value display: show 2dp normally, but flag 1/6 when exact
+  function fmtP(p) {
+    if (Math.abs(p - 1/6) < 1e-9) return '1/6 \u2248 0.167';
+    return p.toFixed(2);
+  }
+
+  // Setting state with exact p (preserved through preset loads).
+  // Slider visually snaps to nearest 0.01, but state.p holds the exact value
+  // until the user moves the slider — preserves σ ≈ 6.45 for B(300, 1/6) etc.
+  function applyPreset(nA, pA, nB, pB) {
+    state.a.n = nA;
+    state.a.p = pA;
+    state.b.n = nB;
+    state.b.p = pB;
+    els.nA.value = nA;
+    els.pA.value = Math.round(pA * 100) / 100;
+    els.nB.value = nB;
+    els.pB.value = Math.round(pB * 100) / 100;
+    refresh();
+  }
+
+  function refresh() {
+    recompute('a');
+    recompute('b');
+    recomputeShared();
+
+    els.nAv.textContent = state.a.n;
+    els.pAv.textContent = fmtP(state.a.p);
+    els.muA.textContent = fmt3sf(state.a.mu);
+    els.varA.textContent = fmt3sf(state.a.variance);
+    els.sdA.textContent = fmt3sf(state.a.sigma);
+
+    els.nBv.textContent = state.b.n;
+    els.pBv.textContent = fmtP(state.b.p);
+    els.muB.textContent = fmt3sf(state.b.mu);
+    els.varB.textContent = fmt3sf(state.b.variance);
+    els.sdB.textContent = fmt3sf(state.b.sigma);
+
+    drawChart('a', els.canvasA);
+    drawChart('b', els.canvasB);
+  }
+
+  // Slider listeners — moving a slider overwrites the exact p with the snapped value
+  els.nA.addEventListener('input', () => { state.a.n = parseInt(els.nA.value, 10); refresh(); });
+  els.pA.addEventListener('input', () => { state.a.p = parseFloat(els.pA.value); refresh(); });
+  els.nB.addEventListener('input', () => { state.b.n = parseInt(els.nB.value, 10); refresh(); });
+  els.pB.addEventListener('input', () => { state.b.p = parseFloat(els.pB.value); refresh(); });
+
+  // Presets
+  document.querySelectorAll('button.preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.preset;
+      if (id === 'canonical')           applyPreset(100, 0.5,  300, 1/6);
+      else if (id === 'symmetric-base') applyPreset(20,  0.30, 20,  0.30);
+      else if (id === 'skew-vs-sym')    applyPreset(20,  0.5,  20,  0.1);
+      else if (id === 'reset')          applyPreset(20,  0.30, 20,  0.30);
+    });
+  });
+
+  attachHover(els.canvasA, els.tipA, 'a');
+  attachHover(els.canvasB, els.tipB, 'b');
+
+  // Resize handling (debounced)
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(refresh, 80);
+  });
+
+  // First paint — wait one frame so CSS has settled the canvas size
+  requestAnimationFrame(() => requestAnimationFrame(refresh));
+})();
+</script>
+</body>
+</html>

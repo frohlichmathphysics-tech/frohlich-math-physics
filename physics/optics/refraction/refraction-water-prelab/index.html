@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Refraction Pre-Lab — Reading the Protractor</title>
+<style>
+  /* =====================================================
+     Locked palette: cream #FAF3DE, navy #1E2A5C,
+     teal #2E8B8B (knob via protractor module), red #C00000
+     ===================================================== */
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #FAF3DE;
+    color: #1F1F1F;
+    font-family: Cambria, Georgia, "Times New Roman", serif;
+    min-height: 100vh;
+  }
+  .wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    gap: 12px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 18px;
+    font-weight: normal;
+    margin: 0;
+    color: #1E2A5C;
+    text-align: center;
+  }
+  .intro {
+    font-size: 13px;
+    color: #333;
+    max-width: 760px;
+    line-height: 1.45;
+    text-align: center;
+  }
+  .intro b { color: #1E2A5C; }
+  canvas#stage {
+    background: #FAF3DE;
+    border: 1px solid rgba(30, 42, 92, 0.25);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  .trial-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 14px;
+    color: #1E2A5C;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .trial-label { font-weight: bold; }
+  .toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .toggle-label input { cursor: pointer; }
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .input-row label { color: #1E2A5C; }
+  .input-row input[type="number"] {
+    width: 76px;
+    padding: 6px 8px;
+    font-family: Cambria, Georgia, serif;
+    font-size: 16px;            /* 16px+ avoids iOS auto-zoom */
+    border: 1px solid #1E2A5C;
+    border-radius: 3px;
+    background: #fff;
+    color: #1E2A5C;
+  }
+  .input-row .unit { color: #1E2A5C; font-size: 14px; }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 7px 16px;
+    background: #1E2A5C;
+    color: #FAF3DE;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: #2A3C7A; }
+  button:disabled { background: #999; cursor: not-allowed; }
+  .attempts-line { font-size: 13px; color: #555; }
+
+  /* ---------- Overlay ---------- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.40);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 10;
+  }
+  .overlay[hidden] { display: none; }
+  .overlay-card {
+    background: #FAF3DE;
+    border: 2px solid #1E2A5C;
+    border-radius: 6px;
+    padding: 20px 24px;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    font-size: 14px;
+    line-height: 1.5;
+    box-sizing: border-box;
+  }
+  .overlay-card h2 {
+    margin: 0 0 10px 0;
+    color: #1E2A5C;
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .overlay-card h2.correct { color: #1f6b3d; }
+  .overlay-card p { margin: 0 0 10px 0; color: #333; }
+  .overlay-card ul {
+    margin: 0 0 10px 0;
+    padding-left: 20px;
+    color: #333;
+  }
+  .overlay-card li { margin-bottom: 6px; }
+  .overlay-card svg {
+    display: block;
+    margin: 4px auto 12px;
+    border: 1px solid rgba(30, 42, 92, 0.15);
+    border-radius: 3px;
+    background: #fff;
+    max-width: 100%;
+    height: auto;
+  }
+  .overlay-card .btn-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+  }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 16px; }
+    .intro { font-size: 12px; }
+    .overlay-card { padding: 16px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Refraction Pre-Lab — Reading the Protractor</h1>
+  <div class="intro">
+    Position the protractor on the geometry and read the angle of incidence
+    <b>from the normal</b>. Type your reading (1 decimal allowed) and your
+    estimated uncertainty. <b>±1°</b> tolerance on the reading;
+    <b>±0.5° to ±2.0°</b> is the realistic range for the uncertainty.
+  </div>
+
+  <canvas id="stage" width="800" height="500"></canvas>
+
+  <div class="trial-bar">
+    <span class="trial-label">Ray <span id="trialNum">1</span> of 3</span>
+    <label class="toggle-label" id="toggleWrapper" style="display:none">
+      <input type="checkbox" id="showNormal"> Show normal
+    </label>
+  </div>
+
+  <div class="input-row">
+    <label for="central">Angle of incidence (from normal):</label>
+    <input type="number" id="central" step="0.1" min="0" max="90"
+           inputmode="decimal" autocomplete="off">
+    <label for="uncertainty">±</label>
+    <input type="number" id="uncertainty" step="0.1" min="0" max="10"
+           inputmode="decimal" autocomplete="off">
+    <span class="unit">°</span>
+    <button id="submitBtn" disabled>Submit</button>
+  </div>
+
+  <div class="attempts-line">
+    Attempts on this ray: <span id="attemptsUsed">0</span>/3
+  </div>
+</div>
+
+<!-- Overlay container — content swapped by JS -->
+<div id="overlay" class="overlay" hidden>
+  <div class="overlay-card">
+    <div id="overlayContent"></div>
+    <div class="btn-row">
+      <button id="overlayBtn">OK</button>
+    </div>
+  </div>
+</div>
+
+<script src="./protractor.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ===== Constants =====================================================
+  const CSS_W = 800;
+  const CSS_H = 500;
+
+  const TRIALS = [
+    { truth: 20.0, showNormalDefault: true  },
+    { truth: 45.0, showNormalDefault: false },
+    { truth: 70.0, showNormalDefault: false },
+  ];
+
+  const PALETTE = {
+    cream: '#FAF3DE',
+    navy:  '#1E2A5C',
+    red:   '#C00000',
+    black: '#000000',
+  };
+
+  // Scene geometry — derived from CSS_W / CSS_H
+  const SURFACE_Y     = CSS_H / 2;                  // 250
+  const VERTEX_X      = CSS_W / 2;                  // 400
+  const VERTEX_Y      = SURFACE_Y;                  // 250
+  const RAY_LENGTH    = 220;
+  const NORMAL_LENGTH = 160;
+
+  // Protractor initial position — lower-right, clear of the ray geometry
+  const PROTRACTOR_INIT = { x: 620, y: 460, diameter: 280, rotation: 0 };
+
+  // Correctness tolerances (locked from spec)
+  const VALUE_TOL      = 1.0;   // ±1° on central value
+  const UNC_LOW        = 0.5;   // uncertainty must be in [0.5, 2.0]
+  const UNC_HIGH       = 2.0;
+  const MAX_ATTEMPTS   = 3;
+
+  // ===== DOM ===========================================================
+  const canvas         = document.getElementById('stage');
+  const ctx            = canvas.getContext('2d');
+  const trialNumEl     = document.getElementById('trialNum');
+  const showNormalEl   = document.getElementById('showNormal');
+  const toggleWrapper  = document.getElementById('toggleWrapper');
+  const centralEl      = document.getElementById('central');
+  const uncertaintyEl  = document.getElementById('uncertainty');
+  const submitBtn      = document.getElementById('submitBtn');
+  const attemptsUsedEl = document.getElementById('attemptsUsed');
+  const overlayEl      = document.getElementById('overlay');
+  const overlayContent = document.getElementById('overlayContent');
+  const overlayBtn     = document.getElementById('overlayBtn');
+
+  // ===== State =========================================================
+  const state = {
+    trialIdx: 0,
+    attemptsUsed: 0,
+    showNormal: TRIALS[0].showNormalDefault,
+    locked: false,        // overlay open => input disabled
+    completed: false,     // all trials done => prevent re-entry
+  };
+
+  let protractor = null;
+
+  // ===== Canvas setup (DPR-aware) =====================================
+  function setupCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width  = CSS_W + 'px';
+    canvas.style.height = CSS_H + 'px';
+    canvas.width  = Math.round(CSS_W * dpr);
+    canvas.height = Math.round(CSS_H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  // ===== Drawing =======================================================
+  function drawArrowhead(tipX, tipY, dx, dy, size) {
+    // dx, dy = unit forward direction; tip is at (tipX, tipY).
+    const angle = Math.atan2(dy, dx);
+    const ahalf = Math.PI / 7;
+    ctx.fillStyle = PALETTE.red;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(
+      tipX - size * Math.cos(angle - ahalf),
+      tipY - size * Math.sin(angle - ahalf)
+    );
+    ctx.lineTo(
+      tipX - size * Math.cos(angle + ahalf),
+      tipY - size * Math.sin(angle + ahalf)
+    );
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawScene() {
+    ctx.clearRect(0, 0, CSS_W, CSS_H);
+
+    // Surface line (full width with 20px margin each side)
+    ctx.save();
+    ctx.strokeStyle = PALETTE.black;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(20, SURFACE_Y);
+    ctx.lineTo(CSS_W - 20, SURFACE_Y);
+    ctx.stroke();
+    ctx.restore();
+
+    // Dashed normal (gated by state.showNormal)
+    if (state.showNormal) {
+      ctx.save();
+      ctx.strokeStyle = PALETTE.navy;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(VERTEX_X, VERTEX_Y);
+      ctx.lineTo(VERTEX_X, VERTEX_Y - NORMAL_LENGTH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    // Incident ray (red, from upper-left to vertex, arrowhead at vertex)
+    const truth = TRIALS[state.trialIdx].truth;
+    const theta = truth * Math.PI / 180;
+    const sx = VERTEX_X - RAY_LENGTH * Math.sin(theta);
+    const sy = VERTEX_Y - RAY_LENGTH * Math.cos(theta);
+
+    ctx.save();
+    ctx.strokeStyle = PALETTE.red;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(VERTEX_X, VERTEX_Y);
+    ctx.stroke();
+    // Forward unit direction along ray (from start toward vertex):
+    drawArrowhead(VERTEX_X, VERTEX_Y, Math.sin(theta), Math.cos(theta), 10);
+    ctx.restore();
+
+    // Vertex dot (drawn after the arrowhead so the dot caps the arrow tip cleanly)
+    ctx.save();
+    ctx.fillStyle = PALETTE.black;
+    ctx.beginPath();
+    ctx.arc(VERTEX_X, VERTEX_Y, 4, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.restore();
+
+    // Protractor last (on top)
+    if (protractor) protractor.draw(ctx);
+  }
+
+  function renderLoop() {
+    drawScene();
+    requestAnimationFrame(renderLoop);
+  }
+
+  // ===== Trial flow ====================================================
+  function loadTrial(idx) {
+    state.trialIdx = idx;
+    state.attemptsUsed = 0;
+    state.showNormal = TRIALS[idx].showNormalDefault;
+    state.locked = false;
+
+    trialNumEl.textContent = String(idx + 1);
+    attemptsUsedEl.textContent = '0';
+    centralEl.value = '';
+    uncertaintyEl.value = '';
+
+    showNormalEl.checked = state.showNormal;
+    // Toggle is hidden on trial 1 (normal is forced on); shown on trials 2+
+    toggleWrapper.style.display = (idx === 0) ? 'none' : '';
+
+    closeOverlay();
+    updateSubmitState();
+  }
+
+  function submitAnswer() {
+    if (state.locked || state.completed) return;
+
+    const central = parseFloat(centralEl.value);
+    const unc     = parseFloat(uncertaintyEl.value);
+    if (!isFinite(central) || !isFinite(unc)) return;
+
+    const truth   = TRIALS[state.trialIdx].truth;
+    const valueOk = Math.abs(central - truth) <= VALUE_TOL;
+    const uncOk   = (unc >= UNC_LOW) && (unc <= UNC_HIGH);
+
+    state.attemptsUsed += 1;
+    attemptsUsedEl.textContent = String(state.attemptsUsed);
+
+    if (valueOk && uncOk) { showCorrect(); return; }
+
+    if (state.attemptsUsed >= MAX_ATTEMPTS) {
+      showReview();
+      return;
+    }
+
+    // Value error takes priority over uncertainty error when both wrong.
+    if (!valueOk) showValueError();
+    else          showUncertaintyError(unc);
+  }
+
+  function advanceOrComplete() {
+    const next = state.trialIdx + 1;
+    if (next >= TRIALS.length) {
+      state.completed = true;
+      showComplete();
+    } else {
+      loadTrial(next);
+    }
+  }
+
+  // ===== Overlay management ============================================
+  function openOverlay() {
+    overlayEl.hidden = false;
+    state.locked = true;
+    updateSubmitState();
+  }
+
+  function closeOverlay() {
+    overlayEl.hidden = true;
+    state.locked = false;
+    updateSubmitState();
+  }
+
+  function showCorrect() {
+    overlayContent.innerHTML =
+      '<h2 class="correct">\u2713 Correct</h2>' +
+      '<p>Reading within tolerance.</p>';
+    overlayBtn.textContent = 'Next \u2192';
+    overlayBtn.onclick = () => { closeOverlay(); advanceOrComplete(); };
+    openOverlay();
+  }
+
+  function showValueError() {
+    overlayContent.innerHTML =
+      valueErrorDiagram() +
+      '<h2>Reading from the wrong reference</h2>' +
+      '<p>The protractor\u2019s baseline naturally lines up with the ' +
+      '<b>surface</b>, but the angle of incidence is measured from the ' +
+      '<b>normal</b> \u2014 the dashed line perpendicular to the surface.</p>' +
+      '<p>Two ways to get the right reading:</p>' +
+      '<ul>' +
+        '<li>Place the baseline on the surface, read off the protractor, ' +
+        'then convert: <b>\u03B8<sub>normal</sub> = 90\u00B0 \u2212 \u03B8<sub>surface</sub></b>.</li>' +
+        '<li>Or rotate the protractor 90\u00B0 so its baseline lies along the ' +
+        'normal \u2014 then the scale reads <b>\u03B8<sub>normal</sub></b> directly.</li>' +
+      '</ul>' +
+      '<p>Your reading was off the true value by more than 1\u00B0.</p>';
+    overlayBtn.textContent = 'Try again';
+    overlayBtn.onclick = closeOverlay;
+    openOverlay();
+  }
+
+  function showUncertaintyError(unc) {
+    const qualifier = (unc < UNC_LOW) ? 'optimistic' : 'pessimistic';
+    // Format unc without trailing zeros: 0.5 -> "0.5", 2 -> "2", 2.50 -> "2.5"
+    const uncStr = (Math.round(unc * 10) / 10).toString();
+    overlayContent.innerHTML =
+      '<h2>Unrealistic uncertainty</h2>' +
+      '<p>Your protractor reads to 1\u00B0 divisions. A typical reading ' +
+      'uncertainty is \u00B10.5\u00B0 to \u00B11\u00B0. ' +
+      '\u00B1' + uncStr + '\u00B0 is too ' + qualifier + '.</p>' +
+      '<p>Re-estimate your uncertainty and resubmit. The reading itself ' +
+      'looked fine.</p>';
+    overlayBtn.textContent = 'Try again';
+    overlayBtn.onclick = closeOverlay;
+    openOverlay();
+  }
+
+  function showReview() {
+    overlayContent.innerHTML =
+      '<h2>Review \u2014 moving to the next ray</h2>' +
+      '<p>You\u2019ve used all 3 attempts on this ray. Both rules in one place:</p>' +
+      '<ul>' +
+        '<li><b>Angle reading.</b> Measure from the <b>normal</b>, not from ' +
+        'the surface. The protractor\u2019s direct reading off the surface ' +
+        'needs converting (90\u00B0 \u2212 reading), or place the baseline ' +
+        'on the normal and read directly.</li>' +
+        '<li><b>Uncertainty.</b> On a 1\u00B0-division protractor, ' +
+        '\u00B10.5\u00B0 to \u00B12.0\u00B0 is the realistic range. ' +
+        'Tighter is too optimistic; looser is too pessimistic.</li>' +
+      '</ul>';
+    overlayBtn.textContent = 'Continue \u2192';
+    overlayBtn.onclick = () => { closeOverlay(); advanceOrComplete(); };
+    openOverlay();
+  }
+
+  function showComplete() {
+    overlayContent.innerHTML =
+      '<h2 class="correct">Pre-lab complete</h2>' +
+      '<p>You\u2019re ready for the refraction lab.</p>';
+    overlayBtn.textContent = 'Begin lab \u2192';
+    overlayBtn.onclick = () => {
+      window.location.href = '../refraction-water-pin-trace/index.html';
+    };
+    openOverlay();
+  }
+
+  // Diagram for the value-error overlay — protractor baseline-vs-normal-vs-surface,
+  // with two angle arcs and labeled leader arrows.
+  function valueErrorDiagram() {
+    return '' +
+      '<svg viewBox="0 0 320 180" width="320" height="180" ' +
+        'xmlns="http://www.w3.org/2000/svg" role="img" ' +
+        'aria-label="Diagram: surface horizontal, normal dashed vertical, ray from upper-left, two angles labeled.">' +
+        '<defs>' +
+          '<marker id="arrowN" viewBox="0 0 10 10" refX="9" refY="5" ' +
+            'markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+            '<path d="M 0 0 L 10 5 L 0 10 z" fill="#1E2A5C"/>' +
+          '</marker>' +
+          '<marker id="arrowS" viewBox="0 0 10 10" refX="9" refY="5" ' +
+            'markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+            '<path d="M 0 0 L 10 5 L 0 10 z" fill="#888"/>' +
+          '</marker>' +
+        '</defs>' +
+
+        // Surface
+        '<line x1="30" y1="120" x2="290" y2="120" stroke="#000" stroke-width="2"/>' +
+        // Normal (dashed navy)
+        '<line x1="160" y1="120" x2="160" y2="30" stroke="#1E2A5C" ' +
+          'stroke-width="1.5" stroke-dasharray="5,3"/>' +
+        // Incident ray (30° from normal — example angle for the figure)
+        '<line x1="115" y1="42" x2="160" y2="120" stroke="#C00000" stroke-width="2"/>' +
+        // Vertex
+        '<circle cx="160" cy="120" r="3" fill="#000"/>' +
+
+        // Arc: angle from normal (small)
+        '<path d="M 160 100 Q 154 98 150 103" fill="none" ' +
+          'stroke="#1E2A5C" stroke-width="1.6"/>' +
+        // Arc: angle from surface (larger)
+        '<path d="M 135 120 Q 137 105 147 99" fill="none" ' +
+          'stroke="#888" stroke-width="1.6"/>' +
+
+        // Leader arrow to from-normal arc
+        '<path d="M 220 70 L 158 96" stroke="#1E2A5C" stroke-width="1" ' +
+          'fill="none" marker-end="url(#arrowN)"/>' +
+        '<text x="222" y="60" font-size="11" fill="#1E2A5C" font-weight="bold">' +
+          '\u03B8 from normal</text>' +
+        '<text x="222" y="74" font-size="10" fill="#1E2A5C">' +
+          '(this is the answer)</text>' +
+
+        // Leader arrow to from-surface arc
+        '<path d="M 72 155 L 132 113" stroke="#888" stroke-width="1" ' +
+          'fill="none" marker-end="url(#arrowS)"/>' +
+        '<text x="22" y="148" font-size="10" fill="#888" font-style="italic">' +
+          '\u03B8 from surface</text>' +
+        '<text x="22" y="161" font-size="10" fill="#888" font-style="italic">' +
+          '(direct protractor</text>' +
+        '<text x="22" y="173" font-size="10" fill="#888" font-style="italic">' +
+          'reading off surface)</text>' +
+
+        // Reference labels
+        '<text x="153" y="24" font-size="11" fill="#1E2A5C" font-weight="bold">N</text>' +
+        '<text x="247" y="134" font-size="10" fill="#555">surface</text>' +
+      '</svg>';
+  }
+
+  // ===== Submit-button gating =========================================
+  function updateSubmitState() {
+    const c = parseFloat(centralEl.value);
+    const u = parseFloat(uncertaintyEl.value);
+    const valid = isFinite(c) && isFinite(u);
+    submitBtn.disabled = state.locked || state.completed || !valid;
+  }
+
+  // ===== Pointer plumbing for protractor ==============================
+  function localPointer(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (CSS_W / rect.width),
+      y: (e.clientY - rect.top)  * (CSS_H / rect.height),
+    };
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    const p = localPointer(e);
+    if (protractor && protractor.handlePointerDown(p.x, p.y)) {
+      canvas.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    const p = localPointer(e);
+    if (protractor) protractor.handlePointerMove(p.x, p.y);
+  });
+  function endDrag(e) {
+    if (protractor) protractor.handlePointerUp();
+    if (canvas.hasPointerCapture && canvas.hasPointerCapture(e.pointerId)) {
+      canvas.releasePointerCapture(e.pointerId);
+    }
+  }
+  canvas.addEventListener('pointerup',     endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('pointerleave',  endDrag);
+
+  // ===== UI events =====================================================
+  showNormalEl.addEventListener('change', () => {
+    state.showNormal = showNormalEl.checked;
+  });
+
+  submitBtn.addEventListener('click', submitAnswer);
+
+  function onInputKey(e) {
+    if (e.key === 'Enter' && !submitBtn.disabled) submitAnswer();
+  }
+  centralEl.addEventListener('input', updateSubmitState);
+  uncertaintyEl.addEventListener('input', updateSubmitState);
+  centralEl.addEventListener('keydown', onInputKey);
+  uncertaintyEl.addEventListener('keydown', onInputKey);
+
+  // ===== Init ==========================================================
+  setupCanvas();
+  window.addEventListener('resize', setupCanvas);
+
+  protractor = new Protractor(canvas, {
+    x: PROTRACTOR_INIT.x,
+    y: PROTRACTOR_INIT.y,
+    rotation: PROTRACTOR_INIT.rotation,
+    diameter: PROTRACTOR_INIT.diameter,
+    visible: true,
+  });
+
+  loadTrial(0);
+  requestAnimationFrame(renderLoop);
+})();
+</script>
+</body>
+</html>

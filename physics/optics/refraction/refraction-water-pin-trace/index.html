@@ -1,0 +1,1782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Refraction in Water — Pin Trace Lab · Mr. Frohlich Math and Physics</title>
+<style>
+  /* ====== Brand palette (locked) ====== */
+  :root {
+    --cream:  #FAF3DE;
+    --navy:   #1E2A5C;
+    --navy-2: #2A3C7A;
+    --teal:   #2E8B8B;
+    --teal-2: #237272;
+    --red:    #C00000;
+    --ink:    #1F1F1F;
+    --muted:  rgba(30, 42, 92, 0.55);
+    --rule:   rgba(30, 42, 92, 0.25);
+
+    --beam-red:    #E63946;
+    --beam-green:  #22B14C;
+    --beam-violet: #7E3FF2;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: Cambria, Georgia, "Times New Roman", serif;
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 14px 24px 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+  header h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: normal;
+    color: var(--navy);
+    letter-spacing: 0.2px;
+  }
+  header .credit {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  main.lab {
+    display: flex;
+    gap: 20px;
+    padding: 16px 24px 32px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    max-width: 1248px;
+    margin: 0 auto;
+  }
+
+  /* ====== Canvas column ====== */
+  .canvas-section {
+    flex: 0 0 800px;
+    width: 800px;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .top-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .top-controls .group {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 4px;
+    border: 1px solid var(--rule);
+  }
+  .top-controls .group-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 4px;
+  }
+
+  .color-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    background: var(--beam-color, #ccc);
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 0.15s, border-color 0.15s, transform 0.1s;
+    padding: 0;
+  }
+  .color-btn:hover { transform: scale(1.06); }
+  .color-btn.active {
+    opacity: 1;
+    border-color: var(--navy);
+    box-shadow: 0 0 0 2px var(--cream), 0 0 0 3px var(--navy);
+  }
+  .color-btn[data-color="red"]    { --beam-color: var(--beam-red); }
+  .color-btn[data-color="green"]  { --beam-color: var(--beam-green); }
+  .color-btn[data-color="violet"] { --beam-color: var(--beam-violet); }
+
+  button.action {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 6px 14px;
+    background: var(--navy);
+    color: var(--cream);
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  button.action:hover  { background: var(--navy-2); }
+  button.action.toggle-on {
+    background: var(--teal);
+  }
+  button.action.toggle-on:hover { background: var(--teal-2); }
+  button.action:disabled {
+    background: rgba(30, 42, 92, 0.3);
+    cursor: not-allowed;
+  }
+
+  canvas#stage {
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    display: block;
+  }
+
+  .suggested {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    padding: 4px 2px;
+  }
+
+  .instructions {
+    background: rgba(255, 255, 255, 0.45);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 12px 16px 12px 14px;
+    margin-top: 4px;
+  }
+  .instructions h3 {
+    margin: 0 0 8px;
+    color: var(--navy);
+    font-size: 14px;
+    font-weight: normal;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+  .instructions ol {
+    margin: 0;
+    padding-left: 22px;
+    font-size: 12.5px;
+    color: var(--ink);
+    line-height: 1.55;
+  }
+  .instructions ol li {
+    margin-bottom: 4px;
+  }
+  .instructions ol li strong {
+    color: var(--navy);
+  }
+  .instructions ol li em {
+    font-style: italic;
+    color: var(--teal-2);
+  }
+
+  /* ====== Data sidebar ====== */
+  .data-section {
+    flex: 0 0 380px;
+    width: 380px;
+    max-width: 380px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .data-section h2 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: normal;
+    color: var(--navy);
+  }
+
+  table.trials {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.45);
+    border: 1px solid var(--rule);
+  }
+  table.trials col.col-num   { width: 28px;  }
+  table.trials col.col-color { width: 78px;  }
+  table.trials col.col-t1    { width: 110px; }
+  table.trials col.col-t2    { width: 110px; }
+  table.trials col.col-flag  { width: 28px;  }
+  table.trials th, table.trials td {
+    padding: 4px 6px;
+    text-align: center;
+    border-bottom: 1px solid var(--rule);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  table.trials th {
+    background: rgba(30, 42, 92, 0.07);
+    color: var(--navy);
+    font-weight: normal;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+  }
+  table.trials td.color-cell {
+    text-align: left;
+    padding-left: 8px;
+  }
+  table.trials td.color-cell .dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+  table.trials tbody tr.flagged {
+    background: rgba(230, 180, 0, 0.18);
+  }
+  table.trials tbody tr.flagged td.flag-cell {
+    color: #B47600;
+    font-weight: bold;
+  }
+  table.trials tbody tr.empty td {
+    color: var(--muted);
+    font-style: italic;
+    padding: 12px;
+  }
+  .flag-note {
+    font-size: 11px;
+    color: #B47600;
+    font-style: italic;
+    padding: 2px 4px;
+    line-height: 1.45;
+  }
+  .flag-note.hidden { display: none; }
+
+  .entry-form {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.45);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+  }
+  .entry-form label {
+    display: flex;
+    flex-direction: column;
+    font-size: 11px;
+    color: var(--navy);
+    gap: 2px;
+  }
+  .entry-form input {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 4px 6px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--cream);
+    color: var(--ink);
+    width: 100%;
+  }
+  .entry-form input:focus {
+    outline: none;
+    border-color: var(--teal);
+  }
+  .entry-form .row-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  .entry-form .active-color-hint {
+    flex: 1;
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .reveal-btn-wrap {
+    padding: 8px 0;
+    border-top: 1px dashed var(--rule);
+    margin-top: 4px;
+  }
+
+  /* ====== Modal / reveal ====== */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 25, 40, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 100;
+  }
+  .modal-backdrop.open { display: flex; }
+
+  .modal {
+    background: var(--cream);
+    border: 1px solid var(--navy);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    max-width: 640px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 20px 24px;
+  }
+  .modal h2 {
+    margin: 0 0 8px;
+    color: var(--navy);
+    font-size: 18px;
+    font-weight: normal;
+  }
+  .modal p.instructions {
+    font-size: 13px;
+    color: var(--ink);
+    margin: 6px 0 16px;
+    line-height: 1.45;
+  }
+  .modal .input-grid {
+    display: grid;
+    grid-template-columns: 90px 1fr 24px 1fr;
+    gap: 10px 8px;
+    align-items: center;
+    font-size: 13px;
+  }
+  .modal .input-grid .label-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--navy);
+  }
+  .modal .input-grid .label-cell .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+  .modal input[type="number"] {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 4px 6px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: white;
+    color: var(--ink);
+    width: 100%;
+  }
+  .modal input[type="number"]:disabled {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--muted);
+  }
+  .modal .modal-actions {
+    margin-top: 18px;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  .modal .reveal-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  .modal .reveal-table th, .modal .reveal-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--rule);
+    text-align: center;
+  }
+  .modal .reveal-table th {
+    background: rgba(30, 42, 92, 0.07);
+    color: var(--navy);
+    font-weight: normal;
+  }
+  .modal .reveal-table td.color-cell {
+    text-align: left;
+  }
+  .modal .reveal-table td.color-cell .dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .modal .reveal-note {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+
+  /* ====== Narrow viewport stacking ====== */
+  @media (max-width: 720px) {
+    main.lab { flex-direction: column; }
+    .data-section { width: 100%; max-width: 100%; flex-basis: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Refraction in Water — Pin Trace Lab</h1>
+  <div class="credit">Mr. Frohlich Math and Physics · IB Physics SL</div>
+</header>
+
+<main class="lab">
+  <section class="canvas-section">
+    <div class="top-controls">
+      <div class="group">
+        <span class="group-label">Laser</span>
+        <button class="color-btn active" data-color="red"    title="Red"></button>
+        <button class="color-btn"        data-color="green"  title="Green"></button>
+        <button class="color-btn"        data-color="violet" title="Violet"></button>
+      </div>
+      <button class="action toggle-on" id="laser-btn">Laser [ON]</button>
+      <button class="action" id="spray-btn">Spray (mist) [OFF]</button>
+      <button class="action" id="lift-btn">Lift dish</button>
+      <button class="action" id="ray1-btn">Ray 1 [show]</button>
+      <button class="action" id="ray2-btn">Ray 2 [show]</button>
+      <button class="action" id="protractor-btn">Protractor [show]</button>
+    </div>
+
+    <canvas id="stage"></canvas>
+
+    <div class="instructions">
+      <h3>How to use this lab</h3>
+      <ol>
+        <li><strong>Aim the laser.</strong> Drag the laser pen along its arc to choose an incidence angle (0°–80° from the normal). Suggested angles: <em>0°, 20°, 35°, 50°, 60°, 70°</em>. Use the colour buttons to switch wavelength. The laser stays on each colour's beam until you toggle Laser&nbsp;[OFF].</li>
+        <li><strong>Place pins.</strong> Click on the canvas to drop pins along the incident beam (above the dish) and the exit beam (below the dish) — typically 2 pins on each side. Right-click a pin or drag it off the canvas to remove it.</li>
+        <li><strong>Lift the dish.</strong> Press <em>Lift dish</em> to fade the apparatus and reveal the paper trace (flat face, vertex, normal). Pins stay where you placed them.</li>
+        <li><strong>Trace the rays.</strong> Turn on <em>Ray&nbsp;1</em> and <em>Ray&nbsp;2</em>. Each ray-line appears with two square endpoint handles. Drag either handle to align the line with its pin pair — the line passes through both handles and extends to the canvas edges.</li>
+        <li><strong>Measure angles.</strong> Turn on the <em>Protractor</em>, drag it so its centre sits at the vertex, and rotate as needed. Read θ₁ between Ray&nbsp;1 and the normal, and θ₂ between Ray&nbsp;2 and the normal.</li>
+        <li><strong>Record the trial.</strong> Enter θ₁, Δθ₁, θ₂, Δθ₂ in the Trial data form and press <em>Add row</em>. Repeat at different angles (and colours, if doing dispersion).</li>
+        <li><strong>Reveal results.</strong> After 3+ trials of any colour, calculate <em>n</em> using your teacher's method, then click <em>Reveal results</em> and enter your value to compare with the applet's check and the expected index.</li>
+      </ol>
+    </div>
+  </section>
+
+  <aside class="data-section">
+    <h2>Trial data</h2>
+    <table class="trials" id="trials-table">
+      <colgroup>
+        <col class="col-num">
+        <col class="col-color">
+        <col class="col-t1">
+        <col class="col-t2">
+        <col class="col-flag">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Color</th>
+          <th>θ₁ ± Δθ₁</th>
+          <th>θ₂ ± Δθ₂</th>
+          <th title="Flagged if measurement looks inconsistent">!</th>
+        </tr>
+      </thead>
+      <tbody id="trial-rows">
+        <tr class="empty"><td colspan="5">No trials yet. Take a measurement, then click Add row.</td></tr>
+      </tbody>
+    </table>
+    <div class="flag-note hidden" id="flag-note">
+      ⚠ Yellow rows look inconsistent with the rest of your trials. Please verify those angle readings.
+    </div>
+
+    <div class="entry-form">
+      <label>θ₁ (°)<input type="number" id="in-t1" step="any" min="0" max="90"></label>
+      <label>Δθ₁ (°)<input type="number" id="in-dt1" step="any" min="0"></label>
+      <label>θ₂ (°)<input type="number" id="in-t2" step="any" min="0" max="90"></label>
+      <label>Δθ₂ (°)<input type="number" id="in-dt2" step="any" min="0"></label>
+      <div class="row-actions">
+        <span class="active-color-hint" id="active-color-hint">Active color: <strong>Red</strong></span>
+        <button class="action" id="add-row-btn">Add row</button>
+        <button class="action" id="undo-row-btn">Undo last row</button>
+      </div>
+    </div>
+
+    <div class="reveal-btn-wrap">
+      <button class="action" id="reveal-btn" disabled title="Need at least 3 trials of one color to reveal">Reveal results</button>
+    </div>
+  </aside>
+</main>
+
+<!-- Reveal modal -->
+<div class="modal-backdrop" id="reveal-modal">
+  <div class="modal" id="reveal-modal-body">
+    <!-- content swapped between input stage and compare stage -->
+  </div>
+</div>
+
+<script src="./protractor.js"></script>
+<script>
+/* ============================================================
+ * Refraction in Water — Pin Trace Lab
+ * Mr. Frohlich Math and Physics · IB Physics SL
+ * Single-file applet, vanilla JS + Canvas 2D, no CDN.
+ * ============================================================ */
+(function () {
+  'use strict';
+
+  // ============================================================
+  // 1. Constants
+  // ============================================================
+
+  // Physics (locked, exaggerated for clarity)
+  const N_INDEX = { red: 1.33, green: 1.42, violet: 1.50 };
+  const BEAM_COLOR = {
+    red:    '#E63946',
+    green:  '#22B14C',
+    violet: '#7E3FF2',
+  };
+  const COLOR_LABEL = { red: 'Red', green: 'Green', violet: 'Violet' };
+
+  // UI palette
+  const NAVY   = '#1E2A5C';
+  const TEAL   = '#2E8B8B';
+  const RED    = '#C00000';
+  const CREAM  = '#FAF3DE';
+  const INK    = '#1F1F1F';
+  const PIN_FILL = '#333333';
+
+  // Scene geometry (CSS pixels)
+  const CSS_W = 800;
+  const CSS_H = 600;
+  const V_X = CSS_W / 2;          // vertex x (center of flat face)
+  const V_Y = CSS_H / 2;          // vertex y (canvas mid-height)
+  const DISH_R = 180;             // dish radius
+  const LASER_ARC_R = 250;        // laser pivots on this radius
+  const LASER_LEN = 50;           // laser body length (px)
+  const LASER_W   = 12;           // laser body width (px)
+  const EXIT_FADE = 80;           // exit band fade length past curved face
+  const BAND_W_AT_EXIT = 12;      // band width at curved face exit
+
+  // Angle limits (from normal). Lower bound is 0° — normal incidence is
+  // permitted because (0, 0) is a pedagogically valuable anchor data point
+  // for a proportional fit through the origin, and the no-bending observation
+  // at exactly 0° is a key reference for students.
+  const THETA_MAX = 80 * Math.PI / 180;
+
+  // Pin
+  const PIN_R = 4;
+  const PIN_STEM = 10;
+  const PIN_HIT_R = 9;
+
+  // Animation
+  const FADE_MS = 400;
+
+  // Ray-line tool
+  const RAY_HANDLE_SIZE = 9;       // square handle side length (px)
+  const RAY_HANDLE_HIT_R = 12;     // hit radius around handle centre (px)
+  const RAY1_COLOR = '#1E2A5C';    // navy
+  const RAY2_COLOR = '#7E3FF2';    // violet — distinguishes from ray 1 and from protractor (teal)
+
+  // ============================================================
+  // 2. State
+  // ============================================================
+
+  const state = {
+    activeColor: 'red',
+    laserOn: true,                  // beam on/off toggle (laser body also hidden when off)
+    sprayOn: false,
+    protractorVisible: false,
+    mode: 'apparatus',              // 'apparatus' | 'lifted'
+    fade: 0,                        // 0 = apparatus, 1 = lifted (animated)
+    fadeTarget: 0,
+    fadeStartMs: 0,
+    fadeFrom: 0,
+    laserAngle: -Math.PI / 4,       // signed angle from vertical; +right, -left
+    pins: [],                       // [{ x, y }]
+
+    // Two toggleable ray-line tools. Each is a line through p1 & p2 (handles),
+    // extended visually to the canvas edges. Student drags either endpoint to
+    // align the line with a pin pair. Replaces the old click-to-draw logic.
+    rayLines: {
+      ray1: { visible: false, p1: { x: 220, y: 170 }, p2: { x: 500, y: 170 } },
+      ray2: { visible: false, p1: { x: 220, y: 470 }, p2: { x: 500, y: 470 } },
+    },
+
+    trials: [],                     // { id, color, t1, dt1, t2, dt2, sinT1, sinT2, n }
+    trialIdCounter: 0,
+
+    // Drag state — exactly one drag mode active at a time
+    drag: null,
+    // drag shape:
+    //   { type: 'laser' }
+    //   { type: 'pin', index, hadMoved: bool }
+    //   { type: 'ray-endpoint', ray: 'ray1'|'ray2', end: 'p1'|'p2' }
+    //   { type: 'protractor' }
+  };
+
+  // ============================================================
+  // 3. DOM refs
+  // ============================================================
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+  const laserBtn      = document.getElementById('laser-btn');
+  const sprayBtn      = document.getElementById('spray-btn');
+  const liftBtn       = document.getElementById('lift-btn');
+  const ray1Btn       = document.getElementById('ray1-btn');
+  const ray2Btn       = document.getElementById('ray2-btn');
+  const protractorBtn = document.getElementById('protractor-btn');
+  const colorBtns     = document.querySelectorAll('.color-btn');
+  const trialRowsEl   = document.getElementById('trial-rows');
+  const flagNote      = document.getElementById('flag-note');
+  const inT1  = document.getElementById('in-t1');
+  const inDt1 = document.getElementById('in-dt1');
+  const inT2  = document.getElementById('in-t2');
+  const inDt2 = document.getElementById('in-dt2');
+  const addRowBtn  = document.getElementById('add-row-btn');
+  const undoRowBtn = document.getElementById('undo-row-btn');
+  const activeColorHint = document.getElementById('active-color-hint');
+  const revealBtn = document.getElementById('reveal-btn');
+  const revealModal = document.getElementById('reveal-modal');
+  const revealModalBody = document.getElementById('reveal-modal-body');
+
+  // ============================================================
+  // 4. Canvas DPR setup
+  // ============================================================
+
+  function setupCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width  = CSS_W + 'px';
+    canvas.style.height = CSS_H + 'px';
+    canvas.width  = Math.round(CSS_W * dpr);
+    canvas.height = Math.round(CSS_H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  setupCanvas();
+  window.addEventListener('resize', setupCanvas);
+
+  // ============================================================
+  // 5. Protractor instance (vendored module)
+  // ============================================================
+
+  const protractor = new window.Protractor(canvas, {
+    x: V_X + 250,
+    y: V_Y - 100,
+    rotation: 0,
+    diameter: 240,
+    visible: false,
+  });
+
+  // ============================================================
+  // 6. Geometry helpers
+  // ============================================================
+
+  // Laser tip world position from signed alpha (angle from vertical, +right)
+  function laserTip() {
+    const a = state.laserAngle;
+    return {
+      x: V_X + LASER_ARC_R * Math.sin(a),
+      y: V_Y - LASER_ARC_R * Math.cos(a),
+    };
+  }
+
+  function incidenceAngle() {
+    return Math.abs(state.laserAngle);
+  }
+
+  function refractionAngle() {
+    const n = N_INDEX[state.activeColor];
+    const sinT2 = Math.sin(incidenceAngle()) / n;
+    return Math.asin(Math.min(1, Math.max(-1, sinT2)));
+  }
+
+  // Refracted ray direction sign (x-component).
+  //
+  // PHYSICS: Snell's law conserves the surface-parallel component of the
+  // wave-vector. So the refracted ray travels in the same horizontal
+  // direction as the incident ray.
+  //
+  // Laser position vs incident travel direction:
+  //   laser upper-LEFT  (α < 0) → incident travels DOWN-RIGHT → refracted +x
+  //   laser upper-RIGHT (α > 0) → incident travels DOWN-LEFT  → refracted -x
+  //
+  // So the sign of the refracted-ray x-component is OPPOSITE to the sign of α.
+  function refractedDirSign() {
+    return state.laserAngle >= 0 ? -1 : 1;
+  }
+
+  // Exit point on curved face: ray starts at V, goes at signed angle β from vertical-down
+  // Curved face is at radius DISH_R from V
+  function refractedExitPoint() {
+    const b = refractionAngle();
+    const s = refractedDirSign();
+    return {
+      x: V_X + DISH_R * Math.sin(b) * s,
+      y: V_Y + DISH_R * Math.cos(b),
+    };
+  }
+
+  // ============================================================
+  // 7. Renderers
+  // ============================================================
+
+  // --- 7.1 Paper grid -----------------------------------------------
+  function drawPaperGrid() {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(30, 42, 92, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x <= CSS_W; x += 20) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, CSS_H);
+    }
+    for (let y = 0; y <= CSS_H; y += 20) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(CSS_W, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // --- 7.2 Paper-trace layer (always visible once dish is lifted) ----
+  // Drawn under the apparatus when fade is partial, so on lift it
+  // smoothly "appears" as the dish fades out.
+  function drawPaperTrace(alpha) {
+    if (alpha <= 0.001) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // Flat face line — full canvas width, 1px navy solid
+    ctx.strokeStyle = NAVY;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, V_Y);
+    ctx.lineTo(CSS_W, V_Y);
+    ctx.stroke();
+
+    // Curved face arc — semicircle of radius DISH_R below flat face
+    ctx.beginPath();
+    ctx.arc(V_X, V_Y, DISH_R, 0, Math.PI, false);
+    ctx.stroke();
+
+    // Normal — 1.5px red dashed, ~75px above + ~75px below vertex
+    ctx.strokeStyle = RED;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(V_X, V_Y - 75);
+    ctx.lineTo(V_X, V_Y + 75);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Vertex registration dot
+    ctx.fillStyle = NAVY;
+    ctx.beginPath();
+    ctx.arc(V_X, V_Y, 2, 0, 2 * Math.PI);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // --- 7.3 Apparatus (dish, water, vertex) --------------------------
+  function drawApparatus(alpha) {
+    if (alpha <= 0.001) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // Water fill (semicircle)
+    ctx.fillStyle = 'rgba(46, 139, 139, 0.12)';
+    ctx.beginPath();
+    ctx.arc(V_X, V_Y, DISH_R, 0, Math.PI, false);
+    ctx.closePath();
+    ctx.fill();
+
+    // Dish outline (curved face + flat face stroke)
+    ctx.strokeStyle = NAVY;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(V_X, V_Y, DISH_R, 0, Math.PI, false);
+    ctx.stroke();
+    // Flat face emphasis (slightly thicker over paper-trace line in apparatus mode)
+    ctx.beginPath();
+    ctx.moveTo(V_X - DISH_R, V_Y);
+    ctx.lineTo(V_X + DISH_R, V_Y);
+    ctx.stroke();
+
+    // Vertex dot (very faint)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.beginPath();
+    ctx.arc(V_X, V_Y, 2, 0, 2 * Math.PI);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // --- 7.4 Incident spray (mist) — only when ON ---------------------
+  function drawIncidentSpray(alpha) {
+    if (!state.sprayOn || alpha <= 0.001) return;
+    const tip = laserTip();
+    const color = BEAM_COLOR[state.activeColor];
+
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.30;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(tip.x, tip.y);
+    ctx.lineTo(V_X, V_Y);
+    ctx.stroke();
+    ctx.restore();
+
+    // Subtle noise/grain along the ray
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.55;
+    ctx.fillStyle = color;
+    const dx = V_X - tip.x;
+    const dy = V_Y - tip.y;
+    const len = Math.hypot(dx, dy);
+    const ux = dx / len, uy = dy / len;
+    const px = -uy, py = ux;  // perpendicular
+    const grains = Math.floor(len / 5);
+    // Deterministic grain (stable per render) — use a simple hash on position
+    const seed = Math.floor((state.laserAngle * 100 + (state.sprayOn ? 1 : 0)) * 31);
+    for (let i = 0; i < grains; i++) {
+      const t = i / grains + 0.5 / grains;
+      const xOnRay = tip.x + dx * t;
+      const yOnRay = tip.y + dy * t;
+      // Pseudo-random offset
+      const r1 = ((seed + i * 73) % 1000) / 1000 - 0.5;
+      const r2 = ((seed + i * 131) % 1000) / 1000 - 0.5;
+      const ox = px * r1 * 4;
+      const oy = py * r1 * 4;
+      const sz = 0.7 + Math.abs(r2) * 1.2;
+      ctx.beginPath();
+      ctx.arc(xOnRay + ox, yOnRay + oy, sz, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // --- 7.5 Beam in water + spread (always visible while apparatus) --
+  // Renders only the band + grain. NO explicit centerline — the
+  // student must judge the centre from the wedge geometry and grain
+  // distribution. That judgement IS the spread-uncertainty pedagogy.
+  function drawBeamInWater(alpha) {
+    if (alpha <= 0.001) return;
+    const exit = refractedExitPoint();
+    const color = BEAM_COLOR[state.activeColor];
+
+    // Direction along the refracted ray from vertex to exit
+    const dx = exit.x - V_X;
+    const dy = exit.y - V_Y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return;
+    const ux = dx / len, uy = dy / len;
+    const px = -uy, py = ux; // perpendicular (left of direction)
+
+    // Band: width 0 at vertex, BAND_W_AT_EXIT at exit (full width = BAND_W_AT_EXIT)
+    const halfW = BAND_W_AT_EXIT / 2;
+
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.55;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(V_X, V_Y); // tip at vertex (zero width)
+    ctx.lineTo(exit.x + px * halfW, exit.y + py * halfW);
+    ctx.lineTo(exit.x - px * halfW, exit.y - py * halfW);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Grain inside the band — adds texture without anchoring a centre
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.85;
+    ctx.fillStyle = color;
+    const grains = 24;
+    const seed = Math.floor((state.laserAngle * 100 +
+      (state.activeColor.charCodeAt(0))) * 17);
+    for (let i = 0; i < grains; i++) {
+      const t = (i + 0.5) / grains;
+      const r1 = ((seed + i * 53) % 1000) / 1000 - 0.5;
+      const r2 = ((seed + i * 97) % 1000) / 1000 - 0.5;
+      const wHere = halfW * t * 2; // band width at fraction t
+      const xOnRay = V_X + dx * t + px * (r1 * wHere);
+      const yOnRay = V_Y + dy * t + py * (r1 * wHere);
+      const sz = 0.6 + Math.abs(r2) * 0.9;
+      ctx.beginPath();
+      ctx.arc(xOnRay, yOnRay, sz, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // --- 7.6 Exit band past curved face (fades out over EXIT_FADE) ----
+  // Same pedagogy as 7.5: band + fade only, no centerline. Pins 3 & 4
+  // land in the visible band; centre is judged from band geometry.
+  function drawExitBand(alpha) {
+    if (alpha <= 0.001) return;
+    const exit = refractedExitPoint();
+    const color = BEAM_COLOR[state.activeColor];
+
+    // Direction continues along same radial vector from V
+    const dx = exit.x - V_X;
+    const dy = exit.y - V_Y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return;
+    const ux = dx / len, uy = dy / len;
+    const px = -uy, py = ux;
+
+    // End point: EXIT_FADE px past exit along the same direction
+    const endX = exit.x + ux * EXIT_FADE;
+    const endY = exit.y + uy * EXIT_FADE;
+    const halfW = BAND_W_AT_EXIT / 2;
+
+    // Gradient: full color at exit, transparent at end
+    const grad = ctx.createLinearGradient(exit.x, exit.y, endX, endY);
+    grad.addColorStop(0, hexToRgba(color, 0.55 * alpha));
+    grad.addColorStop(1, hexToRgba(color, 0));
+
+    ctx.save();
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(exit.x + px * halfW, exit.y + py * halfW);
+    ctx.lineTo(endX + px * halfW,   endY + py * halfW);
+    ctx.lineTo(endX - px * halfW,   endY - py * halfW);
+    ctx.lineTo(exit.x - px * halfW, exit.y - py * halfW);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Grain inside the exit band, also fading
+    ctx.save();
+    ctx.fillStyle = color;
+    const grains = 14;
+    const seed = Math.floor((state.laserAngle * 100 +
+      (state.activeColor.charCodeAt(0)) + 999) * 17);
+    for (let i = 0; i < grains; i++) {
+      const t = (i + 0.5) / grains;
+      const r1 = ((seed + i * 53) % 1000) / 1000 - 0.5;
+      const r2 = ((seed + i * 97) % 1000) / 1000 - 0.5;
+      const xOnRay = exit.x + (endX - exit.x) * t + px * (r1 * BAND_W_AT_EXIT);
+      const yOnRay = exit.y + (endY - exit.y) * t + py * (r1 * BAND_W_AT_EXIT);
+      const sz = 0.6 + Math.abs(r2) * 0.9;
+      const fade = (1 - t);  // 1 at exit, 0 at far end
+      ctx.globalAlpha = alpha * 0.8 * fade;
+      ctx.beginPath();
+      ctx.arc(xOnRay, yOnRay, sz, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // --- 7.7 Laser body ----------------------------------------------
+  function drawLaser(alpha) {
+    if (alpha <= 0.001) return;
+    const tip = laserTip();
+    const tipColor = BEAM_COLOR[state.activeColor];
+
+    // Body extends from tip OUTWARD (away from vertex) along the radial line
+    // Direction from V to tip:
+    const dirX = tip.x - V_X;
+    const dirY = tip.y - V_Y;
+    const dLen = Math.hypot(dirX, dirY);
+    const ux = dirX / dLen, uy = dirY / dLen;
+    const px = -uy, py = ux;
+
+    // Tip is at the inner end of the laser body (closer to vertex);
+    // body extends FROM tip outward by LASER_LEN
+    const tailX = tip.x + ux * LASER_LEN;
+    const tailY = tip.y + uy * LASER_LEN;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // Body — black cylinder
+    ctx.fillStyle = '#1a1a1a';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    const hw = LASER_W / 2;
+    ctx.beginPath();
+    ctx.moveTo(tip.x + px * hw, tip.y + py * hw);
+    ctx.lineTo(tailX + px * hw, tailY + py * hw);
+    ctx.lineTo(tailX - px * hw, tailY - py * hw);
+    ctx.lineTo(tip.x - px * hw, tip.y - py * hw);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Tip cap — colored
+    ctx.fillStyle = tipColor;
+    ctx.beginPath();
+    ctx.arc(tip.x, tip.y, hw, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Subtle grip ring on body
+    const gripX = tip.x + ux * (LASER_LEN * 0.6);
+    const gripY = tip.y + uy * (LASER_LEN * 0.6);
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(gripX + px * hw, gripY + py * hw);
+    ctx.lineTo(gripX - px * hw, gripY - py * hw);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // --- 7.8 Pins -----------------------------------------------------
+  function drawPins() {
+    ctx.save();
+    for (const pin of state.pins) {
+      // Stem shadow
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pin.x, pin.y);
+      ctx.lineTo(pin.x, pin.y + PIN_STEM);
+      ctx.stroke();
+      // Pin head
+      ctx.fillStyle = PIN_FILL;
+      ctx.beginPath();
+      ctx.arc(pin.x, pin.y, PIN_R, 0, 2 * Math.PI);
+      ctx.fill();
+      // Subtle highlight rim
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(pin.x, pin.y, PIN_R - 0.4, -0.4 * Math.PI, -0.1 * Math.PI);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // --- 7.9 Ray-line tools (toggleable, endpoint-draggable) ---------
+  // Each ray line is two endpoint handles (p1, p2). The line passes through
+  // both handles and extends to the canvas edges. Drag either handle to
+  // reposition / re-orient. This is the "virtual ruler" the student uses
+  // to trace incident and refracted rays through their pin pairs.
+  function drawOneRayLine(ray, color) {
+    if (!ray.visible) return;
+    const ends = extendLineToEdges(ray.p1, ray.p2);
+
+    ctx.save();
+
+    // Line through endpoints, extended to edges
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(ends.end1.x, ends.end1.y);
+    ctx.lineTo(ends.end2.x, ends.end2.y);
+    ctx.stroke();
+
+    // Endpoint handles — small filled squares
+    const half = RAY_HANDLE_SIZE / 2;
+    [ray.p1, ray.p2].forEach(p => {
+      ctx.fillStyle = color;
+      ctx.fillRect(p.x - half, p.y - half, RAY_HANDLE_SIZE, RAY_HANDLE_SIZE);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(p.x - half, p.y - half, RAY_HANDLE_SIZE, RAY_HANDLE_SIZE);
+    });
+
+    ctx.restore();
+  }
+
+  function drawRayLines() {
+    drawOneRayLine(state.rayLines.ray1, RAY1_COLOR);
+    drawOneRayLine(state.rayLines.ray2, RAY2_COLOR);
+  }
+
+  // Extend a line through two points to canvas edges. Returns { end1, end2 }.
+  function extendLineToEdges(p1, p2) {
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) {
+      return { end1: { ...p1 }, end2: { ...p2 } };
+    }
+    // Parameterize: (p1 + t * (dx, dy)). Find t at each canvas edge.
+    const ts = [];
+    if (Math.abs(dx) > 1e-9) {
+      ts.push((0      - p1.x) / dx);
+      ts.push((CSS_W  - p1.x) / dx);
+    }
+    if (Math.abs(dy) > 1e-9) {
+      ts.push((0      - p1.y) / dy);
+      ts.push((CSS_H  - p1.y) / dy);
+    }
+    // For each t, compute point; keep only those within bounds
+    const inBoundsPoints = ts
+      .map(t => ({ t, x: p1.x + t * dx, y: p1.y + t * dy }))
+      .filter(pt => pt.x >= -0.5 && pt.x <= CSS_W + 0.5 && pt.y >= -0.5 && pt.y <= CSS_H + 0.5);
+    if (inBoundsPoints.length < 2) {
+      return { end1: { ...p1 }, end2: { ...p2 } };
+    }
+    inBoundsPoints.sort((a, b) => a.t - b.t);
+    const first = inBoundsPoints[0];
+    const last  = inBoundsPoints[inBoundsPoints.length - 1];
+    return {
+      end1: { x: first.x, y: first.y },
+      end2: { x: last.x,  y: last.y },
+    };
+  }
+
+  // --- Color helper ----
+  function hexToRgba(hex, a) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+
+  // ============================================================
+  // 8. Main render loop
+  // ============================================================
+
+  function updateFade(nowMs) {
+    if (state.fade === state.fadeTarget) return;
+    const elapsed = nowMs - state.fadeStartMs;
+    const t = Math.min(1, elapsed / FADE_MS);
+    // Ease in-out
+    const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    state.fade = state.fadeFrom + (state.fadeTarget - state.fadeFrom) * eased;
+    if (t >= 1) state.fade = state.fadeTarget;
+  }
+
+  function render(nowMs) {
+    updateFade(nowMs);
+
+    ctx.clearRect(0, 0, CSS_W, CSS_H);
+    drawPaperGrid();
+
+    // Apparatus alpha = 1 - fade; paper-trace alpha = fade
+    const apparatusAlpha = 1 - state.fade;
+    const traceAlpha     = state.fade;
+
+    drawPaperTrace(traceAlpha);
+    drawApparatus(apparatusAlpha);
+
+    // Beam stack — only renders in apparatus mode AND when laser is ON
+    if (state.laserOn) {
+      drawIncidentSpray(apparatusAlpha);
+      drawBeamInWater(apparatusAlpha);
+      drawExitBand(apparatusAlpha);
+      drawLaser(apparatusAlpha);
+    }
+
+    // Pins persist across modes and laser state
+    drawPins();
+
+    // Ray-line tools persist across modes and are independent of laser state
+    drawRayLines();
+
+    // Protractor on top
+    protractor.draw(ctx);
+
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+
+  // ============================================================
+  // 9. Pointer event handling
+  // ============================================================
+
+  function getPointer(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (CSS_W / rect.width),
+      y: (e.clientY - rect.top)  * (CSS_H / rect.height),
+    };
+  }
+
+  // Hit-test: is point near the laser body?
+  function hitLaser(px, py) {
+    if (state.mode !== 'apparatus' || state.fade > 0.05) return false;
+    const tip = laserTip();
+    const dirX = tip.x - V_X;
+    const dirY = tip.y - V_Y;
+    const dLen = Math.hypot(dirX, dirY);
+    const ux = dirX / dLen, uy = dirY / dLen;
+    const tailX = tip.x + ux * LASER_LEN;
+    const tailY = tip.y + uy * LASER_LEN;
+    // Project (px, py) onto line from tip→tail
+    const lx = px - tip.x, ly = py - tip.y;
+    const t = (lx * ux + ly * uy) / LASER_LEN;
+    if (t < -0.1 || t > 1.1) return false;
+    // Perpendicular distance
+    const perpX = lx - (t * LASER_LEN * ux);
+    const perpY = ly - (t * LASER_LEN * uy);
+    const perpD = Math.hypot(perpX, perpY);
+    return perpD <= LASER_W;
+  }
+
+  // Hit-test: is point near a pin?
+  function hitPin(px, py) {
+    for (let i = state.pins.length - 1; i >= 0; i--) {
+      const pin = state.pins[i];
+      const d = Math.hypot(pin.x - px, pin.y - py);
+      if (d <= PIN_HIT_R) return i;
+    }
+    return -1;
+  }
+
+  function snapLaserToPointer(px, py) {
+    // Compute signed alpha from vertex such that laser sits on arc at radius LASER_ARC_R
+    const dx = px - V_X;
+    const dy = py - V_Y;
+    // alpha = atan2(dx, -dy) gives angle from +Y-up direction
+    // Convention: laser is above flat face → dy < 0 → -dy > 0
+    let a = Math.atan2(dx, -dy);
+    // Clamp magnitude to upper bound only. Normal incidence (α = 0) is allowed.
+    if (a > THETA_MAX)  a = THETA_MAX;
+    if (a < -THETA_MAX) a = -THETA_MAX;
+    state.laserAngle = a;
+  }
+
+  // Hit-test ray-line endpoints. Returns { ray, end } or null.
+  function hitRayEndpoint(px, py) {
+    for (const key of ['ray1', 'ray2']) {
+      const ray = state.rayLines[key];
+      if (!ray.visible) continue;
+      for (const end of ['p1', 'p2']) {
+        const ep = ray[end];
+        const d = Math.hypot(ep.x - px, ep.y - py);
+        if (d <= RAY_HANDLE_HIT_R) return { ray: key, end };
+      }
+    }
+    return null;
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.button === 2) return; // contextmenu handler covers right-click
+    const p = getPointer(e);
+
+    // 1) Protractor highest priority
+    if (state.protractorVisible && protractor.handlePointerDown(p.x, p.y)) {
+      state.drag = { type: 'protractor' };
+      canvas.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
+
+    // 2) Ray-line endpoint drag (available in both modes when ray-line is visible)
+    const rayHit = hitRayEndpoint(p.x, p.y);
+    if (rayHit) {
+      state.drag = { type: 'ray-endpoint', ray: rayHit.ray, end: rayHit.end };
+      canvas.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
+
+    // 3) Pin grab (drag existing pin) — both modes
+    const pinIdx = hitPin(p.x, p.y);
+    if (pinIdx >= 0) {
+      state.drag = { type: 'pin', index: pinIdx, hadMoved: false };
+      canvas.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
+
+    // 4) Apparatus-mode-only interactions
+    if (state.mode === 'apparatus' && state.fade < 0.05) {
+      // 4a) Laser grab — only when laser is on AND visible
+      if (state.laserOn && hitLaser(p.x, p.y)) {
+        state.drag = { type: 'laser' };
+        snapLaserToPointer(p.x, p.y);
+        canvas.setPointerCapture(e.pointerId);
+        e.preventDefault();
+        return;
+      }
+      // 4b) Empty click → place pin
+      state.pins.push({ x: p.x, y: p.y });
+      e.preventDefault();
+      return;
+    }
+
+    // 5) Lifted-mode empty click — nothing to do (no click-to-draw any more)
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    const p = getPointer(e);
+
+    // Protractor
+    if (state.drag && state.drag.type === 'protractor') {
+      protractor.handlePointerMove(p.x, p.y);
+      return;
+    }
+    if (state.protractorVisible && !state.drag) {
+      // Hover cursor updates
+      protractor.handlePointerMove(p.x, p.y);
+    }
+
+    if (state.drag && state.drag.type === 'laser') {
+      snapLaserToPointer(p.x, p.y);
+      return;
+    }
+    if (state.drag && state.drag.type === 'pin') {
+      state.pins[state.drag.index].x = p.x;
+      state.pins[state.drag.index].y = p.y;
+      state.drag.hadMoved = true;
+      return;
+    }
+    if (state.drag && state.drag.type === 'ray-endpoint') {
+      const ray = state.rayLines[state.drag.ray];
+      ray[state.drag.end].x = p.x;
+      ray[state.drag.end].y = p.y;
+      return;
+    }
+  });
+
+  function endDrag(e) {
+    if (state.drag && state.drag.type === 'protractor') {
+      protractor.handlePointerUp();
+    }
+    if (state.drag && state.drag.type === 'pin' && state.drag.hadMoved) {
+      // Remove pin if it ended outside canvas bounds
+      const pin = state.pins[state.drag.index];
+      if (pin && (pin.x < 0 || pin.x > CSS_W || pin.y < 0 || pin.y > CSS_H)) {
+        state.pins.splice(state.drag.index, 1);
+      }
+    }
+    state.drag = null;
+    if (canvas.hasPointerCapture && canvas.hasPointerCapture(e.pointerId)) {
+      canvas.releasePointerCapture(e.pointerId);
+    }
+  }
+  canvas.addEventListener('pointerup',     endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  // Right-click → remove pin
+  canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const p = getPointer(e);
+    const pinIdx = hitPin(p.x, p.y);
+    if (pinIdx >= 0) {
+      state.pins.splice(pinIdx, 1);
+    }
+  });
+
+  // ============================================================
+  // 10. Top control wiring
+  // ============================================================
+
+  // Color buttons
+  colorBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const color = btn.getAttribute('data-color');
+      state.activeColor = color;
+      colorBtns.forEach(b => b.classList.toggle('active', b === btn));
+      activeColorHint.innerHTML = 'Active color: <strong>' + COLOR_LABEL[color] + '</strong>';
+    });
+  });
+
+  // Spray toggle
+  sprayBtn.addEventListener('click', () => {
+    state.sprayOn = !state.sprayOn;
+    sprayBtn.textContent = 'Spray (mist) [' + (state.sprayOn ? 'ON' : 'OFF') + ']';
+    sprayBtn.classList.toggle('toggle-on', state.sprayOn);
+  });
+
+  // Laser on/off toggle — hides laser body and entire beam stack when off
+  laserBtn.addEventListener('click', () => {
+    state.laserOn = !state.laserOn;
+    laserBtn.textContent = 'Laser [' + (state.laserOn ? 'ON' : 'OFF') + ']';
+    laserBtn.classList.toggle('toggle-on', state.laserOn);
+  });
+
+  // Lift dish toggle
+  liftBtn.addEventListener('click', () => {
+    const now = performance.now();
+    if (state.mode === 'apparatus') {
+      state.mode = 'lifted';
+      state.fadeFrom = state.fade;
+      state.fadeTarget = 1;
+      state.fadeStartMs = now;
+      liftBtn.textContent = 'Replace dish';
+      liftBtn.classList.add('toggle-on');
+    } else {
+      state.mode = 'apparatus';
+      state.fadeFrom = state.fade;
+      state.fadeTarget = 0;
+      state.fadeStartMs = now;
+      liftBtn.textContent = 'Lift dish';
+      liftBtn.classList.remove('toggle-on');
+    }
+  });
+
+  // Ray-line toggles
+  function bindRayToggle(btn, key, label) {
+    btn.addEventListener('click', () => {
+      const ray = state.rayLines[key];
+      ray.visible = !ray.visible;
+      btn.textContent = label + ' [' + (ray.visible ? 'hide' : 'show') + ']';
+      btn.classList.toggle('toggle-on', ray.visible);
+    });
+  }
+  bindRayToggle(ray1Btn, 'ray1', 'Ray 1');
+  bindRayToggle(ray2Btn, 'ray2', 'Ray 2');
+
+  // Protractor toggle
+  protractorBtn.addEventListener('click', () => {
+    state.protractorVisible = !state.protractorVisible;
+    protractor.setVisible(state.protractorVisible);
+    protractorBtn.textContent = 'Protractor [' + (state.protractorVisible ? 'hide' : 'show') + ']';
+    protractorBtn.classList.toggle('toggle-on', state.protractorVisible);
+  });
+
+  // ============================================================
+  // 11. Data table
+  // ============================================================
+
+  // Decide whether a single trial looks "off enough" to warrant a verify-this hint.
+  // We compute the implied n internally but never reveal it; the flag is a vague
+  // suggestion. Threshold is generous so this doesn't nag honest noisy data.
+  function isTrialFlagged(t) {
+    // Normal-incidence anchor: both angles essentially zero is a valid (0, 0)
+    // data point for through-origin fitting. n is mathematically undefined but
+    // the trial is good data — do not flag.
+    if (t.t1 < 0.5 && t.t2 < 0.5) return false;
+    // Unphysical n at all: refuse to flag if math broke
+    if (!isFinite(t.n)) return true;
+    // Clearly outside any reasonable refractive index for water
+    if (t.n < 0.90 || t.n > 2.00) return true;
+    // Compare against the expected n for this colour (exaggerated values)
+    const expected = N_INDEX[t.color];
+    if (Math.abs(t.n - expected) > 0.20) return true;
+    return false;
+  }
+
+  function rerenderTable() {
+    if (state.trials.length === 0) {
+      trialRowsEl.innerHTML = '<tr class="empty"><td colspan="5">No trials yet. Take a measurement, then click Add row.</td></tr>';
+      flagNote.classList.add('hidden');
+      updateRevealGate();
+      return;
+    }
+    let anyFlagged = false;
+    const rows = state.trials.map((t, i) => {
+      const dot = '<span class="dot" style="background:' + BEAM_COLOR[t.color] + '"></span>';
+      const flagged = isTrialFlagged(t);
+      if (flagged) anyFlagged = true;
+      return '<tr' + (flagged ? ' class="flagged"' : '') + '>' +
+        '<td>' + (i + 1) + '</td>' +
+        '<td class="color-cell">' + dot + COLOR_LABEL[t.color] + '</td>' +
+        '<td>' + fmt(t.t1, 2) + ' ± ' + fmt(t.dt1, 2) + '°</td>' +
+        '<td>' + fmt(t.t2, 2) + ' ± ' + fmt(t.dt2, 2) + '°</td>' +
+        '<td class="flag-cell">' + (flagged ? '⚠' : '') + '</td>' +
+        '</tr>';
+    }).join('');
+    trialRowsEl.innerHTML = rows;
+    flagNote.classList.toggle('hidden', !anyFlagged);
+    updateRevealGate();
+  }
+
+  function fmt(x, places) {
+    if (typeof x !== 'number' || !isFinite(x)) return '—';
+    return x.toFixed(places);
+  }
+
+  function parseAngle(input) {
+    const v = parseFloat(input.value);
+    if (!isFinite(v)) return null;
+    return v;
+  }
+
+  addRowBtn.addEventListener('click', () => {
+    const t1 = parseAngle(inT1);
+    const dt1 = parseAngle(inDt1);
+    const t2 = parseAngle(inT2);
+    const dt2 = parseAngle(inDt2);
+    if (t1 == null || dt1 == null || t2 == null || dt2 == null) {
+      flashInputs();
+      return;
+    }
+    if (t1 <= 0 || t2 <= 0 || dt1 < 0 || dt2 < 0) {
+      flashInputs();
+      return;
+    }
+    const sinT1 = Math.sin(t1 * Math.PI / 180);
+    const sinT2 = Math.sin(t2 * Math.PI / 180);
+    const n = sinT2 > 1e-9 ? sinT1 / sinT2 : NaN;
+    state.trials.push({
+      id: ++state.trialIdCounter,
+      color: state.activeColor,
+      t1, dt1, t2, dt2,
+      sinT1, sinT2, n,
+    });
+    inT1.value = '';
+    inDt1.value = '';
+    inT2.value = '';
+    inDt2.value = '';
+    rerenderTable();
+    inT1.focus();
+  });
+
+  undoRowBtn.addEventListener('click', () => {
+    if (state.trials.length > 0) {
+      state.trials.pop();
+      rerenderTable();
+    }
+  });
+
+  function flashInputs() {
+    [inT1, inDt1, inT2, inDt2].forEach(el => {
+      if (!isFinite(parseFloat(el.value)) || parseFloat(el.value) < 0) {
+        el.style.borderColor = RED;
+        setTimeout(() => { el.style.borderColor = ''; }, 600);
+      }
+    });
+  }
+
+  // ============================================================
+  // 12. Reveal results
+  // ============================================================
+
+  function trialsByColor() {
+    const by = { red: [], green: [], violet: [] };
+    for (const t of state.trials) by[t.color].push(t);
+    return by;
+  }
+
+  function updateRevealGate() {
+    const by = trialsByColor();
+    const eligible = ['red', 'green', 'violet'].some(c => by[c].length >= 3);
+    revealBtn.disabled = !eligible;
+    revealBtn.title = eligible
+      ? 'Reveal results'
+      : 'Need at least 3 trials of one color to reveal';
+  }
+
+  // Min-max-through-origin slope for swapped-axis plot:
+  // x = sin θ₂, y = sin θ₁, slope = n
+  // Returns { nBest, dN, nMin, nMax, inconsistent }
+  function computeAppletCheck(trials) {
+    // x = sin θ₂, dx = cos θ₂ · dθ₂ (rad)
+    // y = sin θ₁, dy = cos θ₁ · dθ₁ (rad)
+    const pts = trials.map(t => ({
+      x:  t.sinT2,
+      y:  t.sinT1,
+      dx: Math.cos(t.t2 * Math.PI / 180) * (t.dt2 * Math.PI / 180),
+      dy: Math.cos(t.t1 * Math.PI / 180) * (t.dt1 * Math.PI / 180),
+    }));
+
+    // Best fit through origin: m = Σxy / Σx²
+    let sumXY = 0, sumXX = 0;
+    for (const p of pts) {
+      sumXY += p.x * p.y;
+      sumXX += p.x * p.x;
+    }
+    const nBest = sumXX > 1e-12 ? (sumXY / sumXX) : NaN;
+
+    // For min/max lines through origin passing through ALL error rects:
+    //   line slope m through origin reaches y = m·x.
+    //   To pass through point i's error rect:
+    //     m·(xᵢ + dxᵢ) ≥ yᵢ - dyᵢ → m ≥ (yᵢ - dyᵢ) / (xᵢ + dxᵢ)
+    //     m·(xᵢ - dxᵢ) ≤ yᵢ + dyᵢ → m ≤ (yᵢ + dyᵢ) / (xᵢ - dxᵢ)
+    // So:
+    //   m_min = MAX of (yᵢ - dyᵢ) / (xᵢ + dxᵢ)
+    //   m_max = MIN of (yᵢ + dyᵢ) / (xᵢ - dxᵢ)
+    let mMin = -Infinity, mMax = Infinity;
+    for (const p of pts) {
+      const denom1 = p.x + p.dx;
+      const denom2 = p.x - p.dx;
+      if (denom1 > 1e-9) {
+        const v = (p.y - p.dy) / denom1;
+        if (v > mMin) mMin = v;
+      }
+      if (denom2 > 1e-9) {
+        const v = (p.y + p.dy) / denom2;
+        if (v < mMax) mMax = v;
+      }
+    }
+    const inconsistent = mMin > mMax;
+    const dN = inconsistent ? NaN : (mMax - mMin) / 2;
+
+    return { nBest, dN, nMin: mMin, nMax: mMax, inconsistent };
+  }
+
+  // ----- Modal rendering -----
+
+  function openRevealModal() {
+    renderRevealInputStage();
+    revealModal.classList.add('open');
+  }
+  function closeRevealModal() {
+    revealModal.classList.remove('open');
+  }
+
+  function renderRevealInputStage() {
+    const by = trialsByColor();
+    const colors = ['red', 'green', 'violet'];
+    const rows = colors.map(c => {
+      const enough = by[c].length >= 3;
+      const dot = '<span class="dot" style="background:' + BEAM_COLOR[c] + '"></span>';
+      const status = enough
+        ? '(' + by[c].length + ' trials)'
+        : '(not enough data — need ≥3 trials)';
+      return '<div class="label-cell">' + dot + COLOR_LABEL[c] + '</div>' +
+        '<input type="number" step="any" data-color="' + c + '" data-field="n"' +
+          (enough ? '' : ' disabled') + ' placeholder="n">' +
+        '<div style="text-align:center;color:#1E2A5C">±</div>' +
+        '<input type="number" step="any" min="0" data-color="' + c + '" data-field="dn"' +
+          (enough ? '' : ' disabled') + ' placeholder="Δn">' +
+        '<div style="grid-column:1 / -1;font-size:11px;color:rgba(30,42,92,0.55);font-style:italic;margin-top:-4px">' +
+          status + '</div>';
+    }).join('');
+
+    revealModalBody.innerHTML =
+      '<h2>Determine the index of refraction</h2>' +
+      '<p class="instructions">' +
+        'Calculate the index of refraction of water using the method your teacher determines.<br>' +
+        'From your calculations, what is the index of refraction of water?' +
+      '</p>' +
+      '<div class="input-grid">' + rows + '</div>' +
+      '<div class="modal-actions">' +
+        '<button class="action" id="reveal-cancel-btn" style="background:transparent;color:#1E2A5C;border:1px solid rgba(30,42,92,0.25)">Cancel</button>' +
+        '<button class="action" id="reveal-submit-btn">Reveal expected values</button>' +
+      '</div>';
+
+    document.getElementById('reveal-cancel-btn').addEventListener('click', closeRevealModal);
+    document.getElementById('reveal-submit-btn').addEventListener('click', submitRevealInputs);
+  }
+
+  function submitRevealInputs() {
+    const colors = ['red', 'green', 'violet'];
+    const by = trialsByColor();
+    const inputs = {};
+    let anyEntered = false;
+    colors.forEach(c => {
+      const nIn  = revealModalBody.querySelector('input[data-color="' + c + '"][data-field="n"]');
+      const dnIn = revealModalBody.querySelector('input[data-color="' + c + '"][data-field="dn"]');
+      const n  = nIn  && nIn.value  !== '' ? parseFloat(nIn.value)  : NaN;
+      const dn = dnIn && dnIn.value !== '' ? parseFloat(dnIn.value) : NaN;
+      if (isFinite(n) && isFinite(dn) && by[c].length >= 3) {
+        inputs[c] = { n, dn };
+        anyEntered = true;
+      } else {
+        inputs[c] = null;
+      }
+    });
+    if (!anyEntered) {
+      // Flash the first eligible color's inputs
+      colors.forEach(c => {
+        if (by[c].length >= 3) {
+          const nIn = revealModalBody.querySelector('input[data-color="' + c + '"][data-field="n"]');
+          if (nIn) {
+            nIn.style.borderColor = RED;
+            setTimeout(() => { nIn.style.borderColor = ''; }, 600);
+          }
+        }
+      });
+      return;
+    }
+    renderRevealCompareStage(inputs);
+  }
+
+  // Format value ± uncertainty per IB-style sig-fig convention:
+  //   - Round uncertainty to 1 sig fig (or 2 sig figs if the leading sig fig is 1).
+  //   - Round value to the same decimal place as the (rounded) uncertainty.
+  // Examples:
+  //   1.396 ± 0.029 → "1.40 ± 0.03"
+  //   1.396 ± 0.015 → "1.396 ± 0.015"   (leading-1 rule keeps the extra digit)
+  //   1.350 ± 1.500 → "1.4 ± 1.5"
+  function formatWithUncertainty(value, uncertainty) {
+    if (!isFinite(value)) return '—';
+    if (!isFinite(uncertainty) || uncertainty <= 0) {
+      return value.toFixed(2);
+    }
+    const exp = Math.floor(Math.log10(uncertainty));
+    const mantissa = uncertainty / Math.pow(10, exp);
+    const leadingDigit = Math.floor(mantissa);  // 1..9
+    const sigFigs = (leadingDigit === 1) ? 2 : 1;
+    const dp = Math.max(0, sigFigs - 1 - exp);
+    return value.toFixed(dp) + ' ± ' + uncertainty.toFixed(dp);
+  }
+
+  function renderRevealCompareStage(studentInputs) {
+    const colors = ['red', 'green', 'violet'];
+    const by = trialsByColor();
+
+    const rows = colors.map(c => {
+      const enough = by[c].length >= 3;
+      const dot = '<span class="dot" style="background:' + BEAM_COLOR[c] + '"></span>';
+      let yours = '—';
+      let appletCheck = '—';
+      if (enough) {
+        if (studentInputs[c]) {
+          yours = formatWithUncertainty(studentInputs[c].n, studentInputs[c].dn);
+        } else {
+          yours = '(not entered)';
+        }
+        const check = computeAppletCheck(by[c]);
+        if (check.inconsistent || !isFinite(check.nBest)) {
+          appletCheck = isFinite(check.nBest)
+            ? check.nBest.toFixed(2) + ' (errors too tight — inconsistent)'
+            : 'data inconsistent';
+        } else {
+          appletCheck = formatWithUncertainty(check.nBest, check.dN);
+        }
+      } else {
+        yours = '(not enough data)';
+      }
+      const expected = N_INDEX[c].toFixed(2);
+      return '<tr>' +
+        '<td class="color-cell">' + dot + COLOR_LABEL[c] + '</td>' +
+        '<td>' + yours + '</td>' +
+        '<td>' + appletCheck + '</td>' +
+        '<td>' + expected + '</td>' +
+      '</tr>';
+    }).join('');
+
+    revealModalBody.innerHTML =
+      '<h2>Results</h2>' +
+      '<table class="reveal-table">' +
+        '<thead><tr>' +
+          '<th>Color</th>' +
+          '<th>Your result</th>' +
+          '<th>Applet check</th>' +
+          '<th>Expected</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+      '</table>' +
+      '<p class="reveal-note">' +
+        'Applet check is computed from your raw angle data, propagating your stated angle ' +
+        'uncertainties (Δθ₁, Δθ₂) through to Δn. It is a sanity check on your hand analysis — ' +
+        'the analysis your teacher asks you to do is the assessment.' +
+      '</p>' +
+      '<div class="modal-actions">' +
+        '<button class="action" id="reveal-reset-btn" style="background:transparent;color:#1E2A5C;border:1px solid rgba(30,42,92,0.25)">Reset (re-enter values)</button>' +
+        '<button class="action" id="reveal-close-btn">Close</button>' +
+      '</div>';
+
+    document.getElementById('reveal-reset-btn').addEventListener('click', renderRevealInputStage);
+    document.getElementById('reveal-close-btn').addEventListener('click', closeRevealModal);
+  }
+
+  revealBtn.addEventListener('click', openRevealModal);
+
+  // Click-outside-modal to close
+  revealModal.addEventListener('click', (e) => {
+    if (e.target === revealModal) closeRevealModal();
+  });
+
+  // ============================================================
+  // 13. Init
+  // ============================================================
+
+  rerenderTable();
+  // No persistence — fresh state each session per spec L-14.
+
+})();
+</script>
+</body>
+</html>
