@@ -500,11 +500,9 @@
   function showComplete() {
     overlayContent.innerHTML =
       '<h2 class="correct">Pre-lab complete</h2>' +
-      '<p>You\u2019re ready for the refraction lab.</p>';
-    overlayBtn.textContent = 'Begin lab \u2192';
-    overlayBtn.onclick = () => {
-      window.location.href = '../refraction-water-pin-trace/index.html';
-    };
+      '<p>All three angles measured within tolerance.</p>';
+    overlayBtn.textContent = 'Close';
+    overlayBtn.onclick = closeOverlay;
     openOverlay();
   }
 
