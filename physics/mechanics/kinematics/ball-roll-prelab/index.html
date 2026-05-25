@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280, initial-scale=1">
+  <title>Ball Roll · Pre-Lab</title>
+  <style>
+    /* Palette (Build_Design v4):
+         cream  #FAF3DE  scene background
+         navy   #1E2A5C  apparatus, text
+         teal   #2E8B8B  markers, primary accent, pass state
+         red    #C00000  correction state
+     */
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #FAF3DE;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      color: #1E2A5C;
+    }
+
+    #app {
+      width: 1280px;
+      height: 640px;
+      position: relative;
+      background: #FAF3DE;
+      display: flex;
+    }
+
+    /* Iframe-detect title — shown only on standalone dev preview (Netlify),
+       hidden when embedded inside an LM slide via iframe. */
+    #dev-title {
+      display: none;
+      position: absolute;
+      top: 6px; left: 0; right: 360px;
+      text-align: center;
+      font-family: Georgia, serif;
+      font-style: italic;
+      color: #1E2A5C;
+      font-size: 12px;
+      opacity: 0.55;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* ============================================================
+       SCENE (left side)
+       ============================================================ */
+    #scene-wrap {
+      position: relative;
+      width: 920px;
+      height: 640px;
+      background: #FAF3DE;
+      border-right: 1px solid rgba(30, 42, 92, 0.18);
+      flex-shrink: 0;
+    }
+    #scene-wrap canvas {
+      display: block;
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    #scene-controls {
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 920px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      background: #FAF3DE;
+      border-top: 1px solid rgba(30, 42, 92, 0.18);
+      box-sizing: border-box;
+    }
+    #launch-btn {
+      background: #2E8B8B;
+      color: white;
+      border: none;
+      width: 110px; height: 38px;
+      font-weight: bold; font-size: 13px;
+      letter-spacing: 1px;
+      cursor: pointer; border-radius: 4px;
+      font-family: inherit;
+    }
+    #launch-btn:hover:not(:disabled) { background: #34a0a0; }
+    #launch-btn:disabled {
+      background: rgba(30, 42, 92, 0.25);
+      color: rgba(30, 42, 92, 0.5);
+      cursor: not-allowed;
+    }
+    #relaunch-btn {
+      background: transparent;
+      color: #2E8B8B;
+      border: 2px solid #2E8B8B;
+      width: 110px; height: 38px;
+      font-weight: bold; font-size: 12px;
+      letter-spacing: 1px;
+      cursor: pointer; border-radius: 4px;
+      font-family: inherit;
+    }
+    #relaunch-btn:hover:not(:disabled) { background: rgba(46, 139, 139, 0.10); }
+    #relaunch-btn:disabled {
+      border-color: rgba(30, 42, 92, 0.20);
+      color: rgba(30, 42, 92, 0.35);
+      cursor: not-allowed;
+    }
+    .speed-group {
+      display: flex; align-items: center; gap: 6px;
+      margin-left: 8px;
+    }
+    .speed-label {
+      font-size: 10px; font-weight: bold;
+      color: #1E2A5C; letter-spacing: 1.5px;
+    }
+    #speed-select {
+      background: #FAF3DE;
+      color: #1E2A5C;
+      border: 2px solid #2E8B8B;
+      padding: 6px 26px 6px 8px;
+      font-size: 13px;
+      cursor: pointer; border-radius: 4px;
+      font-family: inherit;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, #2E8B8B 50%),
+                        linear-gradient(135deg, #2E8B8B 50%, transparent 50%);
+      background-position: calc(100% - 12px) 50%, calc(100% - 7px) 50%;
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
+    }
+    #speed-select:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ============================================================
+       INPUT PANEL (right side)
+       ============================================================ */
+    #panel {
+      width: 360px;
+      height: 640px;
+      background: #FAF3DE;
+      box-sizing: border-box;
+      padding: 12px 16px;
+      overflow-y: auto;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    #panel-content {
+      flex: 1;
+    }
+
+    .panel-section-header {
+      font-family: Georgia, serif;
+      font-size: 13px;
+      font-weight: bold;
+      color: #1E2A5C;
+      letter-spacing: 1.2px;
+      margin: 6px 0 8px 0;
+      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(30, 42, 92, 0.25);
+    }
+    .panel-section-header.disabled {
+      color: rgba(30, 42, 92, 0.4);
+      border-bottom-color: rgba(30, 42, 92, 0.12);
+    }
+
+    .panel-hint {
+      font-size: 10.5px;
+      color: rgba(30, 42, 92, 0.65);
+      font-style: italic;
+      margin: 0 0 10px 0;
+      line-height: 1.35;
+    }
+
+    .input-row { margin-bottom: 6px; }
+    .input-row-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #1E2A5C;
+      margin-bottom: 2px;
+      letter-spacing: 0.4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .input-row-pair {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .input-row-pair input {
+      flex: 1;
+      min-width: 0;
+      padding: 4px 6px;
+      font-size: 13px;
+      border: 1.5px solid rgba(30, 42, 92, 0.35);
+      background: white;
+      color: #1E2A5C;
+      border-radius: 3px;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+    .input-row-pair input::-webkit-outer-spin-button,
+    .input-row-pair input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .input-row-pair input { -moz-appearance: textfield; }
+    .input-row-pair input:focus {
+      outline: none;
+      border-color: #2E8B8B;
+    }
+    .input-row-pair input:disabled,
+    .input-row-pair input[readonly] {
+      background: rgba(30, 42, 92, 0.05);
+      color: rgba(30, 42, 92, 0.75);
+      cursor: not-allowed;
+    }
+    .input-row-pair input.field-pass {
+      border-color: #2E8B8B;
+      background: rgba(46, 139, 139, 0.10);
+      color: #1E2A5C;
+    }
+    .input-row-pair input.field-corrected {
+      border-color: #C00000;
+      background: rgba(192, 0, 0, 0.06);
+      color: #1E2A5C;
+    }
+    .pm {
+      color: #1E2A5C;
+      font-weight: bold;
+      font-size: 13px;
+      padding: 0 2px;
+    }
+    .multiplier-chip {
+      background: rgba(30, 42, 92, 0.10);
+      color: #1E2A5C;
+      padding: 2px 6px;
+      font-size: 9.5px;
+      border-radius: 3px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .feedback {
+      font-size: 10.5px;
+      color: #C00000;
+      margin-top: 3px;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+    .feedback:empty { display: none; }
+    .feedback.feedback-pass {
+      color: #2E8B8B;
+      font-style: normal;
+      font-weight: 600;
+    }
+
+    .check-btn {
+      width: 100%;
+      background: #2E8B8B;
+      color: white;
+      border: none;
+      height: 34px;
+      font-weight: bold;
+      font-size: 11.5px;
+      letter-spacing: 1.2px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-family: inherit;
+      margin-top: 8px;
+      margin-bottom: 8px;
+    }
+    .check-btn:hover:not(:disabled) { background: #34a0a0; }
+    .check-btn:disabled {
+      background: rgba(30, 42, 92, 0.25);
+      color: rgba(30, 42, 92, 0.5);
+      cursor: not-allowed;
+    }
+
+    .speed-panel.disabled {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
+    .completion-banner {
+      background: rgba(46, 139, 139, 0.12);
+      border: 1.5px solid #2E8B8B;
+      color: #1E2A5C;
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      margin-top: 8px;
+      line-height: 1.45;
+    }
+    .completion-banner.with-reveals {
+      background: rgba(192, 0, 0, 0.06);
+      border-color: rgba(192, 0, 0, 0.6);
+    }
+
+    /* Separator between input flow and the NEW PROBLEM button */
+    #panel-footer {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(30, 42, 92, 0.15);
+    }
+    #new-problem-btn {
+      width: 100%;
+      background: transparent;
+      color: #1E2A5C;
+      border: 2px solid #1E2A5C;
+      height: 38px;
+      font-weight: bold;
+      font-size: 11.5px;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+    #new-problem-btn:hover { background: rgba(30, 42, 92, 0.08); }
+    #new-problem-btn.highlighted {
+      background: #1E2A5C;
+      color: white;
+    }
+    #new-problem-btn.highlighted:hover {
+      background: #2a3a78;
+    }
+
+    /* Phone fallback per §5.X4 — graceful vertical stack. */
+    @media (max-width: 1279px) {
+      #app {
+        width: 100%;
+        flex-direction: column;
+        height: auto;
+      }
+      #scene-wrap {
+        width: 100%;
+        border-right: none;
+        height: 640px;
+        overflow-x: auto;
+      }
+      #scene-controls {
+        position: relative;
+        width: 100%;
+      }
+      #panel {
+        width: 100%;
+        height: auto;
+        border-top: 1px solid rgba(30, 42, 92, 0.18);
+      }
+      #dev-title { right: 0; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="dev-title">Ball Roll · Pre-Lab (dev preview)</div>
+
+  <div id="scene-wrap">
+    <canvas id="scene" width="920" height="580"></canvas>
+    <div id="scene-controls">
+      <button id="launch-btn">LAUNCH</button>
+      <button id="relaunch-btn" disabled>RE-LAUNCH</button>
+      <div class="speed-group">
+        <span class="speed-label">PLAYBACK</span>
+        <select id="speed-select">
+          <option value="1.0">1.0×</option>
+          <option value="0.5">0.5×</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel">
+    <div id="panel-content">
+      <div class="panel-section-header">MEASUREMENTS</div>
+      <p class="panel-hint">Launch the ball, time the A→B motion with the stopwatch, and read Δx off the ruler. Enter each value with its uncertainty, then press CHECK.</p>
+
+      <div class="input-row" id="row-dx">
+        <div class="input-row-label"><span>Distance A → B (m)</span></div>
+        <div class="input-row-pair">
+          <input id="in-dx" type="number" step="any" placeholder="Δx" inputmode="decimal">
+          <span class="pm">±</span>
+          <input id="in-dx-u" type="number" step="any" placeholder="σ" inputmode="decimal">
+        </div>
+        <div class="feedback" id="fb-dx-val"></div>
+        <div class="feedback" id="fb-dx-u"></div>
+      </div>
+
+      <div class="input-row" id="row-sw">
+        <div class="input-row-label">
+          <span>Stopwatch reading (s)</span>
+          <span class="multiplier-chip" id="mult-chip">playback: 1.0×</span>
+        </div>
+        <div class="input-row-pair">
+          <input id="in-sw" type="number" step="any" placeholder="wall clock" inputmode="decimal">
+          <span class="pm">±</span>
+          <input id="in-sw-u" type="number" step="any" placeholder="σ" inputmode="decimal">
+        </div>
+        <div class="feedback" id="fb-sw-val"></div>
+        <div class="feedback" id="fb-sw-u"></div>
+      </div>
+
+      <div class="input-row" id="row-real">
+        <div class="input-row-label"><span>Real time (s)</span></div>
+        <div class="input-row-pair">
+          <input id="in-real" type="number" step="any" placeholder="real time" inputmode="decimal">
+          <span class="pm">±</span>
+          <input id="in-real-u" type="number" step="any" placeholder="σ" inputmode="decimal">
+        </div>
+        <div class="feedback" id="fb-real-val"></div>
+        <div class="feedback" id="fb-real-u"></div>
+      </div>
+
+      <button class="check-btn" id="check-meas-btn" disabled>CHECK MEASUREMENTS</button>
+
+      <div class="panel-section-header disabled" id="speed-header">SPEED</div>
+
+      <div class="speed-panel disabled" id="speed-panel">
+        <p class="panel-hint">Use your verified Δx and t to compute v = Δx / t, then propagate uncertainties.</p>
+
+        <div class="input-row" id="row-v">
+          <div class="input-row-label"><span>Speed v (m s⁻¹)</span></div>
+          <div class="input-row-pair">
+            <input id="in-v" type="number" step="any" placeholder="v" inputmode="decimal">
+            <span class="pm">±</span>
+            <input id="in-v-u" type="number" step="any" placeholder="σ" inputmode="decimal">
+          </div>
+          <div class="feedback" id="fb-v-val"></div>
+          <div class="feedback" id="fb-v-u"></div>
+        </div>
+
+        <button class="check-btn" id="check-speed-btn" disabled>CHECK SPEED</button>
+      </div>
+
+      <div id="completion"></div>
+    </div>
+
+    <div id="panel-footer">
+      <button id="new-problem-btn">NEW PROBLEM</button>
+    </div>
+  </div>
+</div>
+
+<script src="./stopwatch.js"></script>
+<script src="./ruler.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  // ============================================================
+  // §5.X6 iframe-detect title — visible only when standalone
+  // ============================================================
+  if (window.self === window.top) {
+    document.getElementById('dev-title').style.display = 'block';
+  }
+
+  // ============================================================
+  // CONSTANTS
+  // ============================================================
+  const COLOR_BG          = '#FAF3DE';
+  const COLOR_APPARATUS   = '#1E2A5C';
+  const COLOR_MARKER      = '#2E8B8B';
+  const COLOR_MARKER_LBL  = '#1E2A5C';
+
+  const PIXELS_PER_METER = 320;
+  const TRACK_LEFT_X_PX  = 90;
+  const TRACK_Y_PX       = 350;
+  const TRACK_LENGTH_M   = 2.5;
+  const RIGHT_WALL_X_M   = 2.5;
+  const BALL_RADIUS_PX   = 7;
+  const SPRING_RELEASE_DURATION_S = 0.15;
+
+  // Hidden launch-speed range (m s⁻¹). Tightened to keep worst-case
+  // wall-clock at 0.5× playback under the stopwatch's 10 s dial.
+  const SPEED_MIN = 0.5;
+  const SPEED_MAX = 1.1;
+
+  // Marker placement (m).
+  const MARKER_A_MIN  = 0.30;
+  const MARKER_AB_GAP = 1.15;
+  const MARKER_B_MAX  = 2.30;
+
+  const VARIABILITY_FRACTION = 0.02;
+  const VELOCITY_FLOOR_MPS   = 0.05;
+
+  // Canonical uncertainty values enforced by the applet.
+  const SIGMA_DX_TRUTH = 0.005;
+  const SIGMA_SW_TRUTH = 0.2;
+
+  // Value tolerances (absolute).
+  const TOL_DX_VAL      = 0.0075;
+  const TOL_SW_VAL      = 0.3;
+  const TOL_REAL_VAL    = 0.06;     // bumped so 1-decimal rounding of t_real passes
+
+  // Value tolerances (relative).
+  const TOL_V_REL       = 0.02;
+
+  // Uncertainty tolerance (relative, applied to each canonical form).
+  const UNC_TOL_REL     = 0.05;
+
+  // ============================================================
+  // STATE
+  // ============================================================
+  const state = {
+    ballX_m: 0,
+    ballVelocity_mps: 0,
+    isMoving: false,
+    playbackMultiplier: 1.0,
+    lastFrameTime: null,
+    springAnimating: false,
+    springAnimElapsed_s: 0,
+    springReleased: false,
+
+    markerA_m: 0,
+    markerB_m: 0,
+    hiddenSpeed_mps: 0,
+
+    launchHappened: false,
+    launchVelocity_mps: 0,
+    launchMultiplier: 1.0,
+
+    locked:   { dx: null, dx_u: null, sw: null, sw_u: null, real: null, real_u: null, v: null, v_u: null },
+    revealed: { dx: false, dx_u: false, sw: false, sw_u: false, real: false, real_u: false, v: false, v_u: false },
+    measurementsChecked: false,
+    speedChecked: false,
+  };
+
+  // ============================================================
+  // DOM
+  // ============================================================
+  const $ = id => document.getElementById(id);
+  const canvas = $('scene');
+  const ctx = canvas.getContext('2d');
+  const sceneWrap = $('scene-wrap');
+  const launchBtn = $('launch-btn');
+  const relaunchBtn = $('relaunch-btn');
+  const newProblemBtn = $('new-problem-btn');
+  const speedSelect = $('speed-select');
+  const multChip = $('mult-chip');
+
+  const F = {
+    dx:   { val: $('in-dx'),    u: $('in-dx-u'),    fbV: $('fb-dx-val'),   fbU: $('fb-dx-u') },
+    sw:   { val: $('in-sw'),    u: $('in-sw-u'),    fbV: $('fb-sw-val'),   fbU: $('fb-sw-u') },
+    real: { val: $('in-real'),  u: $('in-real-u'),  fbV: $('fb-real-val'), fbU: $('fb-real-u') },
+    v:    { val: $('in-v'),     u: $('in-v-u'),     fbV: $('fb-v-val'),    fbU: $('fb-v-u') },
+  };
+  const checkMeasBtn = $('check-meas-btn');
+  const checkSpeedBtn = $('check-speed-btn');
+  const speedHeader = $('speed-header');
+  const speedPanel = $('speed-panel');
+  const completion = $('completion');
+
+  const allMeasInputs  = [F.dx.val, F.dx.u, F.sw.val, F.sw.u, F.real.val, F.real.u];
+  const allSpeedInputs = [F.v.val, F.v.u];
+
+  // ============================================================
+  // UTILITIES
+  // ============================================================
+  const metersToPx = m => TRACK_LEFT_X_PX + m * PIXELS_PER_METER;
+  const clamp01 = x => x < 0 ? 0 : (x > 1 ? 1 : x);
+  const uniform = (a, b) => a + Math.random() * (b - a);
+  const approx = (a, b, tol) => Math.abs(a - b) <= tol;
+
+  function sampleGaussian(mean, sigma) {
+    let u1 = 0, u2 = 0;
+    while (u1 === 0) u1 = Math.random();
+    while (u2 === 0) u2 = Math.random();
+    const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    return mean + z * sigma;
+  }
+
+  // ─── IB-canonical formatting ────────────────────────────────
+  // Uncertainties → 1 significant figure (IB SL convention).
+  // Values → rounded to match the uncertainty's last decimal place.
+  function roundToNSF(x, n) {
+    if (x === 0) return 0;
+    const p = Math.floor(Math.log10(Math.abs(x))) - (n - 1);
+    const mag = Math.pow(10, p);
+    return Math.round(x / mag) * mag;
+  }
+  const roundTo1SF = x => roundToNSF(x, 1);
+
+  function uncDecimals(unc) {
+    // Number of decimal places needed to display the (1SF-rounded) uncertainty.
+    const r = roundTo1SF(unc);
+    if (r === 0) return 1;
+    return Math.max(0, -Math.floor(Math.log10(Math.abs(r))));
+  }
+  function fmtUnc(x) {
+    if (x === 0) return '0';
+    const r = roundTo1SF(x);
+    return r.toFixed(uncDecimals(r));
+  }
+  function fmtValue(value, unc) {
+    const d = uncDecimals(unc);
+    return value.toFixed(d);
+  }
+
+  // Count decimal places exactly as typed (trailing zeros count).
+  // Handles plain decimal and scientific-notation forms. Returns 0 for
+  // unparseable / empty / pure-integer strings.
+  function decimalsInString(s) {
+    if (s == null) return 0;
+    const t = String(s).trim();
+    if (t === '') return 0;
+    const sci = t.match(/^[+-]?(\d*\.?\d*)[eE]([+-]?\d+)$/);
+    if (sci) {
+      const mantissa = sci[1];
+      const exp = parseInt(sci[2], 10);
+      const dotIdx = mantissa.indexOf('.');
+      const mantissaDecs = dotIdx === -1 ? 0 : mantissa.length - dotIdx - 1;
+      return Math.max(0, mantissaDecs - exp);
+    }
+    const plain = t.match(/^[+-]?(\d*\.?\d*)$/);
+    if (!plain) return 0;
+    const num = plain[1];
+    const dotIdx = num.indexOf('.');
+    if (dotIdx === -1) return 0;
+    return num.length - dotIdx - 1;
+  }
+
+  // Strict sigma check: parsed value must equal 1-SF rounding of truth
+  // AND typed string must have exactly uncDecimals(σ_canonical) decimals.
+  // Trailing zeros count: 0.060 fails when σ_canonical is 0.06.
+  function isStrictSigma(studentStr, truth) {
+    const stuNum = parseFloat(studentStr);
+    if (!isFinite(stuNum)) return false;
+    if (truth === 0) return Math.abs(stuNum) < 1e-12;
+    const canonical = roundTo1SF(truth);
+    const dec = uncDecimals(canonical);
+    const epsilon = Math.pow(10, -dec) * 0.5; // half a unit at the canonical's last decimal
+    if (Math.abs(stuNum - canonical) > epsilon) return false;
+    if (decimalsInString(studentStr) !== dec) return false;
+    return true;
+  }
+
+  // Strict value-precision check: typed string must have exactly
+  // uncDecimals(σ_canonical) decimals AND parsed value must equal the
+  // student's own value rounded to that many decimals (i.e., they did
+  // not over- or under-specify the precision).
+  // The NUMERIC closeness to truth is checked separately by the caller.
+  function isStrictValuePrecision(studentStr, sigmaTruth) {
+    const stuNum = parseFloat(studentStr);
+    if (!isFinite(stuNum)) return false;
+    const sigCanon = roundTo1SF(sigmaTruth);
+    const dec = uncDecimals(sigCanon);
+    return decimalsInString(studentStr) === dec;
+  }
+
+  // Accept any of: 1-SF form, 2-SF form, or raw value — each within
+  // UNC_TOL_REL (5%) of itself for typing slack.
+  function checkUncertainty(student, truth) {
+    if (truth === 0) return Math.abs(student) < 0.001;
+    const t1 = roundTo1SF(truth);
+    const t2 = roundToNSF(truth, 2);
+    if (Math.abs(student - t1) <= Math.abs(t1) * UNC_TOL_REL + 1e-9) return true;
+    if (Math.abs(student - t2) <= Math.abs(t2) * UNC_TOL_REL + 1e-9) return true;
+    if (Math.abs(student - truth) <= Math.abs(truth) * UNC_TOL_REL + 1e-9) return true;
+    return false;
+  }
+  const checkValueRel = (student, truth, tol) =>
+    Math.abs(truth) > 0 && Math.abs(student - truth) / Math.abs(truth) <= tol;
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+  function drawTrack() {
+    ctx.strokeStyle = COLOR_APPARATUS;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(metersToPx(0), TRACK_Y_PX);
+    ctx.lineTo(metersToPx(TRACK_LENGTH_M), TRACK_Y_PX);
+    ctx.stroke();
+  }
+  function drawMarker(x_px, label) {
+    ctx.strokeStyle = COLOR_MARKER;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x_px, 270);
+    ctx.lineTo(x_px, 430);
+    ctx.stroke();
+    ctx.fillStyle = COLOR_MARKER_LBL;
+    ctx.font = 'bold 20px Georgia, "Times New Roman", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(label, x_px, 258);
+  }
+  function drawWall() {
+    const x = metersToPx(RIGHT_WALL_X_M);
+    ctx.fillStyle = COLOR_APPARATUS;
+    ctx.fillRect(x, TRACK_Y_PX - 35, 6, 70);
+  }
+  function drawLauncher() {
+    const housingLeft = 5;
+    const housingRight = TRACK_LEFT_X_PX;
+    const housingTop = TRACK_Y_PX - 35;
+    const housingBottom = TRACK_Y_PX + 35;
+    const housingWidth = housingRight - housingLeft;
+    const housingHeight = housingBottom - housingTop;
+
+    ctx.strokeStyle = COLOR_APPARATUS;
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(housingLeft, housingTop, housingWidth, housingHeight);
+
+    const innerPadding = 6;
+    const loadedFraction = 0.55;
+    const relaxedFraction = 1.00;
+
+    let springFraction;
+    if (state.springAnimating) {
+      const p = clamp01(state.springAnimElapsed_s / SPRING_RELEASE_DURATION_S);
+      const eased = 1 - (1 - p) * (1 - p);
+      springFraction = loadedFraction + (relaxedFraction - loadedFraction) * eased;
+    } else if (state.springReleased) {
+      springFraction = relaxedFraction;
+    } else {
+      springFraction = loadedFraction;
+    }
+
+    const springLength = (housingWidth - 2 * innerPadding) * springFraction;
+    const springLeft   = housingLeft + innerPadding;
+    const springRight  = springLeft + springLength;
+    const springY      = TRACK_Y_PX;
+    const amplitude    = 10;
+    const numZigs      = 5;
+
+    ctx.strokeStyle = COLOR_APPARATUS;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(springLeft, springY);
+    for (let i = 1; i <= numZigs; i++) {
+      const x = springLeft + (i / numZigs) * springLength;
+      const y = springY + (i % 2 === 1 ? -amplitude : amplitude);
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(springRight, springY);
+    ctx.stroke();
+
+    ctx.fillStyle = COLOR_APPARATUS;
+    ctx.fillRect(springRight - 2, springY - 14, 4, 28);
+  }
+  function drawBall() {
+    const x = metersToPx(state.ballX_m);
+    ctx.fillStyle = COLOR_APPARATUS;
+    ctx.beginPath();
+    ctx.arc(x, TRACK_Y_PX, BALL_RADIUS_PX, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+  function render() {
+    ctx.fillStyle = COLOR_BG;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawTrack();
+    drawLauncher();
+    drawWall();
+    drawMarker(metersToPx(state.markerA_m), 'A');
+    drawMarker(metersToPx(state.markerB_m), 'B');
+    drawBall();
+  }
+
+  // ============================================================
+  // PHYSICS
+  // ============================================================
+  function doLaunch() {
+    if (state.isMoving) return;
+    if (state.measurementsChecked) return;
+
+    const sigma = VARIABILITY_FRACTION * state.hiddenSpeed_mps;
+    let v = sampleGaussian(state.hiddenSpeed_mps, sigma);
+    if (v < VELOCITY_FLOOR_MPS) v = VELOCITY_FLOOR_MPS;
+
+    const wasFirstLaunch = !state.launchHappened;
+    state.launchHappened = true;
+    state.launchVelocity_mps = v;
+    state.launchMultiplier = state.playbackMultiplier;
+
+    state.ballX_m = 0;
+    state.ballVelocity_mps = v;
+    state.isMoving = true;
+
+    launchBtn.disabled = true;
+    relaunchBtn.disabled = true;
+    speedSelect.disabled = true;
+    if (wasFirstLaunch) {
+      // Playback locked for this problem once the first launch fires.
+      // Comparing playbacks happens across NEW PROBLEM, not within.
+    }
+
+    state.springReleased = false;
+    state.springAnimating = true;
+    state.springAnimElapsed_s = 0;
+  }
+
+  function newProblem() {
+    state.markerA_m = uniform(MARKER_A_MIN, MARKER_B_MAX - MARKER_AB_GAP);
+    state.markerB_m = uniform(state.markerA_m + MARKER_AB_GAP, MARKER_B_MAX);
+    state.hiddenSpeed_mps = uniform(SPEED_MIN, SPEED_MAX);
+
+    state.isMoving = false;
+    state.ballVelocity_mps = 0;
+    state.ballX_m = 0;
+    state.springAnimating = false;
+    state.springAnimElapsed_s = 0;
+    state.springReleased = false;
+    state.launchHappened = false;
+    state.launchVelocity_mps = 0;
+    state.launchMultiplier = state.playbackMultiplier;
+
+    launchBtn.disabled = false;
+    relaunchBtn.disabled = true;
+    speedSelect.disabled = false;
+
+    Object.keys(state.locked).forEach(k => { state.locked[k] = null; });
+    Object.keys(state.revealed).forEach(k => { state.revealed[k] = false; });
+    state.measurementsChecked = false;
+    state.speedChecked = false;
+
+    allMeasInputs.concat(allSpeedInputs).forEach(el => {
+      el.value = '';
+      el.disabled = false;
+      el.readOnly = false;
+      el.classList.remove('field-pass', 'field-corrected');
+    });
+    [F.dx.fbV, F.dx.fbU, F.sw.fbV, F.sw.fbU, F.real.fbV, F.real.fbU, F.v.fbV, F.v.fbU].forEach(el => {
+      el.textContent = '';
+      el.classList.remove('feedback-pass');
+    });
+
+    // Reset hint text on speed section
+    const speedHint = speedPanel.querySelector('.panel-hint');
+    if (speedHint) speedHint.textContent = 'Use your verified Δx and t to compute v = Δx / t, then propagate uncertainties.';
+
+    checkMeasBtn.disabled = true;
+    checkMeasBtn.textContent = 'CHECK MEASUREMENTS';
+    checkSpeedBtn.disabled = true;
+    checkSpeedBtn.textContent = 'CHECK SPEED';
+    speedHeader.classList.add('disabled');
+    speedPanel.classList.add('disabled');
+    completion.innerHTML = '';
+    newProblemBtn.classList.remove('highlighted');
+
+    updateCheckMeasButtonState();
+    if (window._stopwatchInstance) window._stopwatchInstance.reset();
+  }
+
+  // ============================================================
+  // ANIMATION LOOP
+  // ============================================================
+  function tick(timestamp) {
+    if (state.lastFrameTime === null) state.lastFrameTime = timestamp;
+    const dt_real = (timestamp - state.lastFrameTime) / 1000;
+    state.lastFrameTime = timestamp;
+    const dt_real_clamped = Math.min(dt_real, 0.1);
+    const dt_sim = dt_real_clamped * state.playbackMultiplier;
+
+    if (state.isMoving) {
+      state.ballX_m += state.ballVelocity_mps * dt_sim;
+      if (state.ballX_m >= RIGHT_WALL_X_M) {
+        state.ballX_m = RIGHT_WALL_X_M;
+        state.ballVelocity_mps = 0;
+        state.isMoving = false;
+        // Enable RE-LAUNCH for next attempt (still same problem,
+        // same playback, same hidden speed — only random variability
+        // shifts launch-to-launch). LAUNCH stays disabled until NEW PROBLEM.
+        if (!state.measurementsChecked) {
+          launchBtn.disabled = true;
+          relaunchBtn.disabled = false;
+          // speedSelect stays disabled — playback is locked for this problem.
+        }
+      }
+    }
+
+    if (state.springAnimating) {
+      state.springAnimElapsed_s += dt_sim;
+      if (state.springAnimElapsed_s >= SPRING_RELEASE_DURATION_S) {
+        state.springAnimating = false;
+        state.springReleased = true;
+      }
+    }
+
+    render();
+    requestAnimationFrame(tick);
+  }
+
+  // ============================================================
+  // CONTROL HANDLERS
+  // ============================================================
+  launchBtn.addEventListener('click', doLaunch);
+  relaunchBtn.addEventListener('click', doLaunch);
+  newProblemBtn.addEventListener('click', newProblem);
+  speedSelect.addEventListener('change', e => {
+    state.playbackMultiplier = parseFloat(e.target.value);
+    multChip.textContent = `playback: ${state.playbackMultiplier.toFixed(1)}×`;
+  });
+
+  allMeasInputs.forEach(el => el.addEventListener('input', updateCheckMeasButtonState));
+  allSpeedInputs.forEach(el => el.addEventListener('input', updateCheckSpeedButtonState));
+
+  function updateCheckMeasButtonState() {
+    if (state.measurementsChecked) return;
+    const allFilled = allMeasInputs.every(el => el.value.trim() !== '' && !isNaN(parseFloat(el.value)));
+    checkMeasBtn.disabled = !(allFilled && state.launchHappened);
+  }
+  function updateCheckSpeedButtonState() {
+    if (state.speedChecked) return;
+    if (!state.measurementsChecked) return;
+    const allFilled = allSpeedInputs.every(el => el.value.trim() !== '' && !isNaN(parseFloat(el.value)));
+    checkSpeedBtn.disabled = !allFilled;
+  }
+
+  // ============================================================
+  // FEEDBACK HELPERS
+  // ============================================================
+  function setPass(input, fbEl, msg) {
+    input.classList.remove('field-corrected');
+    input.classList.add('field-pass');
+    input.disabled = true;
+    fbEl.classList.add('feedback-pass');
+    fbEl.textContent = msg || '✓';
+  }
+  function setCorrected(input, fbEl, studentVal, correctDisplay, msg) {
+    input.classList.remove('field-pass');
+    input.classList.add('field-corrected');
+    input.value = correctDisplay;
+    input.disabled = true;
+    fbEl.classList.remove('feedback-pass');
+    fbEl.textContent = `Was ${studentVal} → correct ${correctDisplay}. ${msg}`;
+  }
+
+  // ============================================================
+  // FEEDBACK MESSAGES
+  // ============================================================
+  function msg_dx(student, truth) {
+    // Detect "entered in centimetres not metres" — student ≈ truth × 100
+    if (truth > 0 && Math.abs(student - truth * 100) < truth * 30) {
+      return `Looks like you entered the distance in centimetres. 1 m = 100 cm, so ${student} cm = ${(student/100).toFixed(3)} m. Enter Δx in metres.`;
+    }
+    const off = Math.abs(student - truth);
+    if (off <= 0.02) return 'Off by a few minor divisions. Re-check that the ruler\'s zero is aligned with marker A.';
+    if (off <= 0.10) return 'Off by more than a few cm. Re-check zero alignment and which markers you read.';
+    return 'Off by more than 10 cm. Verify which markers you measured and that your units are in metres.';
+  }
+  function msg_dx_u(student) {
+    // Detect cm entry — student likely meant 0.5 cm or 0.25 cm
+    if (Math.abs(student - 0.5) < 0.15) {
+      return 'Looks like you entered the uncertainty in centimetres (0.5 cm = half the smallest division). In metres: σ = 0.005 m.';
+    }
+    if (Math.abs(student - 0.25) < 0.08) {
+      return 'Looks like you used "quarter-division" in centimetres. The standard convention here is HALF the smallest division — in metres, σ = 0.005 m.';
+    }
+    if (student < 0.003) {
+      return 'Smaller than the smallest division you can resolve. Minor divisions on this meter stick are 0.5 cm = 0.005 m — you cannot claim better precision than the tool offers.';
+    }
+    if (Math.abs(student - 0.0025) < 0.0005) {
+      return 'You used "quarter-division" — defensible on a sharper edge, but the standard convention here is half the smallest division = 0.005 m.';
+    }
+    if (Math.abs(student - 0.01) < 0.001) {
+      return 'This would be acceptable on a coarser or worn ruler. On this meter stick the 0.5 cm divisions are visibly resolvable, so ±0.005 m is the appropriate answer for this instrument.';
+    }
+    if (student >= 0.05) {
+      return 'Much larger than the smallest division — that would claim the meter stick is unreliable to several cm.';
+    }
+    return 'Convention: half the smallest division = 0.005 m.';
+  }
+  function msg_sw(student, truth) {
+    const off = Math.abs(student - truth);
+    if (off > 1.0) {
+      return 'Off by more than a second. The analog dial sweeps once per 10 s — re-read the dial position carefully.';
+    }
+    return 'Outside reaction-time tolerance. Either you mistimed a press or misread the dial.';
+  }
+  function msg_sw_u(student) {
+    if (student <= 0.05) {
+      return 'This matches the stopwatch DISPLAY resolution, but not the conditions of YOUR measurement. The stopwatch can show 0.01 s, but YOU cannot press start and stop with that precision — your reaction time is roughly 0.1–0.2 s per press. For active hand-timing, the convention is ±0.2 s (reaction-time-dominated). Instrument resolution would be the right answer for a static reading off a frozen dial — not for a measured interval.';
+    }
+    if (student >= 0.5) {
+      return 'Larger than typical reaction time. The convention is ±0.2 s; a larger value would suggest you do not trust your press timing at all.';
+    }
+    return 'Convention for hand-timed intervals: ±0.2 s, dominated by human reaction time on start and stop.';
+  }
+  function msg_real(student, truth, sw, mult) {
+    const reciprocal = sw / mult;
+    if (Math.abs(student - reciprocal) < 0.05 && mult < 1.0) {
+      return `You divided instead of multiplied. At slower playback, LESS real time passes per wall-clock second. Real time = stopwatch × playback = ${sw} × ${mult} = ${fmtValue(truth, SIGMA_SW_TRUTH * mult)} s.`;
+    }
+    return `Real time = stopwatch reading × playback multiplier = ${sw} × ${mult} = ${fmtValue(truth, SIGMA_SW_TRUTH * mult)} s.`;
+  }
+  function msg_real_u(student, truth, sw_u, mult) {
+    if (Math.abs(student - sw_u) < 0.005) {
+      return `You kept ±${sw_u} s without applying the playback multiplier. The whole point of slow playback is that your reaction-time uncertainty IS reduced — σ_real = σ_stopwatch × multiplier = ${sw_u} × ${mult} = ${fmtUnc(truth)} s.`;
+    }
+    return `σ_real = σ_stopwatch × playback multiplier = ${sw_u} × ${mult} = ${fmtUnc(truth)} s. Slower playback reduces real-time uncertainty proportionally — that is why slow-motion review improves timing precision.`;
+  }
+  function msg_v(student, truth, dx, t) {
+    if (t !== 0 && Math.abs(student - (t / dx)) < truth * 0.05) {
+      return `You divided time by distance — flip it. v = Δx / t = ${dx} / ${t} = ${fmtValue(truth, truth * 0.05)} m s⁻¹.`;
+    }
+    return `v = Δx / t = ${dx} / ${t} = ${fmtValue(truth, truth * 0.05)} m s⁻¹.`;
+  }
+  function msg_vu(student, truth, dx, dx_u, t, t_u, v) {
+    // Detect absolute-sum-of-uncertainties (student added σΔx + σt directly)
+    const absSum = dx_u + t_u;
+    if (Math.abs(student - absSum) < truth * 0.5 && Math.abs(absSum - truth) > truth * 0.2) {
+      return `You added absolute uncertainties. For v = Δx/t, propagate as FRACTIONAL uncertainties: σv/v = σΔx/Δx + σt/t = ${(dx_u/dx).toFixed(4)} + ${(t_u/t).toFixed(4)}. Then σv = v × (sum) = ${fmtUnc(truth)} m s⁻¹.`;
+    }
+    return `σv/v = σΔx/Δx + σt/t = ${(dx_u/dx).toFixed(4)} + ${(t_u/t).toFixed(4)} = ${(dx_u/dx + t_u/t).toFixed(4)}. σv = v × (sum) = ${v.toFixed(4)} × ${(dx_u/dx + t_u/t).toFixed(4)} = ${truth.toFixed(4)} ≈ ${fmtUnc(truth)} m s⁻¹ (to 1 sig fig).`;
+  }
+
+  // Used when σ is numerically correct (within 5%) but expressed at the
+  // wrong precision — e.g., 0.05550173 instead of 0.06, or 0.060 instead
+  // of 0.06. IB SL convention: uncertainties to 1 significant figure.
+  function msg_sigma_precision(label, sigmaTruth) {
+    const canon = fmtUnc(sigmaTruth);
+    return `${label} is numerically right, but the IB SL convention is to express uncertainties to 1 significant figure: ${canon}.`;
+  }
+
+  // Used when a value is numerically correct (within tolerance) but
+  // expressed at the wrong precision — too many or too few decimal places
+  // relative to its uncertainty. IB SL convention: value's last decimal
+  // place matches the uncertainty's last decimal place.
+  function msg_value_precision(label, sigmaTruth) {
+    const canonSig = fmtUnc(sigmaTruth);
+    const dec = uncDecimals(roundTo1SF(sigmaTruth));
+    const placeName = dec === 0 ? 'the ones place'
+                    : dec === 1 ? '1 decimal place'
+                    : `${dec} decimal places`;
+    return `${label} is numerically right, but the IB SL convention is to round the value so its last decimal place matches the uncertainty's. With σ = ${canonSig}, write ${label.toLowerCase()} to ${placeName}.`;
+  }
+
+  // ============================================================
+  // CHECK MEASUREMENTS
+  // ============================================================
+  checkMeasBtn.addEventListener('click', () => {
+    const dx_truth     = state.markerB_m - state.markerA_m;
+    const t_real_truth = dx_truth / state.launchVelocity_mps;
+    const t_sw_truth   = t_real_truth / state.launchMultiplier;
+
+    const stu = {
+      dx:     parseFloat(F.dx.val.value),
+      dx_u:   parseFloat(F.dx.u.value),
+      sw:     parseFloat(F.sw.val.value),
+      sw_u:   parseFloat(F.sw.u.value),
+      real:   parseFloat(F.real.val.value),
+      real_u: parseFloat(F.real.u.value),
+    };
+
+    // 1. Δx value
+    {
+      const numOK  = approx(stu.dx, dx_truth, TOL_DX_VAL);
+      const decOK  = decimalsInString(F.dx.val.value) === uncDecimals(roundTo1SF(SIGMA_DX_TRUTH));
+      if (numOK && decOK) {
+        setPass(F.dx.val, F.dx.fbV, '✓ Within tolerance.');
+        state.locked.dx = stu.dx;
+      } else if (numOK && !decOK) {
+        const correctDisplay = stu.dx.toFixed(uncDecimals(roundTo1SF(SIGMA_DX_TRUTH)));
+        setCorrected(F.dx.val, F.dx.fbV, stu.dx, correctDisplay, msg_value_precision('Δx', SIGMA_DX_TRUTH));
+        state.locked.dx = parseFloat(correctDisplay);
+        state.revealed.dx = true;
+      } else {
+        const correctDisplay = fmtValue(dx_truth, SIGMA_DX_TRUTH);
+        setCorrected(F.dx.val, F.dx.fbV, stu.dx, correctDisplay, msg_dx(stu.dx, dx_truth));
+        state.locked.dx = parseFloat(correctDisplay);
+        state.revealed.dx = true;
+      }
+    }
+
+    // 2. σΔx
+    {
+      if (isStrictSigma(F.dx.u.value, SIGMA_DX_TRUTH)) {
+        setPass(F.dx.u, F.dx.fbU, '✓ Correct convention.');
+        state.locked.dx_u = stu.dx_u;
+      } else if (checkUncertainty(stu.dx_u, SIGMA_DX_TRUTH)) {
+        const correctDisplay = fmtUnc(SIGMA_DX_TRUTH);
+        setCorrected(F.dx.u, F.dx.fbU, stu.dx_u, correctDisplay, msg_sigma_precision('σΔx', SIGMA_DX_TRUTH));
+        state.locked.dx_u = parseFloat(correctDisplay);
+        state.revealed.dx_u = true;
+      } else {
+        const correctDisplay = fmtUnc(SIGMA_DX_TRUTH);
+        setCorrected(F.dx.u, F.dx.fbU, stu.dx_u, correctDisplay, msg_dx_u(stu.dx_u));
+        state.locked.dx_u = parseFloat(correctDisplay);
+        state.revealed.dx_u = true;
+      }
+    }
+
+    // 3. Stopwatch reading
+    {
+      const numOK  = approx(stu.sw, t_sw_truth, TOL_SW_VAL);
+      const decOK  = decimalsInString(F.sw.val.value) === uncDecimals(roundTo1SF(SIGMA_SW_TRUTH));
+      if (numOK && decOK) {
+        setPass(F.sw.val, F.sw.fbV, '✓ Within reaction-time tolerance.');
+        state.locked.sw = stu.sw;
+      } else if (numOK && !decOK) {
+        const correctDisplay = stu.sw.toFixed(uncDecimals(roundTo1SF(SIGMA_SW_TRUTH)));
+        setCorrected(F.sw.val, F.sw.fbV, stu.sw, correctDisplay, msg_value_precision('Stopwatch reading', SIGMA_SW_TRUTH));
+        state.locked.sw = parseFloat(correctDisplay);
+        state.revealed.sw = true;
+      } else {
+        const correctDisplay = fmtValue(t_sw_truth, SIGMA_SW_TRUTH);
+        setCorrected(F.sw.val, F.sw.fbV, stu.sw, correctDisplay, msg_sw(stu.sw, t_sw_truth));
+        state.locked.sw = parseFloat(correctDisplay);
+        state.revealed.sw = true;
+      }
+    }
+
+    // 4. σ_sw
+    {
+      if (isStrictSigma(F.sw.u.value, SIGMA_SW_TRUTH)) {
+        setPass(F.sw.u, F.sw.fbU, '✓ Correct convention.');
+        state.locked.sw_u = stu.sw_u;
+      } else if (checkUncertainty(stu.sw_u, SIGMA_SW_TRUTH)) {
+        const correctDisplay = fmtUnc(SIGMA_SW_TRUTH);
+        setCorrected(F.sw.u, F.sw.fbU, stu.sw_u, correctDisplay, msg_sigma_precision('σ stopwatch', SIGMA_SW_TRUTH));
+        state.locked.sw_u = parseFloat(correctDisplay);
+        state.revealed.sw_u = true;
+      } else {
+        const correctDisplay = fmtUnc(SIGMA_SW_TRUTH);
+        setCorrected(F.sw.u, F.sw.fbU, stu.sw_u, correctDisplay, msg_sw_u(stu.sw_u));
+        state.locked.sw_u = parseFloat(correctDisplay);
+        state.revealed.sw_u = true;
+      }
+    }
+
+    // 5. Real time — checked against LOCKED stopwatch × launch multiplier
+    const real_expected   = state.locked.sw * state.launchMultiplier;
+    const real_u_expected = state.locked.sw_u * state.launchMultiplier;
+    {
+      const numOK = approx(stu.real, real_expected, TOL_REAL_VAL);
+      const decOK = decimalsInString(F.real.val.value) === uncDecimals(roundTo1SF(real_u_expected));
+      if (numOK && decOK) {
+        setPass(F.real.val, F.real.fbV, '✓ Conversion correct.');
+        state.locked.real = stu.real;
+      } else if (numOK && !decOK) {
+        const correctDisplay = stu.real.toFixed(uncDecimals(roundTo1SF(real_u_expected)));
+        setCorrected(F.real.val, F.real.fbV, stu.real, correctDisplay, msg_value_precision('Real time', real_u_expected));
+        state.locked.real = parseFloat(correctDisplay);
+        state.revealed.real = true;
+      } else {
+        const correctDisplay = fmtValue(real_expected, real_u_expected);
+        setCorrected(F.real.val, F.real.fbV, stu.real, correctDisplay,
+          msg_real(stu.real, real_expected, state.locked.sw, state.launchMultiplier));
+        state.locked.real = parseFloat(correctDisplay);
+        state.revealed.real = true;
+      }
+    }
+
+    // 6. σ_real
+    {
+      if (isStrictSigma(F.real.u.value, real_u_expected)) {
+        setPass(F.real.u, F.real.fbU, '✓ Conversion correct.');
+        state.locked.real_u = stu.real_u;
+      } else if (checkUncertainty(stu.real_u, real_u_expected)) {
+        const correctDisplay = fmtUnc(real_u_expected);
+        setCorrected(F.real.u, F.real.fbU, stu.real_u, correctDisplay, msg_sigma_precision('σ real', real_u_expected));
+        state.locked.real_u = parseFloat(correctDisplay);
+        state.revealed.real_u = true;
+      } else {
+        const correctDisplay = fmtUnc(real_u_expected);
+        setCorrected(F.real.u, F.real.fbU, stu.real_u, correctDisplay,
+          msg_real_u(stu.real_u, real_u_expected, state.locked.sw_u, state.launchMultiplier));
+        state.locked.real_u = parseFloat(correctDisplay);
+        state.revealed.real_u = true;
+      }
+    }
+
+    state.measurementsChecked = true;
+    checkMeasBtn.disabled = true;
+    checkMeasBtn.textContent = 'MEASUREMENTS CHECKED';
+    launchBtn.disabled = true;
+    relaunchBtn.disabled = true;
+    speedSelect.disabled = true;
+
+    speedHeader.classList.remove('disabled');
+    speedPanel.classList.remove('disabled');
+    updateCheckSpeedButtonState();
+
+    // Surface verified values in the speed-section hint
+    const hint = speedPanel.querySelector('.panel-hint');
+    if (hint) {
+      const dxDisp    = fmtValue(state.locked.dx, state.locked.dx_u);
+      const dxUDisp   = fmtUnc(state.locked.dx_u);
+      const realDisp  = fmtValue(state.locked.real, state.locked.real_u);
+      const realUDisp = fmtUnc(state.locked.real_u);
+      hint.innerHTML = `Use your verified values: Δx = ${dxDisp} ± ${dxUDisp} m, t = ${realDisp} ± ${realUDisp} s. Compute v and σv.`;
+    }
+  });
+
+  // ============================================================
+  // CHECK SPEED
+  // ============================================================
+  checkSpeedBtn.addEventListener('click', () => {
+    const dx   = state.locked.dx;
+    const dx_u = state.locked.dx_u;
+    const t    = state.locked.real;
+    const t_u  = state.locked.real_u;
+
+    const v_truth  = dx / t;
+    const sv_truth = v_truth * (dx_u / dx + t_u / t);
+
+    const stu = {
+      v:   parseFloat(F.v.val.value),
+      v_u: parseFloat(F.v.u.value),
+    };
+
+    // v
+    {
+      const numOK = checkValueRel(stu.v, v_truth, TOL_V_REL);
+      const decOK = decimalsInString(F.v.val.value) === uncDecimals(roundTo1SF(sv_truth));
+      if (numOK && decOK) {
+        setPass(F.v.val, F.v.fbV, '✓ Speed correct.');
+        state.locked.v = stu.v;
+      } else if (numOK && !decOK) {
+        const correctDisplay = stu.v.toFixed(uncDecimals(roundTo1SF(sv_truth)));
+        setCorrected(F.v.val, F.v.fbV, stu.v, correctDisplay, msg_value_precision('v', sv_truth));
+        state.locked.v = parseFloat(correctDisplay);
+        state.revealed.v = true;
+      } else {
+        const correctDisplay = fmtValue(v_truth, sv_truth);
+        setCorrected(F.v.val, F.v.fbV, stu.v, correctDisplay, msg_v(stu.v, v_truth, dx, t));
+        state.locked.v = parseFloat(correctDisplay);
+        state.revealed.v = true;
+      }
+    }
+
+    // σv
+    {
+      if (isStrictSigma(F.v.u.value, sv_truth)) {
+        setPass(F.v.u, F.v.fbU, '✓ Propagation correct.');
+        state.locked.v_u = stu.v_u;
+      } else if (checkUncertainty(stu.v_u, sv_truth)) {
+        const correctDisplay = fmtUnc(sv_truth);
+        setCorrected(F.v.u, F.v.fbU, stu.v_u, correctDisplay, msg_sigma_precision('σv', sv_truth));
+        state.locked.v_u = parseFloat(correctDisplay);
+        state.revealed.v_u = true;
+      } else {
+        const correctDisplay = fmtUnc(sv_truth);
+        setCorrected(F.v.u, F.v.fbU, stu.v_u, correctDisplay,
+          msg_vu(stu.v_u, sv_truth, dx, dx_u, t, t_u, v_truth));
+        state.locked.v_u = parseFloat(correctDisplay);
+        state.revealed.v_u = true;
+      }
+    }
+
+    state.speedChecked = true;
+    checkSpeedBtn.disabled = true;
+    checkSpeedBtn.textContent = 'SPEED CHECKED';
+    newProblemBtn.classList.add('highlighted');
+
+    const anyReveals = Object.values(state.revealed).some(v => v);
+    if (anyReveals) {
+      completion.innerHTML =
+        '<div class="completion-banner with-reveals">' +
+        '<b>Problem complete.</b> Some answers were corrected for you. Review the feedback above, then press <b>NEW PROBLEM</b> below and try to complete the next one with no corrections.' +
+        '</div>';
+    } else {
+      completion.innerHTML =
+        '<div class="completion-banner">' +
+        '<b>Excellent — every answer correct on first try.</b> You are ready for the lab. Press <b>NEW PROBLEM</b> below if you want more practice.' +
+        '</div>';
+    }
+  });
+
+  // ============================================================
+  // MEASUREMENT TOOLS — vendored
+  // ============================================================
+  const stopwatch = new Stopwatch({
+    container: sceneWrap,
+    x: 700, y: 10,
+    maxSeconds: 10,
+    size: 180,
+  });
+  window._stopwatchInstance = stopwatch;
+
+  const ruler = new Ruler({
+    container:      sceneWrap,
+    x:              TRACK_LEFT_X_PX,
+    y:              285,
+    pixelsPerMeter: PIXELS_PER_METER,
+    lengthMeters:   TRACK_LENGTH_M,
+    thicknessPx:    36,
+  });
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  newProblem();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

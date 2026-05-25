@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruler — Test Page (v4 transparent, rotating)</title>
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    background: #10121E;
+    color: #e8e8e8;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px 32px;
+    box-sizing: border-box;
+  }
+  h1 {
+    margin: 0 0 4px 0;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  h2 {
+    margin: 22px 0 4px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #e0e4ee;
+  }
+  .subtitle {
+    color: #8a8e9a;
+    font-size: 12px;
+    margin-bottom: 18px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+  .instructions {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 12px 18px;
+    font-size: 13px;
+    line-height: 1.55;
+    margin-bottom: 18px;
+  }
+  .instructions strong { color: #f0f0f0; }
+  .instructions ul { margin: 6px 0 0 0; padding-left: 22px; }
+  .instructions li { margin: 3px 0; color: #c8ccd4; }
+  .case-caption {
+    color: #8a8e9a;
+    font-size: 12px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    margin-bottom: 6px;
+  }
+
+  /* Frames use production cream background to test transparent visibility
+     in the actual deployment context (applets are always cream per locked
+     applet visual rules). */
+  .frame {
+    position: relative;
+    width: 100%;
+    height: 360px;
+    background: #FAF3DE;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  /* Blue reference shapes on cream — true known lengths */
+  .ref-shape {
+    position: absolute;
+    background: #1E2A5C;
+    border: 1px solid #1E2A5C;
+    transform-origin: 0 50%;
+  }
+  .ref-label {
+    position: absolute;
+    color: #1a1a1a;
+    font-size: 12px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+
+  footer {
+    margin-top: 22px;
+    font-size: 11px;
+    color: #6a6e7a;
+    text-align: center;
+    letter-spacing: 0.3px;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <h1>Ruler — Test Page (v4 transparent, rotating)</h1>
+    <div class="subtitle">_shared/measurement-tools/ruler-v4-transparent  ·  identical API to ruler-v4 wooden  ·  vendor either as ruler.js per applet</div>
+
+    <div class="instructions">
+      <strong>What to test:</strong>
+      <ul>
+        <li><strong>Visibility on cream:</strong> the transparent body should be faintly visible against the cream frame background (frosted-white fill, dark gray edge). If it disappears or is too subtle, flag for fill-opacity bump.</li>
+        <li><strong>API interchangeability:</strong> all constructor params identical to wooden v4. Swapping <code>./ruler.js</code> from wooden to transparent (or vice versa) should be the ONLY change needed in an applet.</li>
+        <li><strong>Case 1 (v3 regression):</strong> no <code>rotatable</code> flag → behaves identical to v3 (whole body grab, sliver-visible bounds).</li>
+        <li><strong>Case 2 (rotatable, horizontal start):</strong>
+          <ul>
+            <li>Drag the <strong>middle ~80%</strong> to translate (cursor: <em>move</em>).</li>
+            <li>Drag the <strong>first or last ~50 px</strong> to rotate around the OPPOSITE end (cursor: <em>rotation arrow</em>).</li>
+            <li>Hold <strong>Shift</strong> while rotating → angle snaps to 15° multiples.</li>
+            <li>Pivot dots: dark metallic (not brass), top of each end. Should be visible enough to act as a discoverability cue.</li>
+          </ul>
+        </li>
+        <li><strong>Case 3 (rotatable, 90° initial):</strong> appears vertical with 0 at top, 100 at bottom.</li>
+        <li><strong>Edge cases:</strong> rotate past 180° (numerals upside-down is correct). Drag off-frame is intentionally allowed in rotatable mode.</li>
+      </ul>
+    </div>
+
+    <h2>Case 1 — v3 regression (no rotation)</h2>
+    <div class="case-caption">rotatable: false (default) — must look and behave identical to ruler-v3 (transparent skin)</div>
+    <div class="frame" id="frame-v3regr" style="height: 200px;">
+      <!-- 25.0 cm reference -->
+      <div class="ref-shape" style="left: 60px; top: 130px; width: 150px; height: 4px;"></div>
+      <div class="ref-label" style="left: 60px;  top: 112px;">25.0 cm  →  starts here</div>
+      <div class="ref-label" style="left: 215px; top: 112px;">←  ends here</div>
+    </div>
+
+    <h2>Case 2 — rotatable, horizontal start, 15° snap on Shift</h2>
+    <div class="case-caption">rotatable: true · initialRotationDeg: 0 · snapDeg: 15</div>
+    <div class="frame" id="frame-rot0">
+      <!-- 25.0 cm line at 30° -->
+      <div class="ref-shape" style="left: 80px; top: 80px; width: 150px; height: 4px; transform: rotate(30deg);"></div>
+      <div class="ref-label" style="left: 80px;  top: 56px;">25.0 cm line — angle 30°</div>
+
+      <!-- 30.0 cm line at -45° -->
+      <div class="ref-shape" style="left: 460px; top: 260px; width: 180px; height: 4px; transform: rotate(-45deg);"></div>
+      <div class="ref-label" style="left: 460px;  top: 286px;">30.0 cm line — angle -45°</div>
+
+      <!-- 20.0 cm vertical bar -->
+      <div class="ref-shape" style="left: 800px; top: 90px; width: 4px; height: 120px;"></div>
+      <div class="ref-label" style="left: 815px;  top: 90px;">20.0 cm vertical (90°)</div>
+    </div>
+
+    <h2>Case 3 — rotatable, vertical start (initialRotationDeg: 90)</h2>
+    <div class="case-caption">rotatable: true · initialRotationDeg: 90 — should appear vertical, 0 at top, 100 at bottom</div>
+    <div class="frame" id="frame-rot90">
+      <!-- 40 cm vertical reference -->
+      <div class="ref-shape" style="left: 400px; top: 60px; width: 4px; height: 240px;"></div>
+      <div class="ref-label" style="left: 415px;  top: 60px;">40.0 cm vertical reference</div>
+    </div>
+
+    <footer>Mr. Frohlich Math and Physics  ·  Measurement-tool module v4 (rotating transparent)</footer>
+  </div>
+
+  <script src="./ruler.js"></script>
+  <script>
+    // Case 1: v3-mode regression. No rotatable flag → identical to v3.
+    new Ruler({
+      container:      document.getElementById('frame-v3regr'),
+      x:              60,
+      y:              60,
+      pixelsPerMeter: 600,
+      lengthMeters:   1.0,
+      thicknessPx:    36
+    });
+
+    // Case 2: rotatable, starts horizontal at top of frame.
+    new Ruler({
+      container:      document.getElementById('frame-rot0'),
+      x:              60,
+      y:              160,
+      pixelsPerMeter: 600,
+      lengthMeters:   1.0,
+      thicknessPx:    36,
+      rotatable:      true,
+      initialRotationDeg: 0,
+      snapDeg:        15
+    });
+
+    // Case 3: rotatable, starts vertical (initialRotationDeg: 90).
+    new Ruler({
+      container:      document.getElementById('frame-rot90'),
+      x:              150,
+      y:              30,
+      pixelsPerMeter: 600,
+      lengthMeters:   1.0,
+      thicknessPx:    36,
+      rotatable:      true,
+      initialRotationDeg: 90,
+      snapDeg:        15
+    });
+  </script>
+</body>
+</html>
