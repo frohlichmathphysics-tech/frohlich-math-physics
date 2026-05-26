@@ -34,11 +34,12 @@ No external dependencies, no CDN imports. Drop the folder into `C:\Dev\frohlich-
 
 Curve with μ and σ sliders. Toggle button overlays the 68 % / 95 % / 99.7 % regions as concentric teal bands (centre darkest, outer lightest). No calculator readout in this mode — Mode A is pedagogical, not computational.
 
-**Defaults:** μ = 50, σ = 10. ESR labels OFF. Advanced panel **auto-opens** (sliders are the primary interaction).
+**Defaults:** μ = 50, σ = 10, zoom = 1.0×. ESR labels OFF. Advanced panel **auto-opens** (sliders are the primary interaction).
 
 **Controls:**
-- μ slider (range 0–200, step 0.1)
-- σ slider (range 1–50, step 0.1)
+- μ slider (range 0–200, step 0.1) — visibly pans the curve through the fixed window
+- σ slider (range 1–50, step 0.1) — visibly scales the curve's width; height adapts so spikes don't clip
+- **Zoom slider** (0.5×–5×, step 0.1) — widens or narrows the visible x-window. Use when μ is far from the default to bring the curve back on-screen.
 - "Show 68 / 95 / 99.7 % regions" toggle button
 - Reset
 
@@ -46,12 +47,13 @@ Curve with μ and σ sliders. Toggle button overlays the 68 % / 95 % / 99.7 % re
 
 Curve with two draggable vertical lines (Lower, Upper). Shaded area between, live probability readout (3 sf), dual-syntax panel (TI-84 + TI-Nspire, both `μ`-before-`σ`).
 
-**Defaults:** μ = 50, σ = 10. Lower = 40 (= μ−σ). Upper = 60 (= μ+σ). Advanced panel **collapsed** by default.
+**Defaults:** μ = 50, σ = 10, zoom = 1.0×. Lower = 40 (= μ−σ). Upper = 60 (= μ+σ). Advanced panel **collapsed** by default.
 
 **Controls:**
-- Drag the **L** and **U** handles on the canvas (mouse or touch)
-- Numeric input boxes for both bounds (type or paste)
-- "Set −∞" / "Set +∞" toggle buttons — when active, the bound shows symbolically as `−∞`/`∞` on the canvas, and the calculator syntax uses `-1E99` / `1E99` (the exact form a student would type)
+- Drag the **L** and **U** handles on the canvas (mouse or touch) — constrained to the visible window
+- Numeric input boxes for both bounds (type or paste — accepts any value, even outside the visible window)
+- "Set −∞" / "Set +∞" toggle buttons — when active, the bound shows symbolically as `−∞`/`∞` on the canvas, and the calculator syntax uses `-1E99` / `1E99`
+- **Zoom slider** (0.5×–5×) — widens or narrows the visible x-window
 - Advanced panel: μ slider, σ slider
 - Reset
 
@@ -61,12 +63,13 @@ Curve with two draggable vertical lines (Lower, Upper). Shaded area between, liv
 
 Curve with one draggable vertical line. Default left-tail shading. Live x-value and left-tail-area readout. Dual-syntax panel.
 
-**Defaults:** μ = 50, σ = 10. Line at x = μ (left-tail area = 0.5). Right-tail toggle OFF.
+**Defaults:** μ = 50, σ = 10, zoom = 1.0×. Line at x = μ (left-tail area = 0.5). Right-tail toggle OFF.
 
 **Controls:**
-- Drag the **x** handle on the canvas
+- Drag the **x** handle on the canvas — constrained to the visible window
 - Numeric input for "Target left-tail area" — type a value (clamped to [0.0001, 0.9999]) and the line snaps to `invNorm(area, μ, σ)`
 - "Flip to right tail" toggle — **visual only**. Shading flips from left to right; a helper line appears showing the conversion *right-tail = p → left = 1 − p*. The formula in the dual-syntax panel **always** uses the left-tail area as input, because both calculators accept left-tail input.
+- **Zoom slider** (0.5×–5×) — widens or narrows the visible x-window
 - Advanced panel: μ slider, σ slider
 - Reset
 
@@ -74,7 +77,9 @@ Curve with one draggable vertical line. Default left-tail shading. Live x-value 
 
 ## Decision log
 
-- **Single-file deliverable.** ~1300 lines including HTML, CSS, and JS. Tested as a single file rather than splitting into `app.js` / `styles.css` because (a) Mr. F's copy-paste deploy workflow benefits from one file, (b) the precedents (4.8.2 cumulative-binomial-visualizer at 589 lines, 4.8.3 Comparator at 676 lines) are also single-file, (c) Build_Rules §0.1 / kickoff D5 set the extract threshold at ~800 lines and we're a controlled excess for a multi-mode tool. If maintenance grows painful, split at v2.
+- **Locked window with zoom slider** (Mr. F decision, May 2026). All three modes use a fixed x-window centered at default μ = 50 with half-width = 4 × default σ × zoom = 40 × zoom. The μ slider visibly pans the curve through this fixed window; the σ slider visibly scales the curve's width. Y-axis adapts upward only (default-σ peak as floor, current peak as ceiling) so spikes don't clip vertically and large-σ flat-humps remain visibly flat. Default zoom = 1.0×; range 0.5× to 5×, step 0.1. Reset restores zoom to 1.0× along with μ and σ. **Note**: at extreme μ values, the curve pans off-screen at 1.0× and needs zoom to be increased — this is intentional visceral pedagogy (μ is a location parameter; large shifts move the curve away from the default centre).
+
+- **Single-file deliverable.** ~1400 lines including HTML, CSS, and JS. Tested as a single file rather than splitting into `app.js` / `styles.css` because (a) Mr. F's copy-paste deploy workflow benefits from one file, (b) the precedents (4.8.2 cumulative-binomial-visualizer at 589 lines, 4.8.3 Comparator at 676 lines) are also single-file, (c) Build_Rules §0.1 / kickoff D5 set the extract threshold at ~800 lines and we're a controlled excess for a multi-mode tool. If maintenance grows painful, split at v2.
 
 - **URL routing via `?mode=` query parameter** (kickoff D2 resolution). Canon §9.6 specified three separate URL-routed entry points (`/4-9-1/`, `/4-9-2/`, `/4-9-3/`); the kickoff overrode this in favour of a single folder. **Proposed canon edit** (carried in worker-summary doc).
 

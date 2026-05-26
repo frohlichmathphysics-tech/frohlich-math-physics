@@ -270,9 +270,9 @@
     text-align: left;
     padding: 10px 14px;
     font-weight: 700;
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    font-size: 14px;
+    text-transform: none;       /* keep μ and σ in lowercase (uppercase μ→Μ which reads as Latin M) */
+    letter-spacing: 0;
     cursor: pointer;
     display: flex;
     justify-content: space-between;
@@ -293,6 +293,62 @@
     gap: 10px;
   }
   .advanced.open .advanced-body { display: flex; }
+
+  /* ---- Zoom row (X-axis zoom, all modes) ---- */
+  .zoom-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    padding: 7px 12px;
+    background: var(--panel-bg);
+    border: 1px solid var(--rule-grey);
+    border-radius: 6px;
+  }
+  .zoom-row .zoom-label {
+    flex: 0 0 56px;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--navy);
+    white-space: nowrap;
+  }
+  .zoom-row .zoom-value {
+    flex: 0 0 52px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--teal);
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .zoom-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 5px;
+    background: var(--navy);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    min-width: 0;
+  }
+  .zoom-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--teal);
+    border: 2px solid var(--navy);
+    cursor: pointer;
+  }
+  .zoom-row input[type=range]::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--teal);
+    border: 2px solid var(--navy);
+    cursor: pointer;
+  }
 
   /* ---- Helper line (Mode C right-tail mode) ---- */
   .helper-line {
@@ -369,6 +425,14 @@
   <!-- ============== CANVAS ============== -->
   <div class="chart-wrap">
     <canvas id="curve"></canvas>
+  </div>
+
+  <!-- ============== ZOOM ROW (all modes) ============== -->
+  <div class="zoom-row">
+    <span class="zoom-label">Zoom</span>
+    <input type="range" id="slider-zoom" min="0.5" max="5" step="0.1" value="1"
+           aria-label="Zoom (x-axis view width)">
+    <span class="zoom-value" id="value-zoom">1.0×</span>
   </div>
 
   <!-- ============== DUAL-SYNTAX PANEL (Modes B + C) ============== -->
@@ -598,10 +662,17 @@
   // ===========================================================
   // 5. STATE
   // ===========================================================
-  const DEFAULTS = { mu: 50, sigma: 10 };
+  const DEFAULTS = { mu: 50, sigma: 10, zoom: 1.0 };
+  // Window geometry constants (locked window mode — Option B + zoom slider):
+  //   window center is FIXED at DEFAULTS.mu (does not auto-pan with μ);
+  //   window half-width = X_HALFWIDTH_AT_1X × zoom;
+  //   the μ slider visibly pans the curve through this fixed window.
+  const X_HALFWIDTH_AT_1X = 4 * DEFAULTS.sigma;   // 40 units at zoom=1×
+
   const state = {
     mu:    DEFAULTS.mu,
     sigma: DEFAULTS.sigma,
+    zoom:  DEFAULTS.zoom,
     // Mode A
     showESR: false,
     // Mode B
@@ -617,6 +688,7 @@
   function resetState() {
     state.mu = DEFAULTS.mu;
     state.sigma = DEFAULTS.sigma;
+    state.zoom = DEFAULTS.zoom;
     state.showESR = false;
     state.lower = DEFAULTS.mu - DEFAULTS.sigma;
     state.upper = DEFAULTS.mu + DEFAULTS.sigma;
@@ -642,9 +714,11 @@
     return { w: rect.width, h: rect.height };
   }
 
-  // World x-range: μ ± 4σ (gives ~99.994% of mass)
+  // World x-range: fixed window centered at DEFAULTS.mu, half-width scaled by zoom.
+  // The μ slider visibly pans the curve through this fixed window (does not auto-center).
   function worldRange() {
-    return { xMin: state.mu - 4 * state.sigma, xMax: state.mu + 4 * state.sigma };
+    const halfWidth = X_HALFWIDTH_AT_1X * state.zoom;
+    return { xMin: DEFAULTS.mu - halfWidth, xMax: DEFAULTS.mu + halfWidth };
   }
 
   // ===========================================================
@@ -654,12 +728,16 @@
     const { w, h } = setupCanvas();
     ctx.clearRect(0, 0, w, h);
 
-    const padL = 8, padR = 8, padT = 28, padB = 30;
+    const padL = 8, padR = 8, padT = 28, padB = 38;
     const plotW = Math.max(10, w - padL - padR);
     const plotH = Math.max(10, h - padT - padB);
     const wr = worldRange();
-    const yPeak = pdf(state.mu, state.mu, state.sigma);
-    const yMax = yPeak * 1.18;   // headroom so curve apex doesn't touch top
+    // Y-axis: adapt upward only. Floor at the default-σ peak height — so when σ is large
+    // the curve looks like a low flat hump (visible scale-parameter pedagogy); when σ is
+    // small the y-window grows so the spike doesn't clip vertically.
+    const yPeakNow     = pdf(state.mu, state.mu, state.sigma);
+    const yPeakDefault = pdf(DEFAULTS.mu, DEFAULTS.mu, DEFAULTS.sigma);
+    const yMax = Math.max(yPeakDefault, yPeakNow) * 1.18;
 
     const xToCanvas = x => padL + ((x - wr.xMin) / (wr.xMax - wr.xMin)) * plotW;
     const yToCanvas = y => padT + plotH - (y / yMax) * plotH;
@@ -694,6 +772,8 @@
     ctx.lineWidth = 1;
     for (const x of xs) {
       const cx = geom.xToCanvas(x);
+      // Skip if off-window (with locked window, reference lines may pan outside)
+      if (cx < geom.padL - 1 || cx > geom.padL + geom.plotW + 1) continue;
       ctx.beginPath();
       ctx.moveTo(cx, geom.padT);
       ctx.lineTo(cx, geom.padT + geom.plotH);
@@ -780,10 +860,12 @@
     ctx.fillStyle = C.grey;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     const yBase = geom.padT + geom.plotH;
     for (const p of positions) {
       const cx = geom.xToCanvas(p.x);
+      // Skip off-window labels (when curve is panned past edge by μ change)
+      if (cx < geom.padL - 2 || cx > geom.padL + geom.plotW + 2) continue;
       // tick
       ctx.strokeStyle = C.navy;
       ctx.lineWidth = 1;
@@ -793,12 +875,12 @@
       ctx.stroke();
       // label (greek symbol)
       ctx.fillStyle = C.grey;
-      ctx.font = 'italic 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.font = 'italic 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillText(p.label, cx, yBase + 6);
-      // numeric value (smaller, under symbol)
-      ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      // numeric value (under symbol)
+      ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = C.navy;
-      ctx.fillText(fmt3sf(p.x), cx, yBase + 19);
+      ctx.fillText(fmt3sf(p.x), cx, yBase + 22);
     }
     ctx.restore();
   }
@@ -818,24 +900,37 @@
   function drawESRLabels() {
     const mu = state.mu, sd = state.sigma;
     ctx.save();
-    ctx.font = 'bold 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    const inWindow = x => {
+      const cx = geom.xToCanvas(x);
+      return cx >= geom.padL + 18 && cx <= geom.padL + geom.plotW - 18;
+    };
     // Inner band: 68% at apex
-    const innerY = geom.yToCanvas(pdf(mu, mu, state.sigma)) + (geom.padT + geom.plotH - geom.yToCanvas(pdf(mu, mu, state.sigma))) * 0.55;
-    ctx.fillStyle = C.navy;
-    ctx.fillText('68 %', geom.xToCanvas(mu), innerY);
-    // Right shells: 95% over (μ+σ, μ+2σ) midpoint
+    if (inWindow(mu)) {
+      const apexY = geom.yToCanvas(pdf(mu, mu, state.sigma));
+      const baseY = geom.padT + geom.plotH;
+      const innerY = apexY + (baseY - apexY) * 0.55;
+      ctx.fillStyle = C.navy;
+      ctx.font = 'bold 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText('68 %', geom.xToCanvas(mu), innerY);
+    }
+    // 95% — over (μ+σ, μ+2σ) midpoint
     const midX95 = mu + 1.5 * sd;
-    const midY95 = geom.yToCanvas(pdf(midX95, mu, sd) * 0.55);
-    ctx.fillStyle = C.navy;
-    ctx.fillText('95 %', geom.xToCanvas(midX95), midY95);
-    // Right shells: 99.7% over (μ+2σ, μ+3σ) — small text since region thin
+    if (inWindow(midX95)) {
+      const midY95 = geom.yToCanvas(pdf(midX95, mu, sd) * 0.55);
+      ctx.fillStyle = C.navy;
+      ctx.font = 'bold 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText('95 %', geom.xToCanvas(midX95), midY95);
+    }
+    // 99.7% — over (μ+2σ, μ+3σ) midpoint, near baseline since region is thin
     const midX997 = mu + 2.5 * sd;
-    const baseY = geom.padT + geom.plotH;
-    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = C.navy;
-    ctx.fillText('99.7 %', geom.xToCanvas(midX997), baseY - 14);
+    if (inWindow(midX997)) {
+      const baseY = geom.padT + geom.plotH;
+      ctx.fillStyle = C.navy;
+      ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText('99.7 %', geom.xToCanvas(midX997), baseY - 14);
+    }
     ctx.restore();
   }
 
@@ -1110,18 +1205,16 @@
   const sigmaSlider = document.getElementById('slider-sigma');
   const muVal = document.getElementById('value-mu');
   const sigmaVal = document.getElementById('value-sigma');
+  const zoomSlider = document.getElementById('slider-zoom');
+  const zoomVal = document.getElementById('value-zoom');
 
   function syncSliderDisplays() {
     muVal.textContent = state.mu.toFixed(1);
     sigmaVal.textContent = state.sigma.toFixed(1);
+    zoomVal.textContent = state.zoom.toFixed(1) + '×';
   }
   function onMuChange() {
     state.mu = parseFloat(muSlider.value);
-    if (MODE === 'C') {
-      // Re-clamp cX to remain within visible window
-      const wr = worldRange();
-      state.cX = Math.max(wr.xMin, Math.min(wr.xMax, state.cX));
-    }
     syncSliderDisplays();
     refresh();
   }
@@ -1130,8 +1223,14 @@
     syncSliderDisplays();
     refresh();
   }
+  function onZoomChange() {
+    state.zoom = parseFloat(zoomSlider.value);
+    syncSliderDisplays();
+    refresh();
+  }
   muSlider.addEventListener('input', onMuChange);
   sigmaSlider.addEventListener('input', onSigmaChange);
+  zoomSlider.addEventListener('input', onZoomChange);
 
   // --- Advanced toggle (Modes B/C only by default — Mode A opens it) ---
   const adv = document.getElementById('advanced');
@@ -1226,6 +1325,7 @@
     resetState();
     muSlider.value = state.mu;
     sigmaSlider.value = state.sigma;
+    zoomSlider.value = state.zoom;
     syncSliderDisplays();
     if (MODE === 'A') {
       esrBtn.classList.remove('active');
