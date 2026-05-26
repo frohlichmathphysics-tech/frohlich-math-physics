@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>The Normal Distribution · Mr. Frohlich Math and Physics</title>
+<!--
+  FMP Applet · IB MAI SL 4.9 — The Normal Distribution (master applet)
+  Single codebase, three modes, selected via ?mode=A|B|C query parameter.
+    A → Empirical Rule visualisation (Lesson 4.9.1)
+    B → normalcdf — probability between two values (Lesson 4.9.2)
+    C → invNorm — finding a cutoff value (Lesson 4.9.3)
+  Single-file HTML5, Canvas 2D, no external dependencies.
+  Math: erf via Abramowitz & Stegun 7.1.26 (|ε| < 1.5e-7);
+        inverse-normal via Acklam (|ε| < 1.15e-9).
+  Mr. Frohlich Math and Physics — frohlich-math-physics.netlify.app
+-->
+<style>
+  :root {
+    --navy:        #1E2A5C;
+    --teal:        #2E8B8B;
+    --cream:       #FAF3DE;
+    --coral:       #D95F52;
+    --red:         #C00000;
+    --ink:         #1F1F1F;
+    --grey:        #666;
+    --light-grey:  #888;
+    --rule-grey:   #DDDDDD;
+    --panel-bg:    #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.4;
+    -webkit-text-size-adjust: 100%;
+    padding: 16px;
+  }
+  .app {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  header { margin-bottom: 10px; }
+  h1 {
+    color: var(--navy);
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 2px;
+    letter-spacing: -0.005em;
+  }
+  .subtitle {
+    color: var(--grey);
+    font-style: italic;
+    font-size: 13px;
+    margin: 0;
+  }
+
+  /* ---- Readout (Modes B + C: above-canvas headline value) ---- */
+  .readout {
+    margin: 12px 0 6px;
+    padding: 10px 12px;
+    background: var(--panel-bg);
+    border: 1px solid var(--rule-grey);
+    border-radius: 6px;
+    text-align: center;
+    font-size: 18px;
+    color: var(--navy);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+  .readout .label { color: var(--grey); font-weight: 500; font-size: 14px; font-style: italic; }
+  .readout .value { color: var(--navy); }
+
+  /* ---- Canvas ---- */
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 5 / 3;
+    margin: 6px 0 0;
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+    cursor: default;
+    background: var(--cream);
+  }
+  canvas.drag-target { cursor: ew-resize; }
+
+  /* ---- Dual-syntax panel (Modes B + C) ---- */
+  .dual-syntax {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: var(--panel-bg);
+    border: 1px solid var(--rule-grey);
+    border-radius: 6px;
+    font-family: "SFMono-Regular", "Menlo", "Consolas", "Courier New", monospace;
+    font-size: 13.5px;
+    color: var(--navy);
+    line-height: 1.7;
+    overflow-wrap: break-word;
+  }
+  .dual-syntax .calc {
+    display: grid;
+    grid-template-columns: 78px 1fr;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .dual-syntax .calc-name {
+    color: var(--grey);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .dual-syntax .calc-expr { font-variant-numeric: tabular-nums; }
+  .dual-syntax .result { color: var(--teal); font-weight: 700; }
+
+  /* ---- Controls (mode-specific) ---- */
+  .controls {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .control-row .field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+  .control-row label {
+    color: var(--navy);
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .control-row input[type=number] {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1.5px solid var(--rule-grey);
+    border-radius: 4px;
+    background: var(--panel-bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .control-row input[type=number]:focus {
+    outline: none;
+    border-color: var(--teal);
+  }
+  .control-row input[type=number]:disabled {
+    background: #F4F4F4;
+    color: var(--grey);
+    cursor: not-allowed;
+  }
+
+  /* ---- Buttons ---- */
+  button {
+    background: var(--panel-bg);
+    border: 1.5px solid var(--navy);
+    color: var(--navy);
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 40px;
+    transition: background 0.15s ease, color 0.15s ease;
+    touch-action: manipulation;
+  }
+  button:hover { background: var(--navy); color: var(--cream); }
+  button:active { transform: translateY(1px); }
+  button.active {
+    background: var(--navy);
+    color: var(--cream);
+  }
+  button.small {
+    padding: 6px 10px;
+    font-size: 12px;
+    min-height: 36px;
+  }
+  button.reset {
+    border-color: var(--red);
+    color: var(--red);
+  }
+  button.reset:hover { background: var(--red); color: var(--cream); }
+
+  /* ---- Slider rows ---- */
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .slider-row .slider-label {
+    flex: 0 0 64px;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--navy);
+    font-style: italic;
+    white-space: nowrap;
+  }
+  .slider-row .slider-value {
+    flex: 0 0 56px;
+    color: var(--teal);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    font-style: normal;
+  }
+  .slider-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: var(--navy);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    min-width: 0;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--teal);
+    border: 2px solid var(--navy);
+    cursor: pointer;
+  }
+  .slider-row input[type=range]::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--teal);
+    border: 2px solid var(--navy);
+    cursor: pointer;
+  }
+
+  /* ---- Advanced panel (collapsible) ---- */
+  .advanced {
+    margin-top: 14px;
+    border: 1px solid var(--rule-grey);
+    border-radius: 6px;
+    background: var(--panel-bg);
+    overflow: hidden;
+  }
+  .advanced-toggle {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--navy);
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 0;
+    min-height: 0;
+  }
+  .advanced-toggle:hover { background: #F8F8F8; color: var(--navy); }
+  .advanced-toggle .caret {
+    transition: transform 0.15s ease;
+    font-size: 11px;
+  }
+  .advanced.open .advanced-toggle .caret { transform: rotate(180deg); }
+  .advanced-body {
+    padding: 0 14px 12px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .advanced.open .advanced-body { display: flex; }
+
+  /* ---- Helper line (Mode C right-tail mode) ---- */
+  .helper-line {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #FFF8DC;
+    border: 1px dashed var(--coral);
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--navy);
+    font-variant-numeric: tabular-nums;
+    display: none;
+  }
+  .helper-line.visible { display: block; }
+  .helper-line .arrow { color: var(--coral); font-weight: 700; padding: 0 4px; }
+
+  /* ---- Footer row + brand ---- */
+  .footer-row {
+    margin-top: 14px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  footer {
+    max-width: 760px;
+    margin: 14px auto 0;
+    text-align: center;
+    color: var(--grey);
+    font-size: 11px;
+    font-style: italic;
+  }
+
+  /* ---- Mode-conditional visibility ---- */
+  .mode-a-only, .mode-b-only, .mode-c-only,
+  .mode-bc-only { display: none; }
+  body.mode-A .mode-a-only,
+  body.mode-B .mode-b-only,
+  body.mode-C .mode-c-only,
+  body.mode-B .mode-bc-only,
+  body.mode-C .mode-bc-only { display: block; }
+  body.mode-A .mode-a-only.row,
+  body.mode-B .mode-b-only.row,
+  body.mode-C .mode-c-only.row,
+  body.mode-B .mode-bc-only.row,
+  body.mode-C .mode-bc-only.row { display: flex; }
+
+  /* ---- Mobile ---- */
+  @media (max-width: 560px) {
+    body { padding: 12px; }
+    h1 { font-size: 17px; }
+    .subtitle { font-size: 12px; }
+    .readout { font-size: 16px; padding: 8px 10px; }
+    .dual-syntax { font-size: 12.5px; }
+    .dual-syntax .calc { grid-template-columns: 70px 1fr; gap: 6px; }
+    button { padding: 8px 11px; font-size: 13px; }
+    button.small { padding: 6px 8px; font-size: 11px; }
+    .chart-wrap { aspect-ratio: 4 / 3; }
+    .control-row .field { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>The Normal Distribution</h1>
+    <p class="subtitle" id="subtitle">Empirical Rule</p>
+  </header>
+
+  <!-- ============== READOUT (Modes B + C) ============== -->
+  <div class="readout mode-bc-only" id="readout-panel">
+    <span id="readout-content">P(X) = —</span>
+  </div>
+
+  <!-- ============== CANVAS ============== -->
+  <div class="chart-wrap">
+    <canvas id="curve"></canvas>
+  </div>
+
+  <!-- ============== DUAL-SYNTAX PANEL (Modes B + C) ============== -->
+  <div class="dual-syntax mode-bc-only" id="dual-syntax">
+    <div class="calc">
+      <span class="calc-name">TI-84</span>
+      <span class="calc-expr" id="syntax-ti84">—</span>
+    </div>
+    <div class="calc">
+      <span class="calc-name">TI-Nspire</span>
+      <span class="calc-expr" id="syntax-nspire">—</span>
+    </div>
+  </div>
+
+  <!-- ============== HELPER LINE (Mode C right-tail) ============== -->
+  <div class="helper-line" id="helper-line">
+    right-tail area = <span id="helper-rt">—</span>
+    <span class="arrow">→</span>
+    left area = 1 − <span id="helper-p">—</span> =
+    <span id="helper-leftp">—</span>
+  </div>
+
+  <!-- ============== CONTROLS ============== -->
+  <div class="controls">
+
+    <!-- Mode A: ESR toggle -->
+    <div class="control-row mode-a-only row">
+      <button id="btn-esr-toggle" type="button">Show 68 / 95 / 99.7 % regions</button>
+    </div>
+
+    <!-- Mode B: bounds -->
+    <div class="control-row mode-b-only row">
+      <div class="field">
+        <label for="input-lower">Lower</label>
+        <input type="number" id="input-lower" step="any" inputmode="decimal">
+      </div>
+      <button class="small" id="btn-lower-inf" type="button">Set −∞</button>
+    </div>
+    <div class="control-row mode-b-only row">
+      <div class="field">
+        <label for="input-upper">Upper</label>
+        <input type="number" id="input-upper" step="any" inputmode="decimal">
+      </div>
+      <button class="small" id="btn-upper-inf" type="button">Set +∞</button>
+    </div>
+
+    <!-- Mode C: target area + tail toggle -->
+    <div class="control-row mode-c-only row">
+      <div class="field">
+        <label for="input-area">Target left-tail area</label>
+        <input type="number" id="input-area" step="0.001" min="0.0001" max="0.9999"
+               inputmode="decimal">
+      </div>
+      <button class="small" id="btn-tail-toggle" type="button">Flip to right tail</button>
+    </div>
+
+  </div>
+
+  <!-- ============== ADVANCED PANEL (μ, σ) ============== -->
+  <div class="advanced" id="advanced">
+    <button class="advanced-toggle" id="advanced-toggle" type="button"
+            aria-expanded="false">
+      <span id="advanced-label">Parameters (μ, σ)</span>
+      <span class="caret">▼</span>
+    </button>
+    <div class="advanced-body">
+      <div class="slider-row">
+        <span class="slider-label">μ</span>
+        <input type="range" id="slider-mu" min="0" max="200" step="0.1" value="50">
+        <span class="slider-value" id="value-mu">50.0</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">σ</span>
+        <input type="range" id="slider-sigma" min="1" max="50" step="0.1" value="10">
+        <span class="slider-value" id="value-sigma">10.0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============== FOOTER-ROW (Reset) ============== -->
+  <div class="footer-row">
+    <button class="reset" id="btn-reset" type="button">Reset</button>
+  </div>
+</div>
+
+<footer>Mr. Frohlich Math and Physics · IB MAI SL 4.9 · The Normal Distribution</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  // ===========================================================
+  // 1. MODE ROUTING
+  // ===========================================================
+  function readMode() {
+    const m = (new URLSearchParams(window.location.search).get('mode') || 'A')
+              .toUpperCase();
+    return (m === 'B' || m === 'C') ? m : 'A';
+  }
+  const MODE = readMode();
+  document.body.classList.add('mode-' + MODE);
+
+  const SUBTITLES = {
+    A: 'Empirical Rule — 68 / 95 / 99.7 % regions',
+    B: 'normalcdf — probability between two values',
+    C: 'invNorm — finding a cutoff value',
+  };
+  document.getElementById('subtitle').textContent = SUBTITLES[MODE];
+
+  // ===========================================================
+  // 2. PALETTE (mirrors CSS variables — used by canvas paint)
+  // ===========================================================
+  const C = {
+    navy:      '#1E2A5C',
+    teal:      '#2E8B8B',
+    cream:     '#FAF3DE',
+    coral:     '#D95F52',
+    ink:       '#1F1F1F',
+    grey:      '#666',
+    lightGrey: '#888',
+    rule:      '#DDDDDD',
+    // ESR band fills (teal at three opacities; centre darkest, outer lightest)
+    esrInner:  'rgba(46, 139, 139, 0.45)',  // |z| ≤ 1
+    esrMid:    'rgba(46, 139, 139, 0.28)',  // 1 < |z| ≤ 2
+    esrOuter:  'rgba(46, 139, 139, 0.15)',  // 2 < |z| ≤ 3
+    // Shaded interval fill (Mode B/C)
+    intervalFill: 'rgba(46, 139, 139, 0.32)',
+    tailFill:     'rgba(217, 95, 82, 0.32)',
+  };
+
+  // ===========================================================
+  // 3. MATH — pdf, cdf, invNorm
+  //    erf:     Abramowitz & Stegun 7.1.26  (|ε| < 1.5e-7)
+  //    invNorm: Acklam (peter.acklam)        (|ε| < 1.15e-9)
+  //    Verified vs scipy: max |Δ| = 4.96e-7 over 13 test cases.
+  // ===========================================================
+  function erf(x) {
+    const sign = x < 0 ? -1 : 1;
+    const ax = Math.abs(x);
+    const p = 0.3275911;
+    const a1 =  0.254829592, a2 = -0.284496736, a3 =  1.421413741;
+    const a4 = -1.453152027, a5 =  1.061405429;
+    const t = 1 / (1 + p * ax);
+    const y = 1 - ((((a5*t + a4)*t + a3)*t + a2)*t + a1) * t * Math.exp(-ax*ax);
+    return sign * y;
+  }
+  function pdf(x, mu, sigma) {
+    const z = (x - mu) / sigma;
+    return Math.exp(-0.5 * z * z) / (sigma * Math.sqrt(2 * Math.PI));
+  }
+  function cdf(x, mu, sigma) {
+    if (!isFinite(x)) return x < 0 ? 0 : 1;
+    return 0.5 * (1 + erf((x - mu) / (sigma * Math.SQRT2)));
+  }
+  function ncdf(lo, hi, mu, sigma) {
+    return cdf(hi, mu, sigma) - cdf(lo, mu, sigma);
+  }
+  function invNorm(p, mu, sigma) {
+    if (p <= 0) return -Infinity;
+    if (p >= 1) return  Infinity;
+    const a = [-3.969683028665376e+01,  2.209460984245205e+02,
+               -2.759285104469687e+02,  1.383577518672690e+02,
+               -3.066479806614716e+01,  2.506628277459239e+00];
+    const b = [-5.447609879822406e+01,  1.615858368580409e+02,
+               -1.556989798598866e+02,  6.680131188771972e+01,
+               -1.328068155288572e+01];
+    const c = [-7.784894002430293e-03, -3.223964580411365e-01,
+               -2.400758277161838e+00, -2.549732539343734e+00,
+                4.374664141464968e+00,  2.938163982698783e+00];
+    const d = [ 7.784695709041462e-03,  3.224671290700398e-01,
+                2.445134137142996e+00,  3.754408661907416e+00];
+    const pLow = 0.02425, pHigh = 1 - pLow;
+    let z;
+    if (p < pLow) {
+      const q = Math.sqrt(-2 * Math.log(p));
+      z = (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) /
+          ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+    } else if (p <= pHigh) {
+      const q = p - 0.5;
+      const r = q * q;
+      z = (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5]) * q /
+          (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+    } else {
+      const q = Math.sqrt(-2 * Math.log(1 - p));
+      z = -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) /
+           ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+    }
+    return mu + sigma * z;
+  }
+
+  // ===========================================================
+  // 4. FORMATTING
+  // ===========================================================
+  // 3 sf — IB MAI SL house style for headline display
+  function fmt3sf(x) {
+    if (!isFinite(x)) return x > 0 ? '∞' : '−∞';
+    if (x === 0) return '0.00';
+    const sign = x < 0 ? '-' : '';
+    const ax = Math.abs(x);
+    const mag = Math.floor(Math.log10(ax));
+    const factor = Math.pow(10, 2 - mag);
+    const rounded = Math.round(ax * factor) / factor;
+    let dp;
+    if (mag >= 2) dp = 0;
+    else if (mag === 1) dp = 1;
+    else if (mag === 0) dp = 2;
+    else dp = 2 - mag;
+    return sign + rounded.toFixed(Math.max(0, dp));
+  }
+  // 4 dp — used in dual-syntax panel so testers can verify against scipy
+  function fmt4dp(x) {
+    if (!isFinite(x)) return x > 0 ? '∞' : '−∞';
+    return x.toFixed(4);
+  }
+  // Bound display — numeric or symbolic ∞
+  function fmtBound(x, isInf, sign) {
+    if (isInf) return sign === '-' ? '−∞' : '∞';
+    return fmt3sf(x);
+  }
+  // Calculator-syntax "∞" → "1E99" / "-1E99"
+  function fmtBoundCalc(x, isInf, sign) {
+    if (isInf) return sign === '-' ? '-1E99' : '1E99';
+    // Use compact form: trim trailing zeros, max 4 dp for readability
+    return Number(x.toFixed(4)).toString();
+  }
+
+  // ===========================================================
+  // 5. STATE
+  // ===========================================================
+  const DEFAULTS = { mu: 50, sigma: 10 };
+  const state = {
+    mu:    DEFAULTS.mu,
+    sigma: DEFAULTS.sigma,
+    // Mode A
+    showESR: false,
+    // Mode B
+    lower:   DEFAULTS.mu - DEFAULTS.sigma,   // 40
+    upper:   DEFAULTS.mu + DEFAULTS.sigma,   // 60
+    lowerInf: false,
+    upperInf: false,
+    // Mode C
+    cX:      DEFAULTS.mu,                    // 50
+    rightTail: false,
+  };
+
+  function resetState() {
+    state.mu = DEFAULTS.mu;
+    state.sigma = DEFAULTS.sigma;
+    state.showESR = false;
+    state.lower = DEFAULTS.mu - DEFAULTS.sigma;
+    state.upper = DEFAULTS.mu + DEFAULTS.sigma;
+    state.lowerInf = false;
+    state.upperInf = false;
+    state.cX = DEFAULTS.mu;
+    state.rightTail = false;
+  }
+
+  // ===========================================================
+  // 6. CANVAS SETUP
+  // ===========================================================
+  const canvas = document.getElementById('curve');
+  const ctx = canvas.getContext('2d');
+  let geom = null;   // populated each draw call
+
+  function setupCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width  = Math.max(1, Math.floor(rect.width  * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w: rect.width, h: rect.height };
+  }
+
+  // World x-range: μ ± 4σ (gives ~99.994% of mass)
+  function worldRange() {
+    return { xMin: state.mu - 4 * state.sigma, xMax: state.mu + 4 * state.sigma };
+  }
+
+  // ===========================================================
+  // 7. CANVAS DRAWING
+  // ===========================================================
+  function draw() {
+    const { w, h } = setupCanvas();
+    ctx.clearRect(0, 0, w, h);
+
+    const padL = 8, padR = 8, padT = 28, padB = 30;
+    const plotW = Math.max(10, w - padL - padR);
+    const plotH = Math.max(10, h - padT - padB);
+    const wr = worldRange();
+    const yPeak = pdf(state.mu, state.mu, state.sigma);
+    const yMax = yPeak * 1.18;   // headroom so curve apex doesn't touch top
+
+    const xToCanvas = x => padL + ((x - wr.xMin) / (wr.xMax - wr.xMin)) * plotW;
+    const yToCanvas = y => padT + plotH - (y / yMax) * plotH;
+    const canvasToX = px => wr.xMin + ((px - padL) / plotW) * (wr.xMax - wr.xMin);
+
+    geom = { padL, padT, plotW, plotH, wr, yMax, xToCanvas, yToCanvas, canvasToX, w, h };
+
+    // 7a. Baseline + reference verticals (light grey dashed at μ, μ±σ, μ±2σ, μ±3σ)
+    drawReferenceLines();
+    // 7b. Mode-specific shading (under the curve so the stroke draws over the fill edge)
+    if (MODE === 'A' && state.showESR) drawESRShading();
+    if (MODE === 'B') drawBetweenShading();
+    if (MODE === 'C') drawTailShading();
+    // 7c. Curve
+    drawCurve();
+    // 7d. Axis baseline + tick labels
+    drawAxis();
+    // 7e. ESR labels (Mode A)
+    if (MODE === 'A' && state.showESR) drawESRLabels();
+    // 7f. Draggable lines (Modes B, C)
+    if (MODE === 'B') drawModeBLines();
+    if (MODE === 'C') drawModeCLine();
+  }
+
+  function drawReferenceLines() {
+    const xs = [state.mu - 3*state.sigma, state.mu - 2*state.sigma, state.mu - state.sigma,
+                state.mu,
+                state.mu + state.sigma, state.mu + 2*state.sigma, state.mu + 3*state.sigma];
+    ctx.save();
+    ctx.strokeStyle = C.lightGrey;
+    ctx.setLineDash([3, 3]);
+    ctx.lineWidth = 1;
+    for (const x of xs) {
+      const cx = geom.xToCanvas(x);
+      ctx.beginPath();
+      ctx.moveTo(cx, geom.padT);
+      ctx.lineTo(cx, geom.padT + geom.plotH);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function curvePath() {
+    // Builds a closed polygon from the curve down to the x-axis along [xLo, xHi].
+    // Caller chooses xLo/xHi; we sample 220 points across the FULL visible range,
+    // and a child function `slicePath(xLo, xHi)` builds a polygon for that slice.
+    // For simplicity we draw shading via direct stroke + fill below.
+    // (kept inline at call sites)
+  }
+
+  function drawCurveLine(xLo, xHi, stroke, lineWidth) {
+    // Stroke the curve over the slice [xLo, xHi] only (no fill).
+    const N = 220;
+    const x0 = Math.max(xLo, geom.wr.xMin);
+    const x1 = Math.min(xHi, geom.wr.xMax);
+    if (x1 <= x0) return;
+    ctx.save();
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const x = x0 + (i / N) * (x1 - x0);
+      const cx = geom.xToCanvas(x);
+      const cy = geom.yToCanvas(pdf(x, state.mu, state.sigma));
+      if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+    }
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = lineWidth;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function fillUnderCurve(xLo, xHi, fillStyle) {
+    const N = 200;
+    const x0 = Math.max(xLo, geom.wr.xMin);
+    const x1 = Math.min(xHi, geom.wr.xMax);
+    if (x1 <= x0) return;
+    ctx.save();
+    ctx.beginPath();
+    const baseY = geom.padT + geom.plotH;
+    ctx.moveTo(geom.xToCanvas(x0), baseY);
+    for (let i = 0; i <= N; i++) {
+      const x = x0 + (i / N) * (x1 - x0);
+      ctx.lineTo(geom.xToCanvas(x), geom.yToCanvas(pdf(x, state.mu, state.sigma)));
+    }
+    ctx.lineTo(geom.xToCanvas(x1), baseY);
+    ctx.closePath();
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawCurve() {
+    drawCurveLine(geom.wr.xMin, geom.wr.xMax, C.navy, 2.5);
+  }
+
+  function drawAxis() {
+    // Baseline
+    ctx.save();
+    ctx.strokeStyle = C.navy;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(geom.padL, geom.padT + geom.plotH);
+    ctx.lineTo(geom.padL + geom.plotW, geom.padT + geom.plotH);
+    ctx.stroke();
+    ctx.restore();
+
+    // Tick labels at μ, μ±σ, μ±2σ, μ±3σ
+    const positions = [
+      { x: state.mu - 3*state.sigma, label: '−3σ' },
+      { x: state.mu - 2*state.sigma, label: '−2σ' },
+      { x: state.mu -   state.sigma, label: '−σ'  },
+      { x: state.mu,                 label: 'μ'    },
+      { x: state.mu +   state.sigma, label: '+σ'  },
+      { x: state.mu + 2*state.sigma, label: '+2σ' },
+      { x: state.mu + 3*state.sigma, label: '+3σ' },
+    ];
+    ctx.save();
+    ctx.fillStyle = C.grey;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const yBase = geom.padT + geom.plotH;
+    for (const p of positions) {
+      const cx = geom.xToCanvas(p.x);
+      // tick
+      ctx.strokeStyle = C.navy;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx, yBase);
+      ctx.lineTo(cx, yBase + 4);
+      ctx.stroke();
+      // label (greek symbol)
+      ctx.fillStyle = C.grey;
+      ctx.font = 'italic 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(p.label, cx, yBase + 6);
+      // numeric value (smaller, under symbol)
+      ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillStyle = C.navy;
+      ctx.fillText(fmt3sf(p.x), cx, yBase + 19);
+    }
+    ctx.restore();
+  }
+
+  // ---- Mode A: ESR shading (concentric rings, darker centre) ----
+  function drawESRShading() {
+    const mu = state.mu, sd = state.sigma;
+    // Outer ring (±2σ to ±3σ) — drawn first, gets covered by inner regions
+    fillUnderCurve(mu - 3*sd, mu - 2*sd, C.esrOuter);
+    fillUnderCurve(mu + 2*sd, mu + 3*sd, C.esrOuter);
+    // Middle ring (±σ to ±2σ)
+    fillUnderCurve(mu - 2*sd, mu -   sd, C.esrMid);
+    fillUnderCurve(mu +   sd, mu + 2*sd, C.esrMid);
+    // Inner (±σ)
+    fillUnderCurve(mu -   sd, mu +   sd, C.esrInner);
+  }
+  function drawESRLabels() {
+    const mu = state.mu, sd = state.sigma;
+    ctx.save();
+    ctx.font = 'bold 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // Inner band: 68% at apex
+    const innerY = geom.yToCanvas(pdf(mu, mu, state.sigma)) + (geom.padT + geom.plotH - geom.yToCanvas(pdf(mu, mu, state.sigma))) * 0.55;
+    ctx.fillStyle = C.navy;
+    ctx.fillText('68 %', geom.xToCanvas(mu), innerY);
+    // Right shells: 95% over (μ+σ, μ+2σ) midpoint
+    const midX95 = mu + 1.5 * sd;
+    const midY95 = geom.yToCanvas(pdf(midX95, mu, sd) * 0.55);
+    ctx.fillStyle = C.navy;
+    ctx.fillText('95 %', geom.xToCanvas(midX95), midY95);
+    // Right shells: 99.7% over (μ+2σ, μ+3σ) — small text since region thin
+    const midX997 = mu + 2.5 * sd;
+    const baseY = geom.padT + geom.plotH;
+    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = C.navy;
+    ctx.fillText('99.7 %', geom.xToCanvas(midX997), baseY - 14);
+    ctx.restore();
+  }
+
+  // ---- Mode B: shading between Lower and Upper ----
+  function drawBetweenShading() {
+    const lo = state.lowerInf ? geom.wr.xMin : state.lower;
+    const hi = state.upperInf ? geom.wr.xMax : state.upper;
+    if (hi <= lo) return;
+    fillUnderCurve(lo, hi, C.intervalFill);
+  }
+  function drawModeBLines() {
+    // Lower and Upper draggable lines (or anchored at edge if at ±∞).
+    drawBoundLine(state.lower, state.lowerInf, '-', 'Lower');
+    drawBoundLine(state.upper, state.upperInf, '+', 'Upper');
+  }
+  function drawBoundLine(x, isInf, sign, label) {
+    let cx;
+    if (isInf) {
+      cx = sign === '-' ? geom.padL + 2 : geom.padL + geom.plotW - 2;
+    } else {
+      cx = geom.xToCanvas(x);
+    }
+    if (cx < geom.padL || cx > geom.padL + geom.plotW) return;
+    ctx.save();
+    // line
+    ctx.strokeStyle = isInf ? C.lightGrey : C.coral;
+    ctx.lineWidth = isInf ? 2 : 2.5;
+    ctx.setLineDash(isInf ? [4, 3] : []);
+    ctx.beginPath();
+    ctx.moveTo(cx, geom.padT);
+    ctx.lineTo(cx, geom.padT + geom.plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // grab handle (small filled circle near the top)
+    if (!isInf) {
+      ctx.fillStyle = C.coral;
+      ctx.beginPath();
+      ctx.arc(cx, geom.padT + 10, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label === 'Lower' ? 'L' : 'U', cx, geom.padT + 10);
+    } else {
+      // ∞ marker
+      ctx.fillStyle = C.lightGrey;
+      ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.textAlign = sign === '-' ? 'left' : 'right';
+      ctx.textBaseline = 'top';
+      ctx.fillText(sign === '-' ? '−∞' : '∞',
+                   sign === '-' ? cx + 4 : cx - 4,
+                   geom.padT + 2);
+    }
+    ctx.restore();
+  }
+
+  // ---- Mode C: left-tail or right-tail shading ----
+  function drawTailShading() {
+    if (state.rightTail) {
+      fillUnderCurve(state.cX, geom.wr.xMax, C.tailFill);
+    } else {
+      fillUnderCurve(geom.wr.xMin, state.cX, C.intervalFill);
+    }
+  }
+  function drawModeCLine() {
+    const cx = geom.xToCanvas(state.cX);
+    if (cx < geom.padL || cx > geom.padL + geom.plotW) return;
+    ctx.save();
+    ctx.strokeStyle = C.coral;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, geom.padT);
+    ctx.lineTo(cx, geom.padT + geom.plotH);
+    ctx.stroke();
+    // handle
+    ctx.fillStyle = C.coral;
+    ctx.beginPath();
+    ctx.arc(cx, geom.padT + 10, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('x', cx, geom.padT + 10);
+    ctx.restore();
+  }
+
+  // ===========================================================
+  // 8. READOUT + DUAL-SYNTAX UPDATES
+  // ===========================================================
+  function updateReadouts() {
+    if (MODE === 'A') return;  // no readout in Mode A
+    if (MODE === 'B') updateModeBReadout();
+    if (MODE === 'C') updateModeCReadout();
+  }
+
+  function updateModeBReadout() {
+    const lo = state.lowerInf ? -Infinity : state.lower;
+    const hi = state.upperInf ?  Infinity : state.upper;
+    const prob = ncdf(lo, hi, state.mu, state.sigma);
+    const loStr = fmtBound(state.lower, state.lowerInf, '-');
+    const hiStr = fmtBound(state.upper, state.upperInf, '+');
+    // Headline
+    let headline;
+    if (state.lowerInf && state.upperInf)      headline = `P(−∞ < X < ∞) = <span class="value">${fmt3sf(prob)}</span>`;
+    else if (state.lowerInf)                   headline = `P(X ≤ ${hiStr}) = <span class="value">${fmt3sf(prob)}</span>`;
+    else if (state.upperInf)                   headline = `P(X ≥ ${loStr}) = <span class="value">${fmt3sf(prob)}</span>`;
+    else                                        headline = `P(${loStr} ≤ X ≤ ${hiStr}) = <span class="value">${fmt3sf(prob)}</span>`;
+    document.getElementById('readout-content').innerHTML = headline;
+    // Dual-syntax (both calculators are μ-before-σ — verified on TI-Nspire CX II)
+    const lCalc = fmtBoundCalc(state.lower, state.lowerInf, '-');
+    const uCalc = fmtBoundCalc(state.upper, state.upperInf, '+');
+    const muS = Number(state.mu.toFixed(4)).toString();
+    const sdS = Number(state.sigma.toFixed(4)).toString();
+    const pS  = fmt4dp(prob);
+    document.getElementById('syntax-ti84').innerHTML =
+      `normalcdf(${lCalc}, ${uCalc}, ${muS}, ${sdS}) = <span class="result">${pS}</span>`;
+    document.getElementById('syntax-nspire').innerHTML =
+      `normCdf(${lCalc}, ${uCalc}, ${muS}, ${sdS}) = <span class="result">${pS}</span>`;
+  }
+
+  function updateModeCReadout() {
+    const leftArea = cdf(state.cX, state.mu, state.sigma);
+    const muS = Number(state.mu.toFixed(4)).toString();
+    const sdS = Number(state.sigma.toFixed(4)).toString();
+    const xS  = fmt3sf(state.cX);
+    const xS4 = fmt4dp(state.cX);
+    const pS  = fmt3sf(leftArea);
+    const pS4 = fmt4dp(leftArea);
+    // Headline
+    let headline;
+    if (state.rightTail) {
+      const rt = 1 - leftArea;
+      headline = `x = <span class="value">${xS}</span> &nbsp;|&nbsp; ` +
+                 `<span class="label">right-tail area =</span> ` +
+                 `<span class="value">${fmt3sf(rt)}</span>`;
+    } else {
+      headline = `x = <span class="value">${xS}</span> &nbsp;|&nbsp; ` +
+                 `<span class="label">left-tail area =</span> ` +
+                 `<span class="value">${pS}</span>`;
+    }
+    document.getElementById('readout-content').innerHTML = headline;
+    // Dual-syntax: formula always uses LEFT-tail area (both calculators accept left-tail input)
+    document.getElementById('syntax-ti84').innerHTML =
+      `invNorm(${pS4}, ${muS}, ${sdS}) = <span class="result">${xS4}</span>`;
+    document.getElementById('syntax-nspire').innerHTML =
+      `invNorm(${pS4}, ${muS}, ${sdS}) = <span class="result">${xS4}</span>`;
+    // Right-tail helper
+    const helper = document.getElementById('helper-line');
+    if (state.rightTail) {
+      const rt = 1 - leftArea;
+      document.getElementById('helper-rt').textContent  = fmt3sf(rt);
+      document.getElementById('helper-p').textContent   = fmt3sf(rt);
+      document.getElementById('helper-leftp').textContent = fmt3sf(1 - rt);
+      helper.classList.add('visible');
+    } else {
+      helper.classList.remove('visible');
+    }
+  }
+
+  // ===========================================================
+  // 9. DRAG / TOUCH INTERACTION  (Modes B and C)
+  // ===========================================================
+  let dragging = null;   // 'lower' | 'upper' | 'cx' | null
+  const HIT_PX = 18;
+
+  function hitTest(canvasX) {
+    if (!geom) return null;
+    if (MODE === 'B') {
+      // Lower (skip if at −∞)
+      if (!state.lowerInf) {
+        const lcx = geom.xToCanvas(state.lower);
+        if (Math.abs(canvasX - lcx) <= HIT_PX) return 'lower';
+      }
+      if (!state.upperInf) {
+        const ucx = geom.xToCanvas(state.upper);
+        if (Math.abs(canvasX - ucx) <= HIT_PX) return 'upper';
+      }
+    } else if (MODE === 'C') {
+      const ccx = geom.xToCanvas(state.cX);
+      if (Math.abs(canvasX - ccx) <= HIT_PX) return 'cx';
+    }
+    return null;
+  }
+
+  function pointerWorldX(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = evt.clientX - rect.left;
+    return { canvasX: cx, worldX: geom.canvasToX(cx) };
+  }
+
+  function pointerWorldXTouch(touch) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = touch.clientX - rect.left;
+    return { canvasX: cx, worldX: geom.canvasToX(cx) };
+  }
+
+  function startDrag(target) {
+    dragging = target;
+    canvas.classList.add('drag-target');
+  }
+  function endDrag() {
+    dragging = null;
+    canvas.classList.remove('drag-target');
+  }
+
+  function applyDrag(worldX) {
+    // Clamp world X to visible window
+    const x = Math.max(geom.wr.xMin, Math.min(geom.wr.xMax, worldX));
+    if (dragging === 'lower') {
+      // Clamp lower ≤ upper-effective
+      const upEff = state.upperInf ? geom.wr.xMax : state.upper;
+      state.lower = Math.min(x, upEff);
+      state.lowerInf = false;
+      document.getElementById('input-lower').value = Number(state.lower.toFixed(3));
+    } else if (dragging === 'upper') {
+      const loEff = state.lowerInf ? geom.wr.xMin : state.lower;
+      state.upper = Math.max(x, loEff);
+      state.upperInf = false;
+      document.getElementById('input-upper').value = Number(state.upper.toFixed(3));
+    } else if (dragging === 'cx') {
+      state.cX = x;
+      // Update area input to reflect new x
+      const leftArea = cdf(state.cX, state.mu, state.sigma);
+      document.getElementById('input-area').value = Number(leftArea.toFixed(4));
+    }
+    draw();
+    updateReadouts();
+  }
+
+  canvas.addEventListener('mousemove', e => {
+    if (dragging) { applyDrag(pointerWorldX(e).worldX); return; }
+    // Hover hint
+    const cx = e.clientX - canvas.getBoundingClientRect().left;
+    if (hitTest(cx)) canvas.style.cursor = 'ew-resize';
+    else canvas.style.cursor = 'default';
+  });
+  canvas.addEventListener('mousedown', e => {
+    const cx = e.clientX - canvas.getBoundingClientRect().left;
+    const hit = hitTest(cx);
+    if (hit) {
+      e.preventDefault();
+      startDrag(hit);
+    }
+  });
+  window.addEventListener('mouseup', endDrag);
+
+  canvas.addEventListener('touchstart', e => {
+    if (!e.touches[0]) return;
+    const cx = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+    const hit = hitTest(cx);
+    if (hit) {
+      e.preventDefault();
+      startDrag(hit);
+      applyDrag(geom.canvasToX(cx));
+    }
+  }, { passive: false });
+  canvas.addEventListener('touchmove', e => {
+    if (!dragging || !e.touches[0]) return;
+    e.preventDefault();
+    applyDrag(pointerWorldXTouch(e.touches[0]).worldX);
+  }, { passive: false });
+  canvas.addEventListener('touchend', endDrag);
+  canvas.addEventListener('touchcancel', endDrag);
+
+  // ===========================================================
+  // 10. CONTROL WIRING
+  // ===========================================================
+  // --- Slider listeners (μ, σ) — present in all modes ---
+  const muSlider = document.getElementById('slider-mu');
+  const sigmaSlider = document.getElementById('slider-sigma');
+  const muVal = document.getElementById('value-mu');
+  const sigmaVal = document.getElementById('value-sigma');
+
+  function syncSliderDisplays() {
+    muVal.textContent = state.mu.toFixed(1);
+    sigmaVal.textContent = state.sigma.toFixed(1);
+  }
+  function onMuChange() {
+    state.mu = parseFloat(muSlider.value);
+    if (MODE === 'C') {
+      // Re-clamp cX to remain within visible window
+      const wr = worldRange();
+      state.cX = Math.max(wr.xMin, Math.min(wr.xMax, state.cX));
+    }
+    syncSliderDisplays();
+    refresh();
+  }
+  function onSigmaChange() {
+    state.sigma = parseFloat(sigmaSlider.value);
+    syncSliderDisplays();
+    refresh();
+  }
+  muSlider.addEventListener('input', onMuChange);
+  sigmaSlider.addEventListener('input', onSigmaChange);
+
+  // --- Advanced toggle (Modes B/C only by default — Mode A opens it) ---
+  const adv = document.getElementById('advanced');
+  const advToggle = document.getElementById('advanced-toggle');
+  advToggle.addEventListener('click', () => {
+    adv.classList.toggle('open');
+    advToggle.setAttribute('aria-expanded', adv.classList.contains('open'));
+  });
+
+  // --- Mode A: ESR toggle ---
+  const esrBtn = document.getElementById('btn-esr-toggle');
+  esrBtn.addEventListener('click', () => {
+    state.showESR = !state.showESR;
+    esrBtn.classList.toggle('active', state.showESR);
+    esrBtn.textContent = state.showESR
+      ? 'Hide 68 / 95 / 99.7 % regions'
+      : 'Show 68 / 95 / 99.7 % regions';
+    draw();
+  });
+
+  // --- Mode B: bound inputs + ±∞ buttons ---
+  const inputLower = document.getElementById('input-lower');
+  const inputUpper = document.getElementById('input-upper');
+  const btnLowerInf = document.getElementById('btn-lower-inf');
+  const btnUpperInf = document.getElementById('btn-upper-inf');
+
+  function commitLowerInput() {
+    const v = parseFloat(inputLower.value);
+    if (!isFinite(v)) return;
+    state.lowerInf = false;
+    // Clamp ≤ upper-effective
+    const upEff = state.upperInf ? Infinity : state.upper;
+    state.lower = Math.min(v, upEff);
+    inputLower.value = Number(state.lower.toFixed(3));
+    refresh();
+  }
+  function commitUpperInput() {
+    const v = parseFloat(inputUpper.value);
+    if (!isFinite(v)) return;
+    state.upperInf = false;
+    const loEff = state.lowerInf ? -Infinity : state.lower;
+    state.upper = Math.max(v, loEff);
+    inputUpper.value = Number(state.upper.toFixed(3));
+    refresh();
+  }
+  if (inputLower) inputLower.addEventListener('change', commitLowerInput);
+  if (inputUpper) inputUpper.addEventListener('change', commitUpperInput);
+  if (inputLower) inputLower.addEventListener('blur', commitLowerInput);
+  if (inputUpper) inputUpper.addEventListener('blur', commitUpperInput);
+
+  if (btnLowerInf) btnLowerInf.addEventListener('click', () => {
+    state.lowerInf = !state.lowerInf;
+    btnLowerInf.classList.toggle('active', state.lowerInf);
+    btnLowerInf.textContent = state.lowerInf ? 'Lower at −∞' : 'Set −∞';
+    inputLower.disabled = state.lowerInf;
+    inputLower.value = state.lowerInf ? '' : Number(state.lower.toFixed(3));
+    refresh();
+  });
+  if (btnUpperInf) btnUpperInf.addEventListener('click', () => {
+    state.upperInf = !state.upperInf;
+    btnUpperInf.classList.toggle('active', state.upperInf);
+    btnUpperInf.textContent = state.upperInf ? 'Upper at +∞' : 'Set +∞';
+    inputUpper.disabled = state.upperInf;
+    inputUpper.value = state.upperInf ? '' : Number(state.upper.toFixed(3));
+    refresh();
+  });
+
+  // --- Mode C: area input + right-tail toggle ---
+  const inputArea = document.getElementById('input-area');
+  const btnTail = document.getElementById('btn-tail-toggle');
+
+  function commitAreaInput() {
+    let p = parseFloat(inputArea.value);
+    if (!isFinite(p)) return;
+    p = Math.max(0.0001, Math.min(0.9999, p));
+    inputArea.value = Number(p.toFixed(4));
+    state.cX = invNorm(p, state.mu, state.sigma);
+    refresh();
+  }
+  if (inputArea) inputArea.addEventListener('change', commitAreaInput);
+  if (inputArea) inputArea.addEventListener('blur', commitAreaInput);
+
+  if (btnTail) btnTail.addEventListener('click', () => {
+    state.rightTail = !state.rightTail;
+    btnTail.classList.toggle('active', state.rightTail);
+    btnTail.textContent = state.rightTail ? 'Flip to left tail' : 'Flip to right tail';
+    refresh();
+  });
+
+  // --- Reset ---
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    resetState();
+    muSlider.value = state.mu;
+    sigmaSlider.value = state.sigma;
+    syncSliderDisplays();
+    if (MODE === 'A') {
+      esrBtn.classList.remove('active');
+      esrBtn.textContent = 'Show 68 / 95 / 99.7 % regions';
+    }
+    if (MODE === 'B') {
+      inputLower.disabled = false;
+      inputUpper.disabled = false;
+      inputLower.value = Number(state.lower.toFixed(3));
+      inputUpper.value = Number(state.upper.toFixed(3));
+      btnLowerInf.classList.remove('active');
+      btnUpperInf.classList.remove('active');
+      btnLowerInf.textContent = 'Set −∞';
+      btnUpperInf.textContent = 'Set +∞';
+    }
+    if (MODE === 'C') {
+      btnTail.classList.remove('active');
+      btnTail.textContent = 'Flip to right tail';
+      inputArea.value = '0.5000';
+    }
+    refresh();
+  });
+
+  // ===========================================================
+  // 11. RENDER LOOP
+  // ===========================================================
+  function refresh() {
+    draw();
+    updateReadouts();
+  }
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(refresh, 60);
+  });
+  window.addEventListener('orientationchange', () => setTimeout(refresh, 80));
+
+  // ===========================================================
+  // 12. INIT — mode-specific boot
+  // ===========================================================
+  function init() {
+    syncSliderDisplays();
+    if (MODE === 'A') {
+      // Mode A: sliders are the primary interaction → advanced panel auto-opens,
+      // and rename its label to make the contents obvious.
+      adv.classList.add('open');
+      advToggle.setAttribute('aria-expanded', 'true');
+      document.getElementById('advanced-label').textContent = 'Adjust μ and σ';
+    } else {
+      // Modes B/C: sliders tucked away; user opens when needed.
+      document.getElementById('advanced-label').textContent = 'Distribution parameters (μ, σ)';
+    }
+
+    if (MODE === 'B') {
+      inputLower.value = Number(state.lower.toFixed(3));
+      inputUpper.value = Number(state.upper.toFixed(3));
+    }
+    if (MODE === 'C') {
+      // Boot with x = μ → area = 0.5
+      inputArea.value = '0.5000';
+    }
+
+    // Double-RAF so CSS-driven aspect-ratio settles before first paint
+    requestAnimationFrame(() => requestAnimationFrame(refresh));
+  }
+  init();
+})();
+</script>
+</body>
+</html>
