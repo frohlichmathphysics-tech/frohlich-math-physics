@@ -1,0 +1,264 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bars to a Curve</title>
+<style>
+  /* Mr. Frohlich Math and Physics — applet palette (Visual_Conventions §2/§6).
+     Applet UI uses system sans-serif per Visual_Conventions §6.3. */
+  :root{
+    --cream:#FAF3DE; --navy:#1E2A5C; --teal:#2E8B8B; --coral:#D95F52; --grey:#888888;
+  }
+  html,body{margin:0;height:100%;background:var(--cream);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    overflow:hidden;-webkit-text-size-adjust:100%;}
+  #wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--cream);}
+  /* canvas holds the whole experience (plot + controls) so the embed is full-bleed,
+     chrome-free, and scales while preserving the native 16:8 (1280x640) aspect. */
+  canvas{display:block;touch-action:none;background:var(--cream);}
+</style>
+<div id="wrap"><canvas id="c"></canvas></div>
+<script>
+(function(){
+"use strict";
+
+/* ---------- native canvas size: 16:8 = 1280x640 (Applet_Conventions / kickoff) ---------- */
+const W = 1280, H = 640;
+
+/* ---------- distribution + scenario (Unit_Canon_4_9 Hook 1, scipy-verified) ----------
+   Café Tinto Alto wait time ~ Normal(mu = 3.2 min, sigma = 0.9 min). */
+const MU = 3.2, SIG = 0.9;
+const LO = MU - 3.5*SIG, HI = MU + 3.5*SIG;          // window [0.05, 6.35]
+const BINS = [4, 8, 16, 32, 64, 128];                 // stepper values
+const YMAX = 0.50;                                    // density axis top (peak f(mu)=0.443)
+
+/* ---------- exact normal math (no external lib; A&S 7.1.26 erf, err < 1.5e-7) ---------- */
+function erf(x){
+  const s = x<0?-1:1; x = Math.abs(x);
+  const t = 1/(1+0.3275911*x);
+  const y = 1 - (((((1.061405429*t -1.453152027)*t)+1.421413741)*t -0.284496736)*t +0.254829592)*t*Math.exp(-x*x);
+  return s*y;
+}
+const normCdf = x => 0.5*(1+erf((x-MU)/(SIG*Math.SQRT2)));
+const normPdf = x => Math.exp(-0.5*((x-MU)/SIG)**2)/(SIG*Math.sqrt(2*Math.PI));
+const massIn  = (l,r) => normCdf(r)-normCdf(l);       // exact probability mass in [l,r]
+
+/* ---------- state ---------- */
+let nIdx = 0;                 // index into BINS during/ after sweep
+let a = 2.0, b = 4.0;         // draggable region bounds (minutes) — default = café menu-board question
+let sweeping = true, sweepT0 = 0;
+const STEP_MS = 650;          // dwell per bin step during the auto-sweep
+let drag = null;              // 'a' | 'b' | 'bins' | null
+
+/* ---------- geometry (logical 1280x640) ---------- */
+const PL=110, PR=1035, PT=96, PB=470;                 // plot box
+const xToPx = x => PL + (x-LO)/(HI-LO)*(PR-PL);
+const pxToX = px => LO + (px-PL)/(PR-PL)*(HI-LO);
+const dToPy = d => PB - (d/YMAX)*(PB-PT);
+
+/* slider + button hit boxes (logical coords) */
+const SLD = {x0:150, x1:560, y:565};                  // bins slider track
+const BTN = {x:600, y:545, w:230, h:42};              // replay button
+
+/* ---------- per-frame computed bins ---------- */
+function currentN(){ return BINS[nIdx]; }
+function computeBins(){
+  const n = currentN(), w = (HI-LO)/n, edges=[], mass=[];
+  for(let i=0;i<=n;i++) edges.push(LO + i*w);
+  for(let i=0;i<n;i++) mass.push(massIn(edges[i],edges[i+1]));
+  return {n,w,edges,mass};
+}
+/* area of the parts of the bars that lie inside [a,b]  (avg-density bars -> clip = height*overlap).
+   This is the Riemann sum that converges to the area under the curve. */
+function shadedBarArea(bins){
+  let s=0;
+  for(let i=0;i<bins.n;i++){
+    const l=bins.edges[i], r=bins.edges[i+1];
+    const ov=Math.max(0, Math.min(r,b)-Math.max(l,a));
+    if(ov>0) s += (bins.mass[i]/bins.w)*ov;           // height * overlap-width
+  }
+  return s;
+}
+
+/* ---------- canvas setup + crisp DPR scaling, aspect-fit ---------- */
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+let scale=1, dpr=1;
+function fit(){
+  const vw=window.innerWidth, vh=window.innerHeight;
+  scale=Math.min(vw/W, vh/H);
+  dpr=Math.max(1, Math.min(3, window.devicePixelRatio||1));
+  cv.width=Math.round(W*scale*dpr); cv.height=Math.round(H*scale*dpr);
+  cv.style.width=Math.round(W*scale)+'px'; cv.style.height=Math.round(H*scale)+'px';
+  ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);      // draw in logical 1280x640 units
+}
+window.addEventListener('resize',fit); fit();
+
+/* embed detection: only the standalone Netlify dev-preview shows a title + copyright;
+   when embedded in an iframe the canvas is chrome-free and the URL is never exposed. */
+const STANDALONE = (window.self===window.top);
+
+/* ---------- drawing helpers ---------- */
+function rrect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function txt(s,x,y,size,col,align,weight){ctx.fillStyle=col;ctx.textAlign=align||'left';
+  ctx.textBaseline='alphabetic';ctx.font=(weight||'400')+' '+size+'px -apple-system,"Segoe UI",Roboto,system-ui,sans-serif';
+  ctx.fillText(s,x,y);}
+
+function draw(){
+  const bins=computeBins();
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#FAF3DE'; ctx.fillRect(0,0,W,H);
+
+  /* dev-preview-only title + copyright (hidden when embedded) */
+  if(STANDALONE){
+    txt('Bars to a curve — from counting in bars to a continuous curve',24,26,17,'#1E2A5C','left','600');
+    txt('© 2026 frohlichmathandphysics.com',W-24,26,12,'rgba(30,42,92,.55)','right','400');
+  }
+
+  /* in-scope pedagogy banner (no calculus words) */
+  txt('The bars form a probability model: the total area is 1.  The shaded area is the probability.',
+      W/2, STANDALONE?52:32, 15, '#1E2A5C','center','600');
+
+  /* y gridlines + labels (density) */
+  ctx.lineWidth=1;
+  for(let d=0; d<=0.4001; d+=0.1){
+    const y=dToPy(d);
+    ctx.strokeStyle='rgba(136,136,136,.28)'; ctx.beginPath();ctx.moveTo(PL,y);ctx.lineTo(PR,y);ctx.stroke();
+    txt(d.toFixed(1), PL-10, y+4, 12, 'rgba(30,42,92,.6)','right');
+  }
+
+  /* draw bars: portion inside [a,b] = teal, tails = coral (decision 1) */
+  for(let i=0;i<bins.n;i++){
+    const l=bins.edges[i], r=bins.edges[i+1], h=bins.mass[i]/bins.w;
+    const yTop=dToPy(h);
+    const segs=[ [l, Math.min(r,a),'#D95F52'],          // left tail
+                 [Math.max(l,a), Math.min(r,b),'#2E8B8B'], // region
+                 [Math.max(l,b), r,'#D95F52'] ];          // right tail
+    for(const [s0,s1,col] of segs){
+      if(s1<=s0) continue;
+      const x0=xToPx(s0), x1=xToPx(s1);
+      ctx.fillStyle=col; ctx.globalAlpha=0.50;
+      ctx.fillRect(x0, yTop, x1-x0, PB-yTop);
+      ctx.globalAlpha=1;
+    }
+    /* bar outline (the "step") */
+    ctx.strokeStyle='rgba(30,42,92,.45)'; ctx.lineWidth=1;
+    ctx.strokeRect(xToPx(l), yTop, xToPx(r)-xToPx(l), PB-yTop);
+  }
+
+  /* the smooth normal curve — navy, faint, ALWAYS visible (decision 6a-A) */
+  ctx.strokeStyle='#1E2A5C'; ctx.globalAlpha=0.9; ctx.lineWidth=2.5; ctx.beginPath();
+  for(let px=PL; px<=PR; px++){ const y=dToPy(normPdf(pxToX(px))); (px===PL?ctx.moveTo:ctx.lineTo).call(ctx,px,y); }
+  ctx.stroke(); ctx.globalAlpha=1;
+
+  /* axes */
+  ctx.strokeStyle='#1E2A5C'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(PL,PT-6); ctx.lineTo(PL,PB); ctx.lineTo(PR,PB); ctx.stroke();
+  for(let m=1;m<=6;m++){ const x=xToPx(m); if(x<PL||x>PR) continue;
+    ctx.beginPath();ctx.moveTo(x,PB);ctx.lineTo(x,PB+6);ctx.stroke();
+    txt(m+'',x,PB+22,13,'rgba(30,42,92,.75)','center'); }
+  txt('Café Tinto Alto — wait time (minutes)', (PL+PR)/2, PB+46, 14,'#1E2A5C','center','600');
+  txt('density', PL-8, PT-14, 12,'rgba(30,42,92,.6)','right');
+
+  /* draggable region handles a and b */
+  for(const [val,lab] of [[a,'a'],[b,'b']]){
+    const x=xToPx(val);
+    ctx.strokeStyle='#1E2A5C'; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.moveTo(x,PT-6);ctx.lineTo(x,PB);ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#1E2A5C'; ctx.beginPath();
+    ctx.moveTo(x,PB+2);ctx.lineTo(x-8,PB+16);ctx.lineTo(x+8,PB+16);ctx.closePath();ctx.fill();
+    rrect(x-22,PT-34,44,18,4); ctx.fillStyle='#1E2A5C'; ctx.fill();
+    txt(val.toFixed(1), x, PT-20, 12,'#FAF3DE','center','600');
+  }
+
+  /* ---------- right-side read-outs ---------- */
+  const RX=1060; let ry=92;
+  txt('number of bins', RX, ry, 13,'rgba(30,42,92,.65)','left'); ry+=26;
+  txt('n = '+bins.n, RX, ry, 26,'#1E2A5C','left','700'); ry+=24;
+  txt('bin width = '+bins.w.toFixed(2)+' min', RX, ry, 13,'rgba(30,42,92,.7)','left'); ry+=44;
+
+  txt('Total area of bars', RX, ry, 13,'rgba(30,42,92,.65)','left'); ry+=26;
+  txt('= 1.00', RX, ry, 24,'#2E8B8B','left','700'); ry+=44;
+
+  txt('Shaded area, '+a.toFixed(1)+'–'+b.toFixed(1)+' min', RX, ry, 13,'rgba(30,42,92,.65)','left'); ry+=28;
+  const clip=shadedBarArea(bins), exact=Math.max(0,normCdf(b)-normCdf(a));
+  txt('from bars  ≈ '+clip.toFixed(3), RX, ry, 18,'#2E8B8B','left','700'); ry+=26;
+  txt('under curve = '+exact.toFixed(3), RX, ry, 18,'#1E2A5C','left','700'); ry+=30;
+  txt('finer bins → the shaded', RX, ry, 12,'rgba(30,42,92,.6)','left'); ry+=16;
+  txt('bars match the curve area', RX, ry, 12,'rgba(30,42,92,.6)','left');
+
+  /* ---------- bins slider ---------- */
+  ctx.strokeStyle='rgba(30,42,92,.35)'; ctx.lineWidth=4; ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(SLD.x0,SLD.y);ctx.lineTo(SLD.x1,SLD.y);ctx.stroke(); ctx.lineCap='butt';
+  for(let i=0;i<BINS.length;i++){
+    const x=SLD.x0+(SLD.x1-SLD.x0)*i/(BINS.length-1);
+    ctx.fillStyle='rgba(30,42,92,.35)';ctx.beginPath();ctx.arc(x,SLD.y,3,0,7);ctx.fill();
+    txt(BINS[i]+'', x, SLD.y+22, 11,'rgba(30,42,92,.6)','center');
+  }
+  const tx=SLD.x0+(SLD.x1-SLD.x0)*nIdx/(BINS.length-1);
+  ctx.fillStyle='#1E2A5C';ctx.beginPath();ctx.arc(tx,SLD.y,11,0,7);ctx.fill();
+  txt('bins', SLD.x0, SLD.y-16, 13,'#1E2A5C','left','600');
+
+  /* ---------- replay button ---------- */
+  rrect(BTN.x,BTN.y,BTN.w,BTN.h,9);
+  ctx.fillStyle = sweeping? 'rgba(30,42,92,.45)':'#1E2A5C'; ctx.fill();
+  txt(sweeping?'▶  showing the limit…':'▶  Show the limit',
+      BTN.x+BTN.w/2, BTN.y+BTN.h/2+5, 16,'#FAF3DE','center','600');
+}
+
+/* ---------- animation: auto-sweep on load (decision 6), then idle redraw ---------- */
+function frame(t){
+  if(sweeping){
+    if(!sweepT0) sweepT0=t;
+    const step=Math.floor((t-sweepT0)/STEP_MS);
+    if(step>=BINS.length-1){ nIdx=BINS.length-1; sweeping=false; }  // settle at n=128 (decision 6b-B)
+    else nIdx=step;
+  }
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- pointer interaction ---------- */
+function toLogical(e){
+  const r=cv.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX), cy=(e.touches?e.touches[0].clientY:e.clientY);
+  return { x:(cx-r.left)/scale, y:(cy-r.top)/scale };
+}
+function hitHandle(p,val){ return Math.abs(p.x-xToPx(val))<14 && p.y>PT-30 && p.y<PB+18; }
+function onDown(e){
+  const p=toLogical(e);
+  /* replay button */
+  if(p.x>=BTN.x&&p.x<=BTN.x+BTN.w&&p.y>=BTN.y&&p.y<=BTN.y+BTN.h){
+    sweeping=true; sweepT0=0; nIdx=0; e.preventDefault(); return;
+  }
+  /* bins slider */
+  if(Math.abs(p.y-SLD.y)<22 && p.x>SLD.x0-20 && p.x<SLD.x1+20){
+    drag='bins'; setBinsFromX(p.x); sweeping=false; e.preventDefault(); return;
+  }
+  /* region handles (a then b; pick nearest if both close) */
+  if(hitHandle(p,a)&&hitHandle(p,b)) drag=(Math.abs(p.x-xToPx(a))<Math.abs(p.x-xToPx(b)))?'a':'b';
+  else if(hitHandle(p,a)) drag='a';
+  else if(hitHandle(p,b)) drag='b';
+  if(drag) e.preventDefault();
+}
+function onMove(e){
+  if(!drag) return; e.preventDefault();
+  const p=toLogical(e);
+  if(drag==='bins'){ setBinsFromX(p.x); return; }
+  let x=Math.max(LO, Math.min(HI, pxToX(p.x)));
+  if(drag==='a') a=Math.min(x, b-0.2);
+  else           b=Math.max(x, a+0.2);
+}
+function onUp(){ drag=null; }
+function setBinsFromX(x){
+  const f=(x-SLD.x0)/(SLD.x1-SLD.x0);
+  nIdx=Math.max(0, Math.min(BINS.length-1, Math.round(f*(BINS.length-1))));
+}
+cv.addEventListener('mousedown',onDown); window.addEventListener('mousemove',onMove); window.addEventListener('mouseup',onUp);
+cv.addEventListener('touchstart',onDown,{passive:false}); cv.addEventListener('touchmove',onMove,{passive:false}); cv.addEventListener('touchend',onUp);
+
+/* expose a tiny hook for the smoke test (no effect on UX) */
+window.__applet={computeBins,shadedBarArea,normCdf,get n(){return currentN();},get a(){return a;},get b(){return b;},
+  get sweeping(){return sweeping;}, setN(i){nIdx=i;sweeping=false;}, total:()=>massIn(LO,HI)};
+})();
+</script>
