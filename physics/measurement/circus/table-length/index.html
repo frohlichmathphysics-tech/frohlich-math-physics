@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Measuring the Table — Measurement Station A</title>
+<style>
+  :root{ --cream:#FAF3DE; --navy:#1E2A5C; --teal:#2E8B8B; --red:#C00000; --muted:#8a8475; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--cream);}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--navy);line-height:1.5;-webkit-text-size-adjust:100%;}
+  .wrap{max-width:780px;margin:0 auto;padding:18px 16px 8px;}
+  h1{font-size:1.35rem;margin:0 0 2px;}
+  .sub{color:var(--muted);font-size:.95rem;margin:0 0 14px;}
+  canvas#stage{width:100%;height:auto;display:block;background:var(--cream);
+    border:1px solid #e3dcc4;border-radius:10px;}
+  #panel{margin-top:14px;}
+  .ctx{font-size:1rem;margin:0 0 10px;}
+  .step{font-weight:600;color:var(--teal);font-size:.92rem;margin:12px 0 6px;
+    text-transform:uppercase;letter-spacing:.03em;}
+  .hint{color:var(--muted);font-size:.9rem;margin:4px 0 0;}
+  .note{color:var(--muted);font-size:.9rem;margin:-2px 0 10px;}
+  ol.todo{margin:8px 0 10px;padding-left:1.25em;} ol.todo li{margin:4px 0;}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  input[type=text]{font:inherit;font-size:1.1rem;padding:10px 12px;width:150px;
+    border:2px solid var(--navy);border-radius:8px;background:#fff;color:var(--navy);}
+  input[type=range]{width:100%;max-width:420px;accent-color:#1E2A5C;}
+  .unit{font-size:1.05rem;}
+  button{font:inherit;font-size:1rem;padding:11px 18px;border:0;border-radius:8px;
+    background:var(--navy);color:var(--cream);cursor:pointer;font-weight:600;}
+  button:hover{background:#16203f;}
+  button:disabled{background:#c8c2ae;color:#fff;cursor:not-allowed;}
+  button.ghost{background:transparent;color:var(--navy);border:2px solid var(--navy);}
+  button.ghost:hover{background:rgba(30,42,92,.08);}
+  .seg{display:inline-flex;border:2px solid var(--navy);border-radius:9px;overflow:hidden;margin:2px 0 2px;}
+  .seg button{border-radius:0;background:transparent;color:var(--navy);}
+  .seg button.on{background:var(--navy);color:var(--cream);}
+  .chips{display:flex;flex-direction:column;gap:9px;margin:6px 0 4px;}
+  .chip{text-align:left;background:#fff;color:var(--navy);border:2px solid var(--navy);
+    border-radius:9px;padding:12px 14px;font-size:1rem;font-weight:500;}
+  .chip:hover{background:rgba(30,42,92,.06);}
+  #feedback{min-height:1.4em;margin:10px 0 2px;font-size:.98rem;color:var(--muted);}
+  #feedback.ok{color:var(--teal);}
+  #feedback.warn{color:var(--red);font-weight:700;}
+  .reveal{background:#fff;border:1px solid #e3dcc4;border-left:5px solid var(--teal);
+    border-radius:8px;padding:12px 14px;margin:6px 0 12px;font-size:1rem;}
+  .lead{font-size:1.05rem;}
+  footer{max-width:780px;margin:18px auto 0;padding:10px 16px 18px;
+    border-top:1px solid var(--navy);text-align:center;color:var(--muted);font-size:.85rem;}
+  @media (max-width:520px){ h1{font-size:1.15rem;} input[type=text]{width:48%;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Measuring the Table</h1>
+  <p class="sub">Measurement Station A</p>
+  <canvas id="stage" width="780" height="400" aria-label="measurement diagram"></canvas>
+  <div id="panel"></div>
+  <div id="feedback" aria-live="polite"></div>
+</div>
+<footer>© 2026 frohlichmathandphysics.com</footer>
+
+<script>
+"use strict";
+/* =========================================================================
+   Measuring the Table — Measurement Station A   (IB Physics SL+HL common)
+   Solo guided inquiry, capture-less. Four conditions, one reading each:
+   up-close (static) -> not-touching (gap) -> worn (+10 mm) -> oscillating.
+   A simulated class sample (N=28) then frames a Socratic question.
+   Vanilla JS + Canvas 2D, no CDN, offline-capable. Nothing submitted/scored.
+   ========================================================================= */
+
+/* ---- 1. Constants ----------------------------------------------------- */
+const TOL_MM  = 0.5 + 1e-6;    // static read gate (half the smallest division)
+const TRUNC   = 2.5;           // Gaussian truncation in sigmas
+const CLASS_N = 28;
+const WORN_OFF= 10.0;          // worn-zero systematic shift (mm) = 1 cm
+const OSC_A   = 6.0;           // oscillation amplitude (mm) -> swing envelope = +/-A
+const OSC_SIG = 3.0;           // class spread for oscillating (= A/2), truncated at +/-A
+const OSC_PERIOD = 10000;      // ms per swing (slow: trackable but moving)
+
+// Each condition measures a DIFFERENT table (different true length) so a value read
+// in one condition cannot be reused in another. trueMM is never displayed as an answer.
+const CONDS = [
+  { type:"static", trueMM:1524.0, sigma:1.0, offset:0.0, frac:0.80,
+    ctx:"Measure a table up close. Line the zero end of the tape up with the table's left edge, then read the far edge." },
+  { type:"gap", trueMM:1885.0, sigma:5.0, offset:0.0, frac:1.00,
+    ctx:"Now measure a different table — but this tape is held up off the table, not touching it anywhere. Estimate the table's length by reading the floating tape across the gap." },
+  { type:"worn", trueMM:1217.0, sigma:1.0, offset:WORN_OFF, frac:0.64,
+    ctx:"Now measure a different table with this other tape measure, the same careful, up-close way." },
+  { type:"osc", trueMM:964.0, sigma:0, offset:0.0, frac:0.55,
+    ctx:"Now a different table again — but this tape hangs from two strings and keeps swinging, so its scale won't hold still over the table's edge. Read the edge as best you can while the tape moves." },
+];
+const CLASS_LABEL = [
+  "the same careful, up-close way",
+  "the same way, estimating across the gap",
+  "with the same tape",
+  "the same way, while it kept moving",
+];
+const OUTLIER_MM = {0:1534};   // one detached blunder, up-close only (153.4 cm); gap teaches spread by comparison
+
+/* ---- 2. Seeded PRNG + truncated Gaussian ------------------------------ */
+let _seed = (Date.now() ^ 0x9e3779b9) >>> 0;
+function rnd(){
+  _seed |= 0; _seed = (_seed + 0x6D2B79F5) | 0;
+  let t = Math.imul(_seed ^ (_seed >>> 15), 1 | _seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+function gauss(sigma, trunc){
+  const T = trunc || TRUNC; let z;
+  do { const u1=Math.max(rnd(),1e-12), u2=rnd();
+       z=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2); } while (Math.abs(z) > T);
+  return z * sigma;
+}
+function reseed(){ _seed = (Date.now() ^ (Math.random()*0xffffffff)) >>> 0; }
+
+/* ---- 3. State --------------------------------------------------------- */
+const PHASES = [
+  "intro",
+  "measure0","class0","qSpread0","qOutlier0",
+  "measure1","class1","qSpread1","qCompare1",
+  "measure2","class2","qWorn",
+  "measure3","class3","qOsc",
+  "close"
+];
+let phaseIdx = 0;
+let S, classSamples;
+function freshState(){
+  S = CONDS.map(()=>({ align:(rnd()<0.5?-1:1)*(6+rnd()*6), locked:false, far:0,
+                       reading:null, sway:0 }));
+  classSamples=[null,null,null,null];
+}
+freshState();
+function fmtVal(s){ return s; }                 // preserve the student's string verbatim
+
+/* ---- 4. Canvas -------------------------------------------------------- */
+const cv=document.getElementById("stage"), ctx=cv.getContext("2d");
+let W=780,H=400;
+function fitCanvas(){
+  const dpr=window.devicePixelRatio||1, cssW=cv.clientWidth||780, cssH=Math.round(cssW*400/780);
+  W=cssW; H=cssH; cv.width=Math.round(cssW*dpr); cv.height=Math.round(cssH*dpr);
+  cv.style.height=cssH+"px"; ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function clearStage(){ ctx.clearRect(0,0,W,H); ctx.fillStyle="#FAF3DE"; ctx.fillRect(0,0,W,H); }
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+/* ---- 5. Scene pieces -------------------------------------------------- */
+function drawTabletop(frac){
+  const xL=W*0.13, xR=xL+W*0.74*(frac||1), topY=H*0.22, topH=H*0.05, legY=H*0.40;
+  const g={xL,xR,topY,topH,legY};
+  ctx.fillStyle="#d9b48a"; ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=2;
+  ctx.fillRect(g.xL,g.topY,g.xR-g.xL,g.topH); ctx.strokeRect(g.xL,g.topY,g.xR-g.xL,g.topH);
+  ctx.fillStyle="#c79a6e";
+  [g.xL+(g.xR-g.xL)*0.07, g.xR-(g.xR-g.xL)*0.07].forEach(lx=>{
+    ctx.fillRect(lx,g.topY+g.topH,10,g.legY-(g.topY+g.topH)); ctx.strokeRect(lx,g.topY+g.topH,10,g.legY-(g.topY+g.topH)); });
+  ctx.fillStyle="#8a8475"; ctx.font="12px system-ui"; ctx.textAlign="center";
+  ctx.fillText("the table",(g.xL+g.xR)/2,g.legY+18);
+  ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(g.xL,g.topY-5); ctx.lineTo(g.xL,g.topY+g.topH+5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(g.xR,g.topY-5); ctx.lineTo(g.xR,g.topY+g.topH+5); ctx.stroke();
+  return g;
+}
+function tapeStrip(x0,x1,y){
+  ctx.fillStyle="#fff"; ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=1.5;
+  ctx.fillRect(x0,y,x1-x0,9); ctx.strokeRect(x0,y,x1-x0,9);
+  const n=Math.max(6,Math.round((x1-x0)/22));
+  for(let i=0;i<=n;i++){ const x=x0+(x1-x0)*i/n;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,y-(i%4===0?7:4)); ctx.stroke(); }
+}
+function drawSceneStatic(c){
+  clearStage(); const cond=CONDS[c]; const g=drawTabletop(cond.frac); const tapeY=g.topY-12;
+  tapeStrip(g.xL, g.xR, tapeY);
+  ctx.fillStyle="#2E8B8B"; rr(g.xL-20,tapeY-6,22,20,4); ctx.fill();   // reel at zero end
+  ctx.fillStyle="#1E2A5C"; ctx.font="12px system-ui"; ctx.textAlign="left"; ctx.fillText("zero end",g.xL-2,tapeY-12);
+  ctx.textAlign="right"; ctx.fillText("far edge",g.xR,tapeY-12);
+  connectors(g);
+  const r=loupeRects();
+  drawLeftLoupe(r.L, {worn:cond.type==="worn", offMm:S[c].align});
+  drawRightLoupe(r.R, {show:S[c].locked, far:S[c].far});
+}
+function drawSceneGap(c){
+  clearStage(); const g=drawTabletop(CONDS[c].frac);
+  const tapeY=g.topY-42;                              // tape floats well above the tabletop
+  tapeStrip(g.xL, g.xR, tapeY);
+  ctx.fillStyle="#2E8B8B"; rr(g.xL-20,tapeY-6,22,20,4); ctx.fill();
+  ctx.fillStyle="#1E2A5C"; ctx.font="12px system-ui"; ctx.textAlign="left"; ctx.fillText("zero end",g.xL-2,tapeY-12);
+  ctx.textAlign="right"; ctx.fillText("far edge",g.xR,tapeY-12);
+  // perpendicular projection lines at the two ends (no contact anywhere)
+  ctx.strokeStyle="#C00000"; ctx.setLineDash([4,3]); ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(g.xL,tapeY+9); ctx.lineTo(g.xL,g.topY); ctx.stroke();        // zero -> left edge
+  ctx.beginPath(); ctx.moveTo(g.xR,g.topY); ctx.lineTo(g.xR,tapeY+9); ctx.stroke();          // far edge -> scale
+  ctx.setLineDash([]);
+  ctx.fillStyle="#C00000"; ctx.font="12px system-ui"; ctx.textAlign="center";
+  ctx.fillText("the tape is held away from the table — nothing touches it",(g.xL+g.xR)/2,(tapeY+9+g.topY)/2+4);
+  connectors(g);
+  const r=loupeRects();
+  drawGapLeftLoupe(r.L, S[c].align);
+  drawGapRightLoupe(r.R, S[c].far);
+}
+function drawGapLeftLoupe(rc, alignMm){
+  loupeFrame(rc,"zero end ↔ left edge (magnified)");
+  const cx=rc.x+rc.w*0.5, tapeY=rc.y+rc.h*0.30, edgeY=rc.y+rc.h*0.60, SX=4;
+  // the WHOLE ruler slides sideways by the judged offset; "0" is its left end, scale runs right
+  const zeroX=Math.max(rc.x+12, Math.min(rc.x+rc.w*0.66, cx+alignMm*SX));   // whole ruler slides; stays in the box
+  const tapeR=rc.x+rc.w-12, span=tapeR-zeroX, n=Math.max(6,Math.round(span/((rc.w-24)/24)));
+  ctx.fillStyle="#fff"; ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=1.5;
+  ctx.fillRect(zeroX,tapeY,span,12); ctx.strokeRect(zeroX,tapeY,span,12);
+  ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=1;
+  for(let i=0;i<=n;i++){ const x=zeroX+span*i/n; ctx.beginPath(); ctx.moveTo(x,tapeY+12); ctx.lineTo(x,tapeY+12+(i%5===0?7:4)); ctx.stroke(); }
+  ctx.fillStyle="#1E2A5C"; ctx.font="bold 13px system-ui"; ctx.textAlign="center"; ctx.fillText("0",zeroX,tapeY-4);
+  // table left-edge marker: fixed at centre, below, clear vertical gap, NO connecting line
+  ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(cx,edgeY+4); ctx.lineTo(cx,edgeY+22); ctx.stroke();
+  ctx.fillStyle="#1E2A5C"; ctx.font="12px system-ui"; ctx.textAlign="center"; ctx.fillText("left edge",cx,edgeY+36);
+  ctx.fillStyle="#8a8475"; ctx.font="11px system-ui"; ctx.fillText("slide the tape so its 0 sits over the edge — across the gap",cx,rc.y+rc.h-6);
+}
+function drawGapRightLoupe(rc, far){
+  loupeFrame(rc,"far edge ↔ tape scale (magnified)");
+  const cx=rc.x+rc.w*0.5, tapeY=rc.y+rc.h*0.30, edgeY=rc.y+rc.h*0.60;
+  const x0=rc.x+rc.w*0.07, x1=rc.x+rc.w*0.93, loV=far-15, hiV=far+15;
+  const vToX=(v)=> x0+(x1-x0)*(v-loV)/(hiV-loV);
+  // floating tape scale (window centred on the current estimate; the true value is never labelled at centre)
+  ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x0,tapeY); ctx.lineTo(x1,tapeY); ctx.stroke();
+  ctx.font="13px system-ui"; ctx.fillStyle="#1E2A5C"; ctx.textAlign="center";
+  for(let mm=Math.ceil(loV); mm<=Math.floor(hiV); mm++){ const x=vToX(mm), isCm=(mm%10===0), isHalf=(mm%5===0);
+    ctx.lineWidth=isCm?2:1; ctx.beginPath(); ctx.moveTo(x,tapeY); ctx.lineTo(x,tapeY+(isCm?16:(isHalf?10:6))); ctx.stroke();
+    if(isCm) ctx.fillText((mm/10).toFixed(0),x,tapeY-6); }
+  ctx.textAlign="left"; ctx.fillStyle="#8a8475"; ctx.font="11px system-ui"; ctx.fillText("cm",x1+4,tapeY+4);
+  // table far-edge marker: fixed at centre, below, clear vertical gap, NO connecting line / NO dot
+  ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(cx,edgeY+4); ctx.lineTo(cx,edgeY+22); ctx.stroke();
+  ctx.fillStyle="#1E2A5C"; ctx.font="12px system-ui"; ctx.textAlign="center"; ctx.fillText("far edge",cx,edgeY+36);
+  ctx.fillStyle="#8a8475"; ctx.font="11px system-ui"; ctx.fillText("which value sits above the edge? — estimate across the gap",cx,rc.y+rc.h-6);
+}
+function drawSceneOsc(c, swayMm){
+  clearStage(); const g=drawTabletop(CONDS[c].frac);
+  const supY=H*0.06, tapeY=g.topY-26, pxPerMm=(g.xR-g.xL)/CONDS[c].trueMM, swayPx=swayMm*pxPerMm*3.2;
+  // support bar
+  ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(g.xL-10,supY); ctx.lineTo(g.xR+10,supY); ctx.stroke();
+  // strings to the swaying tape
+  ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(g.xL+ (g.xR-g.xL)*0.12, supY); ctx.lineTo(g.xL+swayPx, tapeY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(g.xR- (g.xR-g.xL)*0.12, supY); ctx.lineTo(g.xR+swayPx, tapeY); ctx.stroke();
+  tapeStrip(g.xL+swayPx, g.xR+swayPx, tapeY);
+  ctx.fillStyle="#8a8475"; ctx.font="12px system-ui"; ctx.textAlign="center";
+  ctx.fillText("the tape keeps swinging", (g.xL+g.xR)/2, supY-4);
+  connectors(g);
+  const r=loupeRects();
+  drawLeftLoupe(r.L, {worn:false, offMm:swayMm});
+  drawRightLoupe(r.R, {show:true, far:CONDS[c].trueMM+swayMm, gap:false, moving:true});
+}
+function connectors(g){
+  const r=loupeRects();
+  ctx.strokeStyle="#888"; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(g.xL,g.topY+g.topH+5); ctx.lineTo(r.L.x+r.L.w*0.5,r.L.y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(g.xR,g.topY+g.topH+5); ctx.lineTo(r.R.x+r.R.w*0.5,r.R.y); ctx.stroke();
+  ctx.setLineDash([]);
+}
+function loupeRects(){ return {
+  L:{x:W*0.055,y:H*0.54,w:W*0.41,h:H*0.42},
+  R:{x:W*0.535,y:H*0.54,w:W*0.41,h:H*0.42} }; }
+function loupeFrame(rc,title){
+  ctx.fillStyle="#fff"; ctx.strokeStyle="#2E8B8B"; ctx.lineWidth=2;
+  rr(rc.x,rc.y,rc.w,rc.h,12); ctx.fill(); ctx.stroke();
+  ctx.fillStyle="#8a8475"; ctx.font="12px system-ui"; ctx.textAlign="left";
+  ctx.fillText(title, rc.x+10, rc.y+18);
+}
+function drawLeftLoupe(rc,opt){
+  loupeFrame(rc,"zero end ↔ left edge (magnified)");
+  const cx=rc.x+rc.w*0.5, baseY=rc.y+rc.h*0.62, mmPerPx=24/rc.w;
+  ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(cx,baseY-44); ctx.lineTo(cx,baseY+10); ctx.stroke();
+  ctx.fillStyle="#1E2A5C"; ctx.font="12px system-ui"; ctx.textAlign="center";
+  ctx.fillText("left edge",cx,baseY+24);
+  const endX=cx+opt.offMm/mmPerPx;
+  ctx.fillStyle="#fff"; ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=1.5;
+  ctx.fillRect(endX,baseY-30,rc.x+rc.w-6-endX,14); ctx.strokeRect(endX,baseY-30,rc.x+rc.w-6-endX,14);
+  if(opt.worn){
+    // worn end: the 0 (and first cm) is gone, so the printed scale simply begins at "1"
+    ctx.fillStyle="#1E2A5C"; ctx.font="bold 15px system-ui"; ctx.textAlign="center";
+    ctx.fillText("1",endX+9,baseY-36);
+    ctx.fillStyle="#8a8475"; ctx.font="11px system-ui"; ctx.textAlign="left";
+    ctx.fillText("scale starts at 1 cm (0 worn off)",endX-6,baseY+26);
+  } else {
+    ctx.fillStyle="#1E2A5C"; ctx.fillRect(endX-3,baseY-30,3,14);
+    ctx.font="bold 13px system-ui"; ctx.textAlign="center"; ctx.fillText("0",endX,baseY-34);
+  }
+  ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=1;
+  for(let mm=0;mm<=12;mm++){ const x=endX+mm/mmPerPx; if(x>rc.x+rc.w-6) break;
+    ctx.beginPath(); ctx.moveTo(x,baseY-30); ctx.lineTo(x,baseY-30+(mm%5===0?7:4)); ctx.stroke(); }
+}
+function drawRightLoupe(rc,opt){
+  loupeFrame(rc,"far edge ↔ tape scale (magnified)");
+  if(!opt.show){
+    ctx.fillStyle="#8a8475"; ctx.font="13px system-ui"; ctx.textAlign="center";
+    ctx.fillText("line up the zero end first,",rc.x+rc.w*0.5,rc.y+rc.h*0.5);
+    ctx.fillText("then read here",rc.x+rc.w*0.5,rc.y+rc.h*0.5+20); return;
+  }
+  const far=opt.far, baseY=rc.y+rc.h*0.60;
+  const x0=rc.x+rc.w*0.07, x1=rc.x+rc.w*0.93, loV=far-15, hiV=far+15;
+  const vToX=(v)=> x0 + (x1-x0)*(v-loV)/(hiV-loV);
+  ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(x0,baseY); ctx.lineTo(x1,baseY); ctx.stroke();
+  ctx.font="13px system-ui"; ctx.fillStyle="#1E2A5C"; ctx.textAlign="center";
+  for(let mm=Math.ceil(loV); mm<=Math.floor(hiV); mm++){
+    const x=vToX(mm), isCm=(mm%10===0), isHalf=(mm%5===0);
+    ctx.lineWidth=isCm?2:1;
+    ctx.beginPath(); ctx.moveTo(x,baseY); ctx.lineTo(x,baseY-(isCm?20:(isHalf?12:7))); ctx.stroke();
+    if(isCm) ctx.fillText((mm/10).toFixed(0),x,baseY+18);
+  }
+  const ex=vToX(far);
+  ctx.strokeStyle="#C00000"; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(ex,baseY-38); ctx.lineTo(ex,baseY+6); ctx.stroke();
+  ctx.fillStyle="#C00000"; ctx.beginPath();
+  ctx.moveTo(ex,baseY-42); ctx.lineTo(ex-6,baseY-52); ctx.lineTo(ex+6,baseY-52); ctx.closePath(); ctx.fill();
+  ctx.font="12px system-ui"; ctx.textAlign="center"; ctx.fillText("table edge",ex,baseY-56);
+  ctx.textAlign="left"; ctx.fillStyle="#8a8475"; ctx.font="11px system-ui"; ctx.fillText("cm",x1+4,baseY+4);
+}
+
+/* ---- 6. Class strip + reveal diagrams --------------------------------- */
+function drawCompareHistograms(A,B){
+  clearStage();
+  const x0=W*0.12, x1=W*0.90, HALF=20, pxPerMm=(x1-x0)/(2*HALF), center=(x0+x1)/2;
+  function row(vals,topY,baseY,label){
+    const c0=Math.round(vals.reduce((p,q)=>p+q,0)/vals.length);
+    const toX=(mm)=> center + (mm-c0)*pxPerMm;
+    const bins={}; vals.forEach(v=>{const b=Math.round(v); bins[b]=(bins[b]||0)+1;});
+    const maxC=Math.max(...Object.values(bins)), bw=pxPerMm*0.8;
+    ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x0,baseY); ctx.lineTo(x1,baseY); ctx.stroke();
+    Object.keys(bins).forEach(k=>{ const mm=+k,x=toX(mm); if(x<x0-1||x>x1+1) return;
+      const h=(baseY-topY)*(bins[k]/maxC); ctx.fillStyle="#1E2A5C"; ctx.fillRect(x-bw/2,baseY-h,bw,h); });
+    ctx.fillStyle="#1E2A5C"; ctx.font="12px system-ui"; ctx.textAlign="center";
+    for(let d=-10; d<=10; d+=10){ const x=toX(c0+d);
+      ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x,baseY); ctx.lineTo(x,baseY+8); ctx.stroke();
+      ctx.fillText(((c0+d)/10).toFixed(1),x,baseY+22); }
+    ctx.fillStyle="#8a8475"; ctx.textAlign="left"; ctx.fillText(label,x0,topY-6);
+    ctx.textAlign="left"; ctx.fillStyle="#8a8475"; ctx.font="11px system-ui"; ctx.fillText("cm",x1+4,baseY+4);
+  }
+  ctx.fillStyle="#8a8475"; ctx.font="12px system-ui"; ctx.textAlign="center";
+  ctx.fillText("same scale — compare how widely each set is spread",center,H*0.10);
+  row(A, H*0.20, H*0.44, "up close (table 1)");
+  row(B, H*0.60, H*0.84, "across the gap (table 2)");
+}
+function drawClassStrip(values, studentMm, highlightMm){
+  clearStage();
+  const lo=Math.min(...values,studentMm)-2, hi=Math.max(...values,studentMm)+2;
+  const x0=W*0.10,x1=W*0.90,base=H*0.74,top=H*0.26;
+  const toX=(mm)=> x0+(x1-x0)*(mm-lo)/Math.max(1,(hi-lo));
+  const bins={}; values.forEach(v=>{const b=Math.round(v); bins[b]=(bins[b]||0)+1;});
+  const maxC=Math.max(...Object.values(bins)), bw=(x1-x0)/Math.max(1,(hi-lo))*0.86;
+  Object.keys(bins).forEach(k=>{ const mm=+k,h=(base-top)*(bins[k]/maxC),x=toX(mm);
+    ctx.fillStyle=(highlightMm!=null && mm===Math.round(highlightMm))?"#C00000":"#1E2A5C"; ctx.fillRect(x-bw/2,base-h,bw,h); });
+  ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(x0,base); ctx.lineTo(x1,base); ctx.stroke();
+  ctx.lineWidth=1;
+  for(let mm=Math.ceil(lo); mm<=Math.floor(hi); mm++){ const x=toX(mm);
+    ctx.beginPath(); ctx.moveTo(x,base); ctx.lineTo(x,base+5); ctx.stroke(); }
+  const step=(hi-lo)<=10?2:((hi-lo)<=24?5:10);
+  ctx.font="12px system-ui"; ctx.fillStyle="#1E2A5C"; ctx.textAlign="center";
+  for(let mm=Math.ceil(lo/step)*step; mm<=Math.floor(hi); mm+=step){ const x=toX(mm);
+    ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x,base); ctx.lineTo(x,base+9); ctx.stroke();
+    ctx.fillText((mm/10).toFixed(1),x,base+22); }
+  ctx.textAlign="left"; ctx.fillStyle="#8a8475"; ctx.font="11px system-ui"; ctx.fillText("cm",x1+4,base+4);
+  const xm=toX(studentMm);
+  ctx.strokeStyle="#2E8B8B"; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(xm,top-8); ctx.lineTo(xm,base); ctx.stroke();
+  ctx.fillStyle="#2E8B8B"; ctx.font="13px system-ui"; ctx.textAlign="center"; ctx.fillText("your reading",xm,top-14);
+  ctx.fillStyle="#8a8475"; ctx.fillText("the class's readings of this table — a taller bar means more learners read that value",(x0+x1)/2,H*0.16);
+  if(highlightMm!=null){ const hx=toX(Math.round(highlightMm));
+    ctx.fillStyle="#C00000"; ctx.font="12px system-ui"; ctx.textAlign="center"; ctx.fillText("a mistake — not part of the spread",hx,top-2); }
+}
+function drawWornReveal(){
+  clearStage(); const y=H*0.50, x0=W*0.20, x1=W*0.82;
+  // the table edge the worn end is butted against
+  ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(x0,y-44); ctx.lineTo(x0,y+22); ctx.stroke();
+  ctx.fillStyle="#1E2A5C"; ctx.font="12px system-ui"; ctx.textAlign="center"; ctx.fillText("table edge",x0,y-50);
+  // worn tape butted to the edge: first cm gone, scale starts at 1
+  ctx.fillStyle="#fff"; ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=2;
+  ctx.fillRect(x0,y-16,x1-x0,22); ctx.strokeRect(x0,y-16,x1-x0,22);
+  ctx.fillStyle="rgba(192,0,0,0.15)"; ctx.fillRect(x0-26,y-16,26,22);
+  ctx.strokeStyle="#C00000"; ctx.lineWidth=2;
+  for(let k=0;k<10;k++){ const yy=y-16+k*2.2; ctx.beginPath(); ctx.moveTo(x0,yy); ctx.lineTo(x0-8,yy+1); ctx.stroke(); }
+  ctx.strokeStyle="#1E2A5C"; ctx.fillStyle="#1E2A5C"; ctx.font="12px system-ui"; ctx.textAlign="center";
+  for(let cm=1;cm<=6;cm++){ const x=x0+(x1-x0)*(cm-1)/6; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(x,y-16); ctx.lineTo(x,y-6); ctx.stroke(); ctx.fillText(String(cm),x,y-22); }
+  ctx.fillStyle="#C00000"; ctx.font="11px system-ui"; ctx.fillText("scale starts at 1, not 0",x0+(x1-x0)*0.16,y+18);
+  // +1 cm consequence
+  ctx.strokeStyle="#C00000"; ctx.lineWidth=2; const ax=x0+(x1-x0)/6;
+  ctx.beginPath(); ctx.moveTo(x0,y+40); ctx.lineTo(ax,y+40); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ax,y+40); ctx.lineTo(ax-6,y+36); ctx.lineTo(ax-6,y+44); ctx.closePath(); ctx.fill();
+  ctx.fillStyle="#C00000"; ctx.textAlign="left"; ctx.font="13px system-ui";
+  ctx.fillText("every reading runs ~1 cm long — the same shift, every time",ax+8,y+44);
+}
+function drawSwingReveal(){
+  clearStage(); const y=H*0.56, cx=W*0.5, half=W*0.22;
+  ctx.strokeStyle="#1E2A5C"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(cx-half-30,y); ctx.lineTo(cx+half+30,y); ctx.stroke();
+  ctx.strokeStyle="#2E8B8B"; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(cx-half,y-30); ctx.lineTo(cx-half,y+10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx+half,y-30); ctx.lineTo(cx+half,y+10); ctx.stroke();
+  ctx.fillStyle="#2E8B8B"; ctx.font="12px system-ui"; ctx.textAlign="center";
+  ctx.fillText("the reading swings between these as the scale moves",cx,y-40);
+  for(let i=0;i<9;i++){ const x=cx-half+ (2*half)*(0.5-0.5*Math.cos(Math.PI*i/8));
+    ctx.fillStyle="#C00000"; ctx.beginPath(); ctx.arc(x,y,3,0,2*Math.PI); ctx.fill(); }
+  ctx.fillStyle="#8a8475"; ctx.fillText("you catch the moving scale at one instant — anywhere in the swing",cx,y+34);
+}
+
+/* ---- 7. Oscillation animation ----------------------------------------- */
+let oscRAF=null, oscStart=0;
+function stopOsc(){ if(oscRAF){ cancelAnimationFrame(oscRAF); oscRAF=null; } oscStart=0; }
+function oscFrame(ts){
+  if(!oscStart) oscStart=ts;
+  const t=ts-oscStart, sway=OSC_A*Math.sin(2*Math.PI*t/OSC_PERIOD);
+  S[3].sway=sway; drawSceneOsc(3, sway);
+  oscRAF=requestAnimationFrame(oscFrame);
+}
+
+/* ---- 8. UI helpers ---------------------------------------------------- */
+const panel=document.getElementById("panel"), fb=document.getElementById("feedback");
+const NUDGES=["Are you sure? Check again.","Hmm — take another look.","Worth a second look.","Give that one another look.","Look again and re-enter."];
+function pickNudge(){ return NUDGES[Math.floor(rnd()*NUDGES.length)]; }
+function setFb(m,cls){ fb.textContent=m||""; fb.className=cls||""; }
+function el(t,c,h){ const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; }
+function clearPanel(){ panel.innerHTML=""; setFb(""); }
+function next(){ phaseIdx++; render(); }
+function addBack(){ const b=el("button","ghost","← Back"); b.style.marginTop="10px";
+  b.onclick=()=>{ if(phaseIdx>0){ phaseIdx--; render(); } }; panel.appendChild(b); }
+
+/* ---- 9. Phase renderers ----------------------------------------------- */
+function render(){
+  stopOsc(); fitCanvas();
+  const p=PHASES[phaseIdx]; clearPanel();
+  if(p==="intro") return renderIntro();
+  if(p.startsWith("measure")) return renderMeasure(+p.slice(7));
+  if(p.startsWith("class"))   return renderClass(+p.slice(5));
+  if(p==="qSpread0")  return renderSpread(0);
+  if(p==="qOutlier0") return renderOutlier(0);
+  if(p==="qSpread1")  return renderSpread(1);
+  if(p==="qCompare1") return renderCompare(1);
+  if(p==="qWorn") return renderQ(2,"q4");
+  if(p==="qOsc")  return renderQ(3,"q5");
+  if(p==="close") return renderClose();
+}
+function renderIntro(){
+  drawSceneStatic(0);
+  panel.appendChild(el("p","lead",
+    "<b>What you're looking at:</b> a side view of a table with a tape measure lying along its top, "+
+    "from the table's left edge across to its far edge. The two boxes <b>in the picture above</b> (below the table) are <b>magnified views</b> — "+
+    "the left one zooms in on where the tape's zero end meets the table's left edge, and the right one "+
+    "zooms in on where the table's far edge falls on the tape scale."));
+  const ol=el("ol","todo");
+  ol.appendChild(el("li",null,"Line the tape's <b>zero end up with the table's left edge</b> using the left magnified view, then lock it."));
+  ol.appendChild(el("li",null,"In the <b>right magnified view</b>, read where the table's far edge falls on the tape scale."));
+  ol.appendChild(el("li",null,"Type the length you read, in centimetres (for example, <b>88.6</b>) — type exactly what you read."));
+  panel.appendChild(el("p","ctx","<b>What to do, each time:</b>"));
+  panel.appendChild(ol);
+  panel.appendChild(el("p","note",
+    "You'll measure the same table four times, under different conditions (the last one moves — you'll just read it). Nothing here is right or wrong."));
+  const b=el("button",null,"Start measuring"); b.onclick=()=>{ phaseIdx++; render(); }; panel.appendChild(b);
+}
+function readingInput(onAccept, acceptMm, initial){
+  const stepB=el("div");
+  stepB.appendChild(el("p","step","Read the far edge"));
+  stepB.appendChild(el("p","hint","In the right magnified view, read where the table's edge falls on the tape scale, then type it in centimetres. Type exactly what you read — keep any decimals."));
+  const row=el("div","row");
+  const inp=el("input"); inp.type="text"; inp.setAttribute("inputmode","decimal");
+  inp.autocomplete="off"; inp.placeholder="e.g. 88.6"; if(initial) inp.value=initial;
+  row.appendChild(inp); row.appendChild(el("span","unit","cm"));
+  const rec=el("button",null,"Record reading"); row.appendChild(rec); stepB.appendChild(row);
+  function submit(){
+    const raw=inp.value.trim(), v=parseFloat(raw);
+    if(raw==="" || !isFinite(v)){ setFb("Type the length you read, in centimetres (e.g. 88.6)."); return; }
+    if(acceptMm(v*10)){ onAccept(raw, v*10); }
+    else setFb(pickNudge(),"warn");
+  }
+  rec.onclick=submit; inp.addEventListener("keydown",e=>{ if(e.key==="Enter") submit(); });
+  return {stepB, focus:()=>inp.focus()};
+}
+function renderMeasure(c){
+  const cond=CONDS[c];
+  if(cond.type==="osc") return renderMeasureOsc(c);
+  if(cond.type==="gap") return renderMeasureGap(c);
+  drawSceneStatic(c);
+  panel.appendChild(el("p","note","Side view: the tape runs along the table from the left edge to the far edge; the two magnified views (in the picture above) zoom in on each end."));
+  panel.appendChild(el("p","ctx",cond.ctx));
+  panel.appendChild(el("p","step","Line up the zero end"));
+  const sl=el("input"); sl.type="range"; sl.min="-15"; sl.max="15"; sl.step="0.1"; sl.value=String(S[c].align);
+  panel.appendChild(sl);
+  const lockBtn=el("button",null,"Lock the zero in place");
+  const hint=el("p","hint","Line the tape's zero end up with the table's left edge in the left magnified view as well as you can — then lock it in place when you're happy with it.");
+  panel.appendChild(lockBtn); panel.appendChild(hint);
+  sl.addEventListener("input",()=>{ if(S[c].locked) return; S[c].align=parseFloat(sl.value); drawSceneStatic(c); });
+  const band = 3+1e-6;   // ±3 mm: any honest reading is a valid member of the class spread; only a blunder nudges
+  const ri=readingInput(
+    (raw,mm)=>{ S[c].reading=raw; setFb("Reading recorded.","ok"); setTimeout(()=>{ phaseIdx++; render(); },260); },
+    (mm)=> Math.abs(mm - S[c].far) <= band,
+    S[c].reading||"" );
+  panel.appendChild(ri.stepB);
+  function doLock(){
+    if(!S[c].locked){ S[c].far = cond.trueMM + cond.offset - S[c].align + gauss(cond.sigma); S[c].locked=true; }
+    drawSceneStatic(c);
+    sl.disabled=true; lockBtn.disabled=true; lockBtn.textContent="Zero locked ✓";
+    hint.style.display="none"; ri.stepB.style.display="block";
+  }
+  lockBtn.onclick=()=>{ doLock(); ri.focus(); };
+  if(S[c].locked) doLock(); else ri.stepB.style.display="none";   // restore locked view when returning via Back
+  addBack();
+}
+function renderMeasureGap(c){
+  const cond=CONDS[c];
+  if(S[c].far0==null) S[c].far0 = gauss(3.0);                 // far-end estimate noise, drawn once
+  const recompute=()=>{ S[c].far = cond.trueMM - S[c].align + S[c].far0; };  // both ends estimated; zero residual folds in
+  recompute(); drawSceneGap(c);
+  panel.appendChild(el("p","note","Side view: the tape is held above the table, not touching it; the two magnified views (in the picture above) zoom in on each end."));
+  panel.appendChild(el("p","ctx",cond.ctx));
+  panel.appendChild(el("p","step","Judge the zero across the gap"));
+  const sl=el("input"); sl.type="range"; sl.min="-12"; sl.max="12"; sl.step="0.1"; sl.value=String(S[c].align);
+  panel.appendChild(sl);
+  panel.appendChild(el("p","hint","Nudge the floating tape so its zero looks lined up with the table's left edge across the gap — you can't rest it there, so just judge it by eye."));
+  sl.addEventListener("input",()=>{ S[c].align=parseFloat(sl.value); recompute(); drawSceneGap(c); });
+  const ri=readingInput(
+    (raw,mm)=>{ S[c].reading=raw; setFb("Reading recorded.","ok"); setTimeout(()=>{ phaseIdx++; render(); },260); },
+    (mm)=> Math.abs(mm - cond.trueMM) <= 20+1e-6,   // wide estimation band; never trap
+    S[c].reading||"" );
+  ri.stepB.style.display="block"; panel.appendChild(ri.stepB);
+  addBack();
+}
+function renderMeasureOsc(c){
+  panel.appendChild(el("p","note","Side view: the tape hangs from two strings above the table and keeps swinging; the two magnified views (in the picture above) zoom in on each end."));
+  panel.appendChild(el("p","ctx",CONDS[c].ctx));
+  panel.appendChild(el("p","hint","The scale keeps sliding under the table's edge, so the number lined up with the edge changes moment to moment. Read it as best you can while it moves."));
+  const ri=readingInput(
+    (raw,mm)=>{ S[c].reading=raw; stopOsc(); setFb("Reading recorded.","ok"); setTimeout(()=>{ phaseIdx++; render(); },260); },
+    (mm)=> mm >= CONDS[c].trueMM-OSC_A-1e-6 && mm <= CONDS[c].trueMM+OSC_A+1e-6,   // accept anywhere in the swing envelope
+    S[c].reading||"" );
+  panel.appendChild(ri.stepB);
+  addBack();
+  oscStart=0; if(!oscRAF) oscRAF=requestAnimationFrame(oscFrame);
+}
+function genClass(c){
+  const cond=CONDS[c], a=[];
+  if(cond.type==="osc"){ for(let i=0;i<CLASS_N;i++) a.push(Math.round(cond.trueMM + gauss(OSC_SIG, OSC_A/OSC_SIG))); }
+  else {
+    const tr = (OUTLIER_MM[c]!=null) ? 2.0 : TRUNC;   // tighten the honest cluster where an outlier is planted
+    for(let i=0;i<CLASS_N;i++) a.push(Math.round(cond.trueMM + cond.offset + gauss(cond.sigma, tr)));
+  }
+  if(OUTLIER_MM[c]!=null) a.push(OUTLIER_MM[c]);        // inject exactly one clearly-detached blunder
+  classSamples[c]=a;
+}
+function renderClass(c){
+  if(!classSamples[c]) genClass(c);
+  const studentMm=parseFloat(S[c].reading)*10;
+  drawClassStrip(classSamples[c],studentMm);
+  panel.appendChild(el("p","ctx",
+    "Your reading is <b>"+fmtVal(S[c].reading)+" cm</b>. A class measuring this table "+CLASS_LABEL[c]+
+    " got the readings shown above, with yours marked."));
+  const b=el("button",null,"Continue"); b.onclick=next; panel.appendChild(b);
+}
+function questionBlock(prompt,options,revealHtml,drawFn){
+  panel.appendChild(el("p","ctx",prompt));
+  const chips=el("div","chips");
+  options.forEach(t=>{ const ch=el("button","chip",t); ch.onclick=showReveal; chips.appendChild(ch); });
+  panel.appendChild(chips);
+  addBack();
+  function showReveal(){ clearPanel(); if(drawFn) drawFn();
+    panel.appendChild(el("div","reveal",revealHtml));
+    const b=el("button",null,"Continue"); b.onclick=next; panel.appendChild(b); }
+}
+function renderQ(c,which){
+  const studentMm=parseFloat(S[c].reading)*10;
+  if(which==="q4") drawWornReveal(); else drawClassStrip(classSamples[c],studentMm);
+  if(which==="q1"){
+    questionBlock("Here's your reading and the class's readings for the same careful measurement. Which single one is the correct length of the table?",
+      ["Your reading","The class's most common reading","The class average","None — the real length lies somewhere within the spread"],
+      "No single reading is 'the' length — not yours, not the most common, not the average. The real length sits somewhere <b>inside the spread</b> everyone measured.",
+      ()=>drawClassStrip(classSamples[c],studentMm));
+  } else if(which==="q2"){
+    questionBlock("The class's readings across the gap are more spread out than the up-close ones. Is any single one of them wrong?",
+      ["Yes — the ones furthest out are wrong","No — none of them is wrong"],
+      "None is wrong — with the tape held off the table, everyone had to judge both the start and the end across empty space, so the readings spread out.",
+      ()=>drawClassStrip(classSamples[c],studentMm));
+  } else if(which==="q4"){
+    questionBlock("Look closely at this tape's end in the left magnified view — where does its scale actually begin? If you line that worn end up with the table's edge, what happens to every reading?",
+      ["I measured less carefully","The scale starts late, so every reading runs long the same way","Random bad luck"],
+      "The 0 is worn away — the scale starts at the 1 cm mark. Line that end up with the edge and every reading comes out ~1 cm too long, the same way every time: a systematic error, built into the tool, not random scatter. The readings are tightly grouped (consistent) but all shifted (not accurate).",
+      drawWornReveal);
+  } else { // q5 oscillating
+    questionBlock("What made this reading hard to pin down?",
+      ["The tape was the wrong length","The tape's scale kept swinging, so you caught it at one instant","The numbers were too small to read"],
+      "The tape — your measuring scale — kept swinging, so the table's edge lined up with a different number each instant. You had to catch it at one moment. The uncertainty came from the moving measurement, not from the table, which never moved.",
+      drawSwingReveal);
+  }
+}
+function renderSpread(c){
+  if(!classSamples[c]) genClass(c);
+  const studentMm=parseFloat(S[c].reading)*10;
+  drawClassStrip(classSamples[c],studentMm);
+  questionBlock("Looking at the class's readings, which single one is the exact length?",
+    ["A single careful reading","The most common reading","The class average","None — the honest readings spread out; the true length is somewhere in that cluster"],
+    "No single reading is 'the' answer — not one careful reading, not the most common, not the average. Careful people still spread a little, and that spread is the uncertainty: the true length sits somewhere inside the cluster.",
+    ()=>drawClassStrip(classSamples[c],studentMm));
+}
+function renderOutlier(c){
+  if(!classSamples[c]) genClass(c);
+  const studentMm=parseFloat(S[c].reading)*10;
+  drawClassStrip(classSamples[c],studentMm);
+  questionBlock("Now look again — most readings bunch together, but is there one that doesn't belong with the rest?",
+    ["No, they're all equally fine","Yes — the one sitting far from the group"],
+    "That far-out reading isn't part of the honest spread — it's a mistake (a slip or a misread), not uncertainty. So there's a whole range of valid answers, but not every answer is valid: honest estimates cluster, a blunder stands apart, and you can leave it out.",
+    ()=>drawClassStrip(classSamples[c],studentMm,OUTLIER_MM[c]));
+}
+function renderCompare(c){
+  if(!classSamples[0]) genClass(0);
+  if(!classSamples[c]) genClass(c);
+  drawCompareHistograms(classSamples[0], classSamples[c]);
+  questionBlock("Here are the up-close readings (table 1, top) and the across-the-gap readings (table 2, bottom), drawn to the same scale. Comparing the two, what do you notice?",
+    ["They're about equally spread out","The across-the-gap readings are spread out much more widely","The across-the-gap readings are tighter"],
+    "The across-the-gap readings spread out much more widely. With the tape held off the table, each person had to estimate a harder position — judging the zero and the far edge across empty space — and those tougher judgements vary more from person to person. A harder measurement gives a wider spread, and a wider spread means more uncertainty.",
+    ()=>drawCompareHistograms(classSamples[0], classSamples[c]));
+}
+function renderClose(){
+  const sm = S[0].reading ? parseFloat(S[0].reading)*10 : Math.round(CONDS[0].trueMM);
+  drawClassStrip(classSamples[0]||[Math.round(CONDS[0].trueMM)], sm);
+  panel.appendChild(el("p","lead",
+    "So — for any of these four different tables, <b>could you give its length as one exact number?</b>"));
+  panel.appendChild(el("p","ctx",
+    "You couldn't. Each measurement gave a spread, not a single value — and some tapes shifted the whole spread or widened it. "+
+    "That's the puzzle we'll make precise next: how to report a measurement so it actually says what you do — and don't — know."));
+  const row=el("div","row");
+  const done=el("button",null,"Done");
+  const again=el("button","ghost","Start over");
+  row.appendChild(done); row.appendChild(again); panel.appendChild(row);
+  done.onclick=()=>{ clearPanel(); clearStage();
+    panel.appendChild(el("p","lead","You've finished Measurement Station A.")); };
+  again.onclick=()=>{ reseed(); freshState(); phaseIdx=0; render(); };
+}
+
+/* ---- 10. Boot --------------------------------------------------------- */
+window.addEventListener("resize", ()=>{ render(); });
+window.addEventListener("load", ()=>{ render(); });
+render();
+</script>
+</body>
+</html>
