@@ -1,6 +1,6 @@
 # Applet entry: math/escape/curators-vault
 
-- **Path:** https://frohlich-math-physics.netlify.app/math/escape/curators-vault/
+- **Path:** https://frohlich-math-physics.netlify.app/math/escape/curators-vault/ — **LIVE** (verified 2026-06-07)
 - **Tier:** Premium (escape room — Applet_Conventions §3.3; Premium_Materials_Design_v2)
 - **Type:** Gated reveals + multi-lock state machine (escape room). Novel artifact; applet-family tech.
 - **Built for:** IB MAI SL Topic 4.9 (Normal Distribution) capstone — Level 1 (Empirical Rule). Levels 2–3 later phases.
@@ -16,6 +16,7 @@
 - **Art assets (Mr. F supplies → `assets/img/`):** `bg-archive.png`, `curator.png`, `amara.png`, `kai.png`, `custodian.png`. Stub folder with filename manifest shipped.
 - **Rev 4:** 2026-06-06 (Vault Custodian becomes a VOICED judge: `custodian_cast` on the cast screen, `custodian_map` on the map (new voice hook), `custodian_wrong` on wrong answers — all on the SAME single voice channel as the Curator, never overlapping; Custodian voice debounced ~2s. Curator's `curator_wrong` retired. Kai hints reworded to "standard deviation(s)"/"mean". Amara radio re-anchored as a right-side vertical block. Siren loops continuously as flood ambience, decoupled from the race timer (timer shown only by its countdown). Results narrator paragraph rewritten for the ascent (Curator caption unchanged). Seven answers and Empirical-Rule scope unchanged.)
 - **Rev 5:** 2026-06-06 (Amara's transmission now floats as a fixed lower-right HUD on desktop — `pointer-events:none` so it never blocks the action buttons, `z-index` below the terminal modal, only the current stage's transmission shown; reverts to in-flow full-width at the bottom of the stage on ≤560px. `script.md` §3 results prose synced to the build copy. No code logic, answers, scope, or audio changed.)
+- **Rev 6:** 2026-06-07 (ambient ducking: water/siren loops run at FULL — water 0.55, siren 0.50 — and dip to DUCKED — water 0.20, siren 0.18 — while any voice clip plays, ramping back ~300ms after it ends. Raised from the old static 0.25/0.30 so the improved water bed is clearly audible. Siren stays decoupled from the race timer. No answers, scope, or voice content changed.)
 - **Build chat:** Curator's Vault PHASE 1 worker
 - **Files in bundle:**
   - `index.html` — the whole app (single self-contained file)
@@ -60,6 +61,8 @@ Escape rooms are a new artifact with no `Escape_Room_Conventions` doc. The follo
 17. **Ambient siren decoupled from the race timer.** Continuous flood ambience (siren + water loops) runs the whole session independent of the optional race timer; the timer is signalled only by its on-screen countdown. Separates "atmosphere" from "mechanic." Candidate Escape_Room_Conventions audio entry.
 
 18. **Fixed-HUD transmission (mobile reverts to flow).** A persistent side message (Amara's radio) that floats as a `position:fixed` lower-right HUD on desktop with `pointer-events:none` (so it overlays without ever blocking the underlying action buttons) and `z-index` below any modal, then reverts to a normal in-flow full-width block at ≤560px (a fixed overlay would cover the puzzle on a phone). Solves the "right column has no room beside full-width cards" problem without squeezing content. Candidate Escape_Room_Conventions / Visual_Conventions layout entry.
+
+19. **Ambient ducking under voice.** Looping ambience runs at a FULL level and dips to a DUCKED level (with a short ~300ms volume ramp) whenever a voice clip plays, restoring when the last voice ends — driven off the same single-voice-channel start/fin path, with a "cancel" hook that neutralizes a superseded clip so a cut line never restores or fires a stale callback. Keeps ambience present without burying narration. Candidate Escape_Room_Conventions audio entry.
 
 5. **Report-mode flag + team-level pipeline payload.** `REPORT_MODE = 'live'|'local'|'off'` with fire-and-forget POST; team-level (not per-student) events `id_submitted` / `stage_complete` / `level_complete`. Generalizes the team-competition pattern (Applet_Conventions §5.10) to monitored-but-not-graded escape rooms. Candidate for an Escape_Room_Conventions reporting section.
 

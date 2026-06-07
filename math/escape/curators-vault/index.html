@@ -651,36 +651,60 @@ var solved  = { s1:false, alpha:false, beta:false, gamma:false, h1:false, h2:fal
 /* ===================== AUDIO ===================== */
 var audioUnlocked = false, muted = false, ambientOn = false;
 var loops = { siren:null, water:null };
-var voiceChannel = null;            // single Curator voice channel
+var voiceChannel = null, voiceCancel = null;   // single voice channel (Curator OR Custodian)
+
+/* Rev 6: ambient ducking — loops run at FULL, dip to DUCKED while any voice clip plays, ramp back after. */
+var LOOP_FULL = { water:0.55, siren:0.50 };
+var LOOP_DUCK = { water:0.20, siren:0.18 };
+var ducked = false;
+function loopTarget(key){ return (ducked ? LOOP_DUCK[key] : LOOP_FULL[key]); }
+function rampVolume(a, to){                      // ~300ms tween; falls back to instant set on any error
+  if(!a) return;
+  try {
+    var from=a.volume, steps=12, i=0;
+    var t=setInterval(function(){
+      i++; var v=from+(to-from)*(i/steps);
+      try{ a.volume=Math.max(0,Math.min(1,v)); }catch(e){ clearInterval(t); return; }
+      if(i>=steps) clearInterval(t);
+    }, 25);
+  } catch(e){ try{ a.volume=to; }catch(e2){} }
+}
+function applyLoopLevels(ramp){
+  for(var key in loops){ if(loops[key]){ if(ramp) rampVolume(loops[key], loopTarget(key)); else { try{loops[key].volume=loopTarget(key);}catch(e){} } } }
+}
 
 function _src(b,n){ return 'assets/' + b + '/' + n + '.mp3'; }
 function playSound(name){
   if (muted || !audioUnlocked) return;
   try { var a=new Audio(_src('sfx',name)); a.volume=0.7; a.play().catch(function(){}); } catch(e){}
 }
-function playVoice(name, onEnd){     // only ONE Curator line audible; onEnd sequences the next
+function playVoice(name, onEnd){     // only ONE voice line audible; ducks the ambience while it plays
   if (muted || !audioUnlocked){ if(onEnd) onEnd(); return; }
-  if (voiceChannel){ try{ voiceChannel.pause(); voiceChannel.currentTime=0; }catch(e){} voiceChannel=null; }
+  if (voiceChannel){ if(voiceCancel) voiceCancel(); try{ voiceChannel.pause(); voiceChannel.currentTime=0; }catch(e){} voiceChannel=null; voiceCancel=null; }
+  ducked=true; applyLoopLevels(true);                     // duck the loops under the voice
   try {
     var a=new Audio(_src('voice',name)); a.volume=1.0;
-    var done=false;
-    function fin(){ if(done) return; done=true; if(voiceChannel===a) voiceChannel=null; if(onEnd) onEnd(); }
+    var fin_done=false;
+    function fin(){ if(fin_done) return; fin_done=true;
+      if(voiceChannel===a){ voiceChannel=null; voiceCancel=null; ducked=false; applyLoopLevels(true); }   // last voice out -> restore FULL
+      if(onEnd) onEnd(); }
+    voiceCancel=function(){ fin_done=true; };               // neutralize a superseded clip: no stale onEnd / no double-restore (the new clip owns the duck)
     a.addEventListener('ended', fin); a.addEventListener('error', fin);
     a.play().catch(function(){ fin(); });
     voiceChannel=a; setTimeout(fin, 20000);
-  } catch(e){ if(onEnd) onEnd(); }
+  } catch(e){ ducked=false; applyLoopLevels(true); if(onEnd) onEnd(); }
 }
 function startLoop(key,name){
   if (muted || !audioUnlocked) return;
   stopLoop(key);
-  try { var a=new Audio(_src('sfx',name)); a.loop=true; a.volume=(key==='water'?0.25:0.30); a.play().catch(function(){}); loops[key]=a; } catch(e){}
+  try { var a=new Audio(_src('sfx',name)); a.loop=true; a.volume=loopTarget(key); a.play().catch(function(){}); loops[key]=a; } catch(e){}
 }
 function stopLoop(key){ if(loops[key]){ try{loops[key].pause();}catch(e){} loops[key]=null; } }
 function toggleMute(){
   muted=!muted;
   document.getElementById('mute').innerHTML = muted ? '&#128263;' : '&#128266;';
-  if (muted){ stopLoop('siren'); stopLoop('water'); if(voiceChannel){try{voiceChannel.pause();}catch(e){} voiceChannel=null;} }
-  else { if(ambientOn){ startLoop('water','water'); startLoop('siren','siren'); } }
+  if (muted){ stopLoop('siren'); stopLoop('water'); if(voiceChannel){ if(voiceCancel) voiceCancel(); try{voiceChannel.pause();}catch(e){} voiceChannel=null; voiceCancel=null; } ducked=false; }
+  else { if(ambientOn){ startLoop('water','water'); startLoop('siren','siren'); } }   // loopTarget -> FULL (or DUCKED if a voice is mid-play)
 }
 
 /* ===================== PIPELINE ===================== */

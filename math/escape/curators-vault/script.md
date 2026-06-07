@@ -1,7 +1,7 @@
 # script.md — The Curator's Vault (Level 1)
 
 **Product:** Mr. Frohlich Math and Physics · IB MAI SL · Topic 4.9 (Normal Distribution) capstone escape room
-**Folder:** `math/escape/curators-vault/` · **Phase 1 · Rev 4 (2026-06-06)**
+**Folder:** `math/escape/curators-vault/` · **Phase 1 · Rev 6 (2026-06-07)**
 **Purpose:** the human-authored content lives here, outside `index.html`, so it survives code edits, review, and asset regeneration — and so a future Levels-2/3 builder understands the flow without reading the JS.
 
 Holds: (1) Curator voiced lines (export-ready, now also the verbatim on-screen captions), (2) all on-screen character text, (3) the stage-build description.
@@ -120,4 +120,4 @@ Voiced character = the Curator ONLY. Mature female, warm/patient/steady. Generat
 
 **Results (dark, opens Vault Two):** `curator_complete` plays with the verbatim caption + portrait. Narrator copy: "Vault One's records are safe — but they're only the lowest level. The Curator sealed the archives on the floors above, and the water is still rising. Climb to Vault Two." (Curator's spoken caption unchanged.) Shows team name + time-in-vault. Button "Back to the archive map" returns to the map, where Door Two now reads "Next ascent."
 
-**Audio / pipeline / terminal:** single Curator voice channel; SFX may overlap; water AND siren loop continuously as flood ambience from the intro until the results/door-complete screen (siren is decoupled from the race timer; siren volume moderate). The race timer is off by default and shown ONLY by its countdown; expiry = no fail ("Continue anyway"). Wrong answers play the Vault Custodian (debounced ~2s); correct answers play the `unlock` SFX only. Pipeline events `id_submitted` / `stage_complete`×3 / `level_complete`, team-level payload, `REPORT_MODE='local'` default. Archive Reference Terminal is Hook-only (a "TERMINAL OFFLINE" bezel; `#terminal-screen` is the drop-in mount for the future vendored Mode-A applet in `/applet/`).
+**Audio / pipeline / terminal:** single Curator voice channel; SFX may overlap; water AND siren loop continuously as flood ambience from the intro until the results/door-complete screen (siren decoupled from the race timer). **Ambient ducking (Rev 6):** loops run at FULL (water 0.55, siren 0.50) and dip to DUCKED (water 0.20, siren 0.18) while any Curator/Custodian voice clip plays, ramping back to FULL (~300ms) when it ends. The race timer is off by default and shown ONLY by its countdown; expiry = no fail ("Continue anyway"). Wrong answers play the Vault Custodian (debounced ~2s); correct answers play the `unlock` SFX only. Pipeline events `id_submitted` / `stage_complete`×3 / `level_complete`, team-level payload, `REPORT_MODE='local'` default. Archive Reference Terminal is Hook-only (a "TERMINAL OFFLINE" bezel; `#terminal-screen` is the drop-in mount for the future vendored Mode-A applet in `/applet/`).
