@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Curator's Vault</title>
+<style>
+  /* ============================================================
+     THE CURATOR'S VAULT — IB MAI SL Topic 4.9 capstone escape room
+     Phase 1 · Rev 3 (2026-06-06): full art + story + structure pass.
+     Adds: archive background + scrim, dark ID gate, two-screen intro,
+     VERBATIM Curator captions, woven portraits, bigger pulsing radio,
+     vertical bottom-to-top map, rising-water mechanic, dark results.
+     Preserves: single voice channel + sequencing, input-overflow fix,
+     sigma-only hints (sketch has no %), Stage-3 per-dial Set, radio
+     arrival jitter (reflow re-trigger). All images degrade gracefully.
+     Single self-contained file. No CDN, no web fonts, no frameworks.
+     ============================================================ */
+  :root{
+    --fmp-cream:#FAF3DE; --fmp-teal:#2E8B8B;
+    --v-bg:#16181D; --v-panel:#232730; --v-panel2:#2A2F3A; --v-petrol:#135A6B;
+    --v-amber:#D9A441; --v-brass:#B0832B; --v-text:#ECE4D2; --v-alert:#C0392B; --v-bezel:#0E1013;
+    --paper:#ECE4D2;
+    --sys-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --sys-serif:Georgia,"Times New Roman",Cambria,serif;
+    --sys-mono:ui-monospace,"Courier New",Courier,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{font-family:var(--sys-sans);background:#0f1116;color:var(--v-text);-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+
+  /* ---- background + scrim (atmosphere behind dark scenario screens) ---- */
+  #bg-layer{position:fixed;inset:0;z-index:0;background-image:url('assets/img/bg-archive.png');background-size:cover;background-position:center;background-repeat:no-repeat;}
+  #bg-scrim{position:fixed;inset:0;z-index:0;background:radial-gradient(125% 105% at 50% -5%,rgba(22,24,30,0.46),rgba(10,11,16,0.74));}
+  #app{position:relative;z-index:2;min-height:100vh;}
+
+  /* rising water (vault only) — translucent, behind panels, never blocks text, no fail-state */
+  #water{position:fixed;left:0;right:0;bottom:0;height:0;z-index:1;display:none;pointer-events:none;transition:height 1.3s cubic-bezier(.4,.1,.3,1);
+    background:linear-gradient(to top,rgba(28,86,124,0.50),rgba(40,112,150,0.30) 55%,rgba(80,160,190,0.14));
+    border-top:2px solid rgba(150,210,230,0.38);}
+  #water::before{content:"";position:absolute;top:-3px;left:0;right:0;height:7px;background:linear-gradient(90deg,transparent,rgba(185,228,243,0.55),transparent);animation:shimmer 4.5s ease-in-out infinite;}
+  @keyframes shimmer{0%,100%{opacity:.28;transform:translateX(-12%);}50%{opacity:.62;transform:translateX(12%);}}
+
+  .screen{display:none;min-height:100vh;}
+  .screen.active{display:block;animation:fadein .6s ease;}
+  @keyframes fadein{from{opacity:0;}to{opacity:1;}}
+
+  /* ---- dark shell (intro / map / results) — transparent so bg shows ---- */
+  .dshell{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 20px 72px;position:relative;}
+  .brand-dark{position:absolute;top:18px;left:0;right:0;text-align:center;font-weight:700;letter-spacing:.5px;color:var(--fmp-cream);font-size:15px;}
+  .brand-dark span{color:var(--fmp-teal);}
+  .footer-dark{position:absolute;bottom:16px;left:0;right:0;text-align:center;font-size:12px;color:#8a909b;}
+
+  /* ---- ID gate (dark, own solid bg so the archive image doesn't show) ---- */
+  #screen-idgate .idgate-shell{min-height:100vh;background:#13151b;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px 72px;position:relative;}
+  .gate-card{background:var(--v-panel);border:1px solid rgba(176,131,43,.3);border-top:5px solid var(--v-amber);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.55);padding:30px 28px;width:100%;max-width:460px;}
+  .gate-card h1{font-family:var(--sys-serif);font-size:27px;margin:0 0 4px;color:var(--v-amber);}
+  .gate-card .sub{font-size:14px;color:#aeb3bd;margin:0 0 22px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--v-text);}
+  .field input{width:100%;padding:12px 14px;font-size:16px;font-family:var(--sys-sans);border:1px solid rgba(176,131,43,.35);border-radius:8px;color:var(--v-text);background:var(--v-bezel);}
+  .field input:focus{outline:none;border-color:var(--v-amber);box-shadow:0 0 12px rgba(217,164,65,.3);}
+  .field .hint{font-size:11.5px;color:#8a909b;margin-top:4px;}
+  .err{color:var(--v-alert);font-size:13px;margin-top:8px;min-height:18px;}
+
+  /* ---- buttons ---- */
+  .btn{display:inline-block;cursor:pointer;border:none;border-radius:8px;font-size:16px;font-weight:700;font-family:var(--sys-sans);padding:13px 22px;min-height:46px;transition:transform .08s,filter .15s;}
+  .btn:active{transform:translateY(1px);}
+  .btn:disabled{opacity:.45;cursor:default;}
+  .btn-vault{background:var(--v-petrol);color:#fff;width:100%;}
+  .btn-vault:hover{filter:brightness(1.15);}
+  .btn-teal{background:var(--fmp-teal);color:#fff;}
+
+  /* ---- shared Curator speech block (portrait + amber text) ---- */
+  .curator{display:flex;gap:14px;align-items:flex-start;background:linear-gradient(180deg,rgba(217,164,65,.12),rgba(217,164,65,.03));border-left:3px solid var(--v-amber);border-radius:8px;padding:16px 18px;margin:20px 0;}
+  .cur-portrait{width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--v-brass);flex:0 0 auto;background:#1b1e25;}
+  .cur-text{flex:1 1 auto;min-width:0;}
+  .curator .who{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:var(--v-brass);margin-bottom:6px;}
+  .curator .line{font-family:var(--sys-serif);font-size:17px;line-height:1.55;color:var(--v-amber);min-height:26px;}
+  .caret{display:inline-block;width:9px;color:var(--v-amber);animation:blink 1s steps(1) infinite;}
+  @keyframes blink{50%{opacity:0;}}
+
+  /* ---- intro screens ---- */
+  .intro{max-width:620px;width:100%;}
+  .intro h1{font-family:var(--sys-serif);color:var(--v-amber);font-size:30px;margin:0 0 14px;text-align:center;}
+  .narr{font-size:15.5px;line-height:1.62;color:var(--v-text);margin:0 0 14px;}
+  .mission{font-size:15px;line-height:1.6;color:#cfe7ec;border-left:3px solid var(--v-petrol);padding:10px 14px;background:rgba(19,90,107,.12);border-radius:6px;margin:0 0 16px;}
+  .intro .btn{width:100%;margin-top:8px;}
+  .cast{display:flex;flex-direction:column;gap:12px;width:100%;max-width:560px;margin-bottom:8px;}
+  .cast h1{margin-bottom:18px;}
+  .cast-card{display:flex;gap:14px;align-items:center;background:rgba(35,39,48,.92);border:1px solid rgba(176,131,43,.25);border-radius:10px;padding:13px 15px;}
+  .cast-card img{width:58px;height:58px;border-radius:50%;object-fit:cover;border:2px solid var(--v-brass);flex:0 0 auto;background:#1b1e25;}
+  .cast-card .cast-name{font-weight:700;color:var(--v-amber);margin-bottom:3px;font-size:15px;}
+  .cast-card .cast-line{font-size:13.5px;line-height:1.45;color:var(--v-text);}
+
+  /* ---- map (vertical, bottom-to-top) ---- */
+  #screen-map .dshell{justify-content:flex-start;padding-top:74px;}
+  .map-head{text-align:center;max-width:640px;margin-bottom:22px;}
+  .map-head h1{font-family:var(--sys-serif);color:var(--v-amber);font-size:29px;margin:0 0 6px;}
+  .map-head p{color:#cfe7ec;font-size:14.5px;margin:0;}
+  .ladder{position:relative;display:flex;flex-direction:column;gap:16px;width:100%;max-width:430px;padding-left:52px;}
+  .rail{position:absolute;left:14px;top:6px;bottom:6px;width:24px;border-radius:3px;
+    background:
+      repeating-linear-gradient(to bottom,transparent 0 16px,rgba(176,131,43,.55) 16px 19px),
+      linear-gradient(to right,transparent 0 3px,rgba(176,131,43,.5) 3px 6px,transparent 6px 18px,rgba(176,131,43,.5) 18px 21px,transparent 21px);}
+  .ascend{position:absolute;left:9px;top:-14px;color:var(--v-brass);font-size:16px;}
+  .startmark{position:absolute;left:2px;bottom:-22px;color:#8a909b;font-size:11px;width:60px;text-align:center;line-height:1.2;}
+  .door{position:relative;background:rgba(35,39,48,.94);border:1px solid rgba(176,131,43,.25);border-radius:12px;padding:16px 18px;box-shadow:0 10px 26px rgba(0,0,0,.5);display:flex;gap:14px;align-items:center;}
+  .door .door-icon{width:60px;height:78px;border-radius:6px;background:linear-gradient(160deg,#2A2F3A,#0f1115);border:3px solid var(--v-brass);position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .door .door-icon::after{content:"";width:18px;height:18px;border-radius:50%;border:3px solid var(--v-brass);background:#0f1115;}
+  .door.available .door-icon{box-shadow:0 0 20px rgba(217,164,65,.5);border-color:var(--v-amber);}
+  .door.done .door-icon{background:linear-gradient(160deg,#1d5a4a,#102a22);border-color:#3fae87;}
+  .door.done .door-icon::after{border-color:#6fe0a8;background:#1d5a4a;}
+  .door .door-main{flex:1 1 auto;min-width:0;}
+  .door h3{margin:0 0 3px;font-size:16px;color:var(--v-text);}
+  .door .depth{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#8a909b;margin-bottom:4px;}
+  .door .level-topic{font-size:12.5px;color:#aeb3bd;margin-bottom:8px;line-height:1.35;}
+  .door .status{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+  .door.available .status{color:var(--v-amber);}
+  .door.coming .status,.door.locked .status{color:#7a818c;}
+  .door.next .status{color:#6fe0a8;}
+  .door.locked{opacity:.72;}
+  .door .btn{width:auto;margin-top:8px;padding:9px 18px;min-height:40px;}
+  .door.coming .btn,.door.locked .btn{background:#3a3f4a;color:#8a909b;cursor:default;}
+
+  /* ============ VAULT (transparent; bg + water show through) ============ */
+  .vault-wrap{max-width:860px;margin:0 auto;padding:18px 18px 150px;position:relative;}
+  .vault-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 4px 16px;border-bottom:1px solid rgba(176,131,43,.25);}
+  .vault-bar .title{font-family:var(--sys-serif);font-size:18px;color:var(--v-amber);letter-spacing:.5px;margin-right:auto;}
+  .stage-track{display:flex;gap:8px;}
+  .stage-pip{width:30px;height:6px;border-radius:3px;background:#3a3f4a;}
+  .stage-pip.active{background:var(--v-amber);}
+  .stage-pip.done{background:var(--v-petrol);}
+  .vbtn{background:rgba(42,47,58,.95);color:var(--v-text);border:1px solid rgba(176,131,43,.4);border-radius:6px;padding:8px 12px;font-size:13px;cursor:pointer;min-height:38px;font-family:var(--sys-sans);}
+  .vbtn:hover{border-color:var(--v-amber);}
+  .vbtn.on{background:var(--v-petrol);border-color:var(--v-petrol);color:#fff;}
+
+  .custodian{background:rgba(35,39,48,.95);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:16px 18px;margin:16px 0;}
+  .custodian .who{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--v-petrol);margin-bottom:8px;font-weight:700;display:flex;align-items:center;gap:9px;}
+  .cust-emblem{width:34px;height:34px;border-radius:6px;object-fit:cover;border:1px solid rgba(176,131,43,.5);background:#1b1e25;flex:0 0 auto;}
+  .custodian p{margin:0 0 8px;font-size:15.5px;line-height:1.5;color:var(--v-text);}
+  .custodian .params{font-family:var(--sys-mono);font-size:15px;color:#cfe7ec;}
+  .prompt-q{font-size:16px;font-weight:600;margin:14px 0 4px;color:#fff;}
+
+  .locks{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 4px;}
+  .lock{background:rgba(42,47,58,.96);border:1px solid rgba(176,131,43,.3);border-radius:10px;padding:16px;flex:1 1 240px;min-width:240px;overflow:hidden;}
+  .lock.solved{border-color:#3fae87;box-shadow:inset 0 0 0 1px rgba(63,174,135,.4);}
+  .lock .lock-name{font-size:13px;font-weight:700;letter-spacing:.5px;color:var(--v-brass);margin-bottom:8px;}
+  .lock .lock-ctx{font-family:var(--sys-mono);font-size:13.5px;color:#cfe7ec;margin-bottom:8px;line-height:1.5;}
+  .lock .lock-q{font-size:14.5px;margin-bottom:12px;line-height:1.45;}
+  .dial-row{display:flex;gap:10px;align-items:center;}
+  .dial-row label{font-size:13px;flex:0 0 auto;min-width:70px;color:#cdd2db;}
+  .dial{flex:1 1 auto;min-width:0;width:100%;max-width:100%;padding:12px 10px;font-size:18px;font-family:var(--sys-mono);text-align:center;letter-spacing:2px;background:var(--v-bezel);color:var(--v-amber);border:2px solid var(--v-brass);border-radius:8px;}
+  .dial:focus{outline:none;border-color:var(--v-amber);box-shadow:0 0 14px rgba(217,164,65,.4);}
+  .dial.solved{color:#6fe0a8;border-color:#3fae87;}
+  .lock .feedback{font-size:13px;margin-top:10px;min-height:18px;line-height:1.4;}
+  .feedback.bad{color:var(--v-alert);}
+  .feedback.nudge{color:var(--v-amber);}
+  .feedback.good{color:#6fe0a8;}
+  .check-btn{margin-top:12px;}
+
+  /* Kai found-note card (with portrait) */
+  .kai-wrap{margin:14px 0 0;}
+  .kai-toggle{background:transparent;color:#7fd3d3;border:1px dashed var(--fmp-teal);border-radius:6px;padding:8px 14px;font-size:13px;cursor:pointer;min-height:38px;}
+  .kai-card{position:relative;display:none;max-width:430px;margin:16px 0 4px;background:var(--paper);color:#2b2b2b;border-left:5px solid var(--fmp-teal);border-radius:3px;padding:18px 20px 16px;transform:rotate(-1deg);box-shadow:0 14px 28px rgba(0,0,0,.5);font-family:var(--sys-sans);background-image:repeating-linear-gradient(transparent,transparent 23px,rgba(46,139,139,.16) 24px);background-position:0 12px;}
+  .kai-card.show{display:block;animation:drop .35s ease;}
+  @keyframes drop{from{opacity:0;transform:translateY(-10px) rotate(-1deg);}to{opacity:1;transform:translateY(0) rotate(-1deg);}}
+  .kai-card::before{content:"";position:absolute;top:-12px;left:50%;transform:translateX(-50%) rotate(-3deg);width:86px;height:26px;background:rgba(46,139,139,.32);border:1px solid rgba(46,139,139,.45);border-radius:2px;}
+  .kai-card::after{content:"";position:absolute;left:0;right:0;bottom:-7px;height:8px;background:linear-gradient(135deg,transparent 33%,var(--paper) 0) 0 0/14px 8px repeat-x;}
+  .kai-who{font-weight:700;font-size:13px;color:var(--fmp-teal);margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+  .kai-portrait{width:30px;height:30px;border-radius:50%;object-fit:cover;border:1px solid var(--fmp-teal);flex:0 0 auto;}
+  .kai-body{font-size:14px;line-height:1.55;}
+  .kai-curve{display:block;margin:8px auto 4px;}
+
+  /* Amara radio — incoming transmission: portrait + 34px icon + body, all pulsing; arrival jitter via reflow */
+  /* Rev 5: fixed lower-right HUD on desktop; pointer-events:none so it never blocks the action buttons; reverts to in-flow on mobile */
+  .radio-msg{position:fixed;right:16px;bottom:16px;z-index:40;pointer-events:none;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;width:100%;max-width:260px;padding:14px 16px;border-left:4px solid #D9A441;border-radius:10px;background:rgba(22,18,11,0.93);box-shadow:0 12px 30px rgba(0,0,0,0.6),inset 0 0 0 1px rgba(217,164,65,0.30);}
+  .radio-portrait{width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #D9A441;flex:0 0 auto;background:#1b1e25;animation:radioBreathe 1.6s ease-in-out infinite;}
+  .radio-content{width:100%;}
+  .radio-tag{font-family:var(--sys-mono);font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;color:#D9A441;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;}
+  .radio-ico{font-size:34px;line-height:1;animation:radioPulse 1.6s ease-in-out infinite;}
+  .radio-body{font-size:15px;line-height:1.5;font-style:italic;color:#F0D9A8;animation:radioBreathe 1.6s ease-in-out infinite;}
+  /* speaker label shown while a Custodian voice clip plays (cast + map screens) */
+  .speaker-chip{display:none;align-items:center;justify-content:center;gap:8px;margin:0 0 16px;font-family:var(--sys-mono);font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--v-petrol);}
+  .speaker-chip.show{display:flex;}
+  .speaker-chip img{width:26px;height:26px;border-radius:5px;object-fit:cover;border:1px solid rgba(176,131,43,.5);}
+  @keyframes radioPulse{0%,100%{opacity:.55}50%{opacity:1}}
+  @keyframes radioBreathe{0%,100%{opacity:.76}50%{opacity:1}}
+  @keyframes radioIn{
+    0%{transform:translate(0,0);opacity:.15}
+    14%{transform:translate(-3px,1px) skewX(-1.2deg);opacity:.45}
+    28%{transform:translate(3px,-1px) skewX(1.2deg);opacity:.7}
+    42%{transform:translate(-2px,1px);opacity:.9}
+    58%{transform:translate(2px,0);opacity:1}
+    74%{transform:translate(-1px,0)}
+    100%{transform:translate(0,0)}
+  }
+  .radio-msg.radio-in{animation:radioIn .45s ease-out both;}
+
+  .stage-msg{font-size:14px;color:#cfe7ec;margin-top:12px;min-height:20px;}
+
+  /* terminal (Hook-only) */
+  .terminal-launch{margin:18px 0 0;}
+  .terminal-modal{display:none;position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.66);align-items:center;justify-content:center;padding:18px;}
+  .terminal-modal.show{display:flex;}
+  .bezel{width:100%;max-width:640px;background:var(--v-bezel);border:14px solid #161a1f;border-radius:16px;box-shadow:0 0 0 3px var(--v-brass),0 0 42px rgba(19,90,107,.6),0 24px 60px rgba(0,0,0,.7);padding:6px;}
+  .bezel .bezel-head{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;color:var(--v-brass);font-size:12px;letter-spacing:1px;}
+  /* single mount point for the future vendored Mode-A applet (/applet/) */
+  #terminal-screen{background:#07090c;border-radius:8px;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;box-shadow:inset 0 0 60px rgba(19,90,107,.18);}
+  #terminal-screen .offline-glyph{width:60px;height:60px;border-radius:50%;border:3px solid var(--v-petrol);margin-bottom:18px;position:relative;animation:pulse 2.4s ease-in-out infinite;}
+  #terminal-screen .offline-glyph::after{content:"";position:absolute;inset:18px;border-radius:50%;background:var(--v-petrol);opacity:.5;}
+  @keyframes pulse{0%,100%{opacity:.45;}50%{opacity:.9;}}
+  #terminal-screen .offline-title{font-family:var(--sys-mono);color:var(--v-petrol);letter-spacing:3px;font-size:15px;margin-bottom:8px;}
+  #terminal-screen .offline-sub{font-size:13px;color:#6c7681;max-width:360px;line-height:1.5;}
+
+  /* door opening overlay */
+  .door-open{display:none;position:fixed;inset:0;z-index:60;background:#0a0b0e;overflow:hidden;}
+  .door-open.show{display:block;}
+  .door-half{position:absolute;top:0;bottom:0;width:50%;background:linear-gradient(160deg,#2A2F3A,#14161b);transition:transform 1.6s cubic-bezier(.6,.02,.3,1);}
+  .door-half.left{left:0;border-right:4px solid var(--v-brass);}
+  .door-half.right{right:0;border-left:4px solid var(--v-brass);}
+  .door-open.opening .door-half.left{transform:translateX(-100%);}
+  .door-open.opening .door-half.right{transform:translateX(100%);}
+  .door-light{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--v-amber);font-family:var(--sys-serif);font-size:26px;opacity:0;transition:opacity 1.2s ease 1s;}
+  .door-open.opening .door-light{opacity:1;}
+
+  /* results dark card */
+  .dcard{background:rgba(35,39,48,.95);border:1px solid rgba(176,131,43,.3);border-top:5px solid var(--v-amber);border-radius:12px;padding:30px 28px;max-width:480px;width:100%;text-align:center;color:var(--v-text);box-shadow:0 18px 50px rgba(0,0,0,.55);}
+  .dcard h1{font-family:var(--sys-serif);color:var(--v-amber);margin:0 0 12px;font-size:27px;}
+  .dcard .curator{text-align:left;margin:0 0 16px;}
+  .dcard p{color:var(--v-text);font-size:15px;line-height:1.62;}
+  .dcard .meta{margin:18px 0;font-size:14px;color:#aeb3bd;}
+  .dcard .btn{width:100%;}
+
+  #debug{position:fixed;bottom:0;left:0;right:0;z-index:80;font-family:var(--sys-mono);font-size:11px;color:#7fd3d3;background:rgba(7,9,12,.92);padding:4px 10px;display:none;max-height:88px;overflow:auto;border-top:1px solid var(--v-petrol);}
+  #debug.show{display:block;}
+  #mute{position:fixed;top:12px;right:12px;z-index:90;background:rgba(14,16,19,.85);color:var(--v-text);border:1px solid rgba(176,131,43,.5);border-radius:6px;width:42px;height:42px;font-size:18px;cursor:pointer;}
+
+  @media (max-width:560px){
+    .gate-card{padding:24px 18px;} .gate-card h1{font-size:23px;}
+    .intro h1,.map-head h1{font-size:23px;}
+    .cur-portrait{width:52px;height:52px;}
+    .vault-bar .title{font-size:16px;width:100%;}
+    .lock{min-width:100%;flex:1 1 100%;}
+    .curator .line{font-size:16px;}
+    .dial{font-size:16px;}
+    .dial-row label{min-width:62px;}
+    .radio-msg{position:static;right:auto;bottom:auto;z-index:auto;pointer-events:auto;max-width:100%;margin:18px 0;background:rgba(217,164,65,0.13);box-shadow:inset 0 0 0 1px rgba(217,164,65,0.22);}
+    .radio-portrait{width:54px;height:54px;}
+    .radio-ico{font-size:30px;}
+    #mute{width:38px;height:38px;}
+  }
+</style>
+</head>
+<body>
+<div id="bg-layer"></div>
+<div id="bg-scrim"></div>
+<div id="water"></div>
+<button id="mute" title="Mute / unmute" onclick="toggleMute()">&#128266;</button>
+
+<div id="app">
+
+  <!-- ============ ID GATE (dark) ============ -->
+  <section id="screen-idgate" class="screen active">
+    <div class="idgate-shell">
+      <div class="brand-dark">Mr. Frohlich Math <span>and</span> Physics</div>
+      <div class="gate-card">
+        <h1>The Curator&rsquo;s Vault</h1>
+        <p class="sub">An underground climate archive &middot; Topic 4.9</p>
+        <div class="field"><label for="f-teacher">Teacher email</label>
+          <input id="f-teacher" type="text" autocomplete="off" /></div>
+        <div class="field"><label for="f-class">Class code</label>
+          <input id="f-class" type="text" autocomplete="off" />
+          <div class="hint">Given to you by your teacher.</div></div>
+        <div class="field"><label for="f-team">Team name</label>
+          <input id="f-team" type="text" autocomplete="off" /></div>
+        <button class="btn btn-vault" onclick="submitId()">Begin</button>
+        <div class="err" id="idgate-err"></div>
+      </div>
+      <div class="footer-dark">&copy; 2026 frohlichmathandphysics.com</div>
+    </div>
+  </section>
+
+  <!-- ============ INTRO 1 — world + mission ============ -->
+  <section id="screen-intro1" class="screen">
+    <div class="dshell">
+      <div class="brand-dark">Mr. Frohlich Math <span>and</span> Physics</div>
+      <div class="intro">
+        <h1>The Curator&rsquo;s Archive</h1>
+        <p class="narr">Deep beneath the monsoon coast lies the Curator&rsquo;s Archive &mdash; a century of the world&rsquo;s climate, recorded and sealed. The Curator vanished years ago, leaving the records behind three locked vault doors. Tonight the monsoon has breached the lower levels, and the water is rising.</p>
+        <div class="mission">You and your team are descending to the <b>lowest vault</b> to rescue the records &mdash; the <b>first of three</b> sealed doors. Deeper vaults remain below. Open this one before the archive floods.</div>
+        <div class="curator">
+          <img class="cur-portrait" src="assets/img/curator.png" alt="" onerror="this.style.display='none'"/>
+          <div class="cur-text"><div class="who">The Curator</div><div class="line" id="intro-curator-line"></div></div>
+        </div>
+        <button class="btn btn-vault" onclick="gotoIntro2()">Continue &rarr;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INTRO 2 — the cast ============ -->
+  <section id="screen-intro2" class="screen">
+    <div class="dshell">
+      <div class="brand-dark">Mr. Frohlich Math <span>and</span> Physics</div>
+      <div class="cast">
+        <h1>Who you&rsquo;ll meet</h1>
+        <div class="speaker-chip" id="cast-speaker"><img src="assets/img/custodian.png" alt="" onerror="this.style.display='none'"/> Vault Custodian &middot; transmitting</div>
+        <div class="cast-card">
+          <img src="assets/img/curator.png" alt="" onerror="this.style.display='none'"/>
+          <div><div class="cast-name">The Curator</div><div class="cast-line">The archive&rsquo;s founder. She sealed the records behind three doors before she vanished &mdash; and her voice still guides the vault.</div></div>
+        </div>
+        <div class="cast-card">
+          <img src="assets/img/amara.png" alt="" onerror="this.style.display='none'"/>
+          <div><div class="cast-name">Dr. Amara Osei</div><div class="cast-line">Climatologist, on the radio above &mdash; tracking the water and keeping the time.</div></div>
+        </div>
+        <div class="cast-card">
+          <img src="assets/img/kai.png" alt="" onerror="this.style.display='none'"/>
+          <div><div class="cast-name">Kai</div><div class="cast-line">A junior archivist who left in a hurry when the water came, scattering notes through the vaults. Stuck on a lock? Ask Kai.</div></div>
+        </div>
+        <div class="cast-card">
+          <img src="assets/img/custodian.png" alt="" onerror="this.style.display='none'"/>
+          <div><div class="cast-name">The Vault Custodian</div><div class="cast-line">The archive&rsquo;s gatekeeper. It poses each vault&rsquo;s lock and opens only for a correct answer.</div></div>
+        </div>
+        <button class="btn btn-vault" onclick="enterMap()">Enter the Archive &rarr;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MAP (vertical, bottom-to-top) ============ -->
+  <section id="screen-map" class="screen">
+    <div class="dshell">
+      <div class="brand-dark">Mr. Frohlich Math <span>and</span> Physics</div>
+      <div class="map-head">
+        <h1>The Archive Vault</h1>
+        <p>Three sealed doors stacked below the surface. Start at the deepest and climb out, floor by floor.</p>
+        <div class="speaker-chip" id="map-speaker"><img src="assets/img/custodian.png" alt="" onerror="this.style.display='none'"/> Vault Custodian &middot; transmitting</div>
+      </div>
+      <div class="ladder">
+        <div class="rail"></div>
+        <div class="ascend" title="climb out">&#9650;</div>
+        <div class="startmark">you start here</div>
+
+        <!-- TOP: Door Three -->
+        <div class="door locked" id="door-3">
+          <div class="door-icon"></div>
+          <div class="door-main">
+            <div class="depth">Upper vault</div>
+            <h3>Door Three</h3>
+            <div class="level-topic">Working backwards from a probability to a cutoff</div>
+            <div class="status">Locked</div>
+            <button class="btn" disabled>Locked</button>
+          </div>
+        </div>
+
+        <!-- MIDDLE: Door Two -->
+        <div class="door coming" id="door-2">
+          <div class="door-icon"></div>
+          <div class="door-main">
+            <div class="depth">Mid vault</div>
+            <h3>Door Two</h3>
+            <div class="level-topic">Areas under the curve between two values</div>
+            <div class="status" id="door-2-status">Coming soon</div>
+            <button class="btn" disabled>Sealed</button>
+          </div>
+        </div>
+
+        <!-- BOTTOM: Door One (deepest, most flooded — start here) -->
+        <div class="door available" id="door-1">
+          <div class="door-icon"></div>
+          <div class="door-main">
+            <div class="depth">Lowest vault &middot; most flooded</div>
+            <h3>Door One</h3>
+            <div class="level-topic">Reading the pattern &mdash; the heart of the data and how far it strays</div>
+            <div class="status" id="door-1-status">Available</div>
+            <button class="btn btn-vault" id="door-1-btn" onclick="enterLevel1()">Enter</button>
+          </div>
+        </div>
+      </div>
+      <div class="footer-dark">&copy; 2026 frohlichmathandphysics.com</div>
+    </div>
+  </section>
+
+  <!-- ============ VAULT (transparent — bg + water show) — Level 1 ============ -->
+  <section id="screen-vault" class="screen">
+    <div class="vault-wrap">
+      <div class="vault-bar">
+        <div class="title">Door One &middot; The First Vault</div>
+        <div class="stage-track">
+          <div class="stage-pip" id="pip-1"></div>
+          <div class="stage-pip" id="pip-2"></div>
+          <div class="stage-pip" id="pip-3"></div>
+        </div>
+        <button class="vbtn" id="timer-btn" onclick="toggleTimer()">Race timer: off</button>
+        <span class="vbtn" id="timer-display" style="display:none;cursor:default;">20:00</span>
+      </div>
+
+      <div class="curator">
+        <img class="cur-portrait" src="assets/img/curator.png" alt="" onerror="this.style.display='none'"/>
+        <div class="cur-text"><div class="who">The Curator</div><div class="line" id="curator-line"></div></div>
+      </div>
+
+      <div class="terminal-launch">
+        <button class="vbtn" onclick="openTerminal()">&#128421; Open Archive Reference Terminal</button>
+      </div>
+
+      <!-- STAGE 1 -->
+      <div id="stage-1">
+        <div class="custodian">
+          <div class="who"><img class="cust-emblem" src="assets/img/custodian.png" alt="" onerror="this.style.display='none'"/> Vault Custodian</div>
+          <p>Kerala monsoon rainfall is normally distributed.</p>
+          <p class="params">mean &mu; = 290 cm &nbsp;&middot;&nbsp; standard deviation &sigma; = 15 cm</p>
+        </div>
+        <div class="prompt-q">The middle 95% of years fall within a predictable band. Set the dial to the <b>lower bound</b> of that band, in cm.</div>
+        <div class="locks">
+          <div class="lock" id="lock-s1">
+            <div class="lock-name">The Rainfall Dial</div>
+            <div class="dial-row"><label for="d-s1">Lower bound</label>
+              <input class="dial" id="d-s1" type="text" inputmode="numeric" maxlength="6" placeholder="&mdash; &mdash; &mdash;" /></div>
+            <button class="btn btn-teal check-btn" onclick="checkS1()">Turn the dial</button>
+            <div class="feedback" id="fb-s1"></div>
+            <div class="kai-wrap">
+              <button class="kai-toggle" onclick="toggleKai('kai-s1')">Ask Kai for a hint</button>
+              <div class="kai-card" id="kai-s1">
+                <div class="kai-who"><img class="kai-portrait" src="assets/img/kai.png" alt="" onerror="this.style.display='none'"/> A note from Kai</div>
+                <div class="kai-body">The middle 95% &mdash; how many standard deviations either side of the mean is that? Set the dial to the lower edge.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="radio-msg" id="radio-s1" style="display:none">
+          <img class="radio-portrait" src="assets/img/amara.png" alt="" onerror="this.style.display='none'"/>
+          <div class="radio-content">
+            <div class="radio-tag"><span class="radio-ico">&#128225;</span> INCOMING TRANSMISSION &middot; DR. OSEI</div>
+            <div class="radio-body">Osei here &mdash; I&rsquo;m topside. Water&rsquo;s at the lower stacks already. First door&rsquo;s on you; I&rsquo;ll keep time.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAGE 2 -->
+      <div id="stage-2" style="display:none;">
+        <div class="custodian">
+          <div class="who"><img class="cust-emblem" src="assets/img/custodian.png" alt="" onerror="this.style.display='none'"/> Vault Custodian</div>
+          <p>Three climate stations. Three padlocks. Solve them in any order &mdash; the door opens only when all three agree.</p>
+        </div>
+        <div class="locks">
+          <!-- ALPHA -->
+          <div class="lock" id="lock-alpha">
+            <div class="lock-name">Station Alpha &middot; Temperature</div>
+            <div class="lock-ctx">Kerala daily April temperature<br/>&mu; = 33&deg;C &middot; &sigma; = 2&deg;C &middot; n = 400 days</div>
+            <div class="lock-q">Approximately how many of the 400 days had a temperature <b>above 37&deg;C</b>?</div>
+            <div class="dial-row"><label for="d-alpha">Days</label>
+              <input class="dial" id="d-alpha" type="text" inputmode="numeric" maxlength="6" placeholder="&mdash;&mdash;" /></div>
+            <button class="btn btn-teal check-btn" onclick="checkAlpha()">Set padlock</button>
+            <div class="feedback" id="fb-alpha"></div>
+            <div class="kai-wrap">
+              <button class="kai-toggle" onclick="toggleKai('kai-alpha')">Ask Kai for a hint</button>
+              <div class="kai-card" id="kai-alpha">
+                <div class="kai-who"><img class="kai-portrait" src="assets/img/kai.png" alt="" onerror="this.style.display='none'"/> A note from Kai</div>
+                <div class="kai-body">How many standard deviations above the mean is 37 degrees? That tells you which slice of the 400 days you need.</div>
+              </div>
+            </div>
+          </div>
+          <!-- BETA -->
+          <div class="lock" id="lock-beta">
+            <div class="lock-name">Station Beta &middot; Soil</div>
+            <div class="lock-ctx">Andean potato mass per plant<br/>&mu; = 1.8 kg &middot; &sigma; = 0.3 kg</div>
+            <div class="lock-q">What <b>percentage</b> of plants produce between 1.2 kg and 2.4 kg?</div>
+            <div class="dial-row"><label for="d-beta">Percent</label>
+              <input class="dial" id="d-beta" type="text" inputmode="numeric" maxlength="6" placeholder="&mdash;&mdash;" /></div>
+            <button class="btn btn-teal check-btn" onclick="checkBeta()">Set padlock</button>
+            <div class="feedback" id="fb-beta"></div>
+            <div class="kai-wrap">
+              <button class="kai-toggle" onclick="toggleKai('kai-beta')">Ask Kai for a hint</button>
+              <div class="kai-card" id="kai-beta">
+                <div class="kai-who"><img class="kai-portrait" src="assets/img/kai.png" alt="" onerror="this.style.display='none'"/> A note from Kai</div>
+                <div class="kai-body">How many standard deviations from the mean are 1.2 and 2.4? The rule does the rest.</div>
+              </div>
+            </div>
+          </div>
+          <!-- GAMMA -->
+          <div class="lock" id="lock-gamma">
+            <div class="lock-name">Station Gamma &middot; Grain</div>
+            <div class="lock-ctx">Sahel millet yield<br/>&mu; = 800 kg/ha &middot; &sigma; = 60 kg/ha &middot; n = 100 years<br/>failure &lt; 680 &middot; exceptional &gt; 980</div>
+            <div class="lock-q">In 100 years, approximately how many were <b>neither</b> a failure year <b>nor</b> an exceptional year?</div>
+            <div class="dial-row"><label for="d-gamma">Years</label>
+              <input class="dial" id="d-gamma" type="text" inputmode="numeric" maxlength="6" placeholder="&mdash;&mdash;" /></div>
+            <button class="btn btn-teal check-btn" onclick="checkGamma()">Set padlock</button>
+            <div class="feedback" id="fb-gamma"></div>
+            <div class="kai-wrap">
+              <button class="kai-toggle" onclick="toggleKai('kai-gamma')">Ask Kai for a hint</button>
+              <div class="kai-card" id="kai-gamma">
+                <div class="kai-who"><img class="kai-portrait" src="assets/img/kai.png" alt="" onerror="this.style.display='none'"/> A note from Kai</div>
+                <!-- sigma bands only: shape + mu / +-1 / +-2 / +-3 sigma positions, NO percentages -->
+                <svg class="kai-curve" width="252" height="104" viewBox="0 0 280 104" aria-hidden="true">
+                  <path d="M60 86 C 100 86, 122 18, 140 18 C 158 18, 180 86, 220 86" fill="none" stroke="#1E2A5C" stroke-width="2"/>
+                  <g stroke="#888" stroke-width="1" stroke-dasharray="3 3">
+                    <line x1="140" y1="18" x2="140" y2="86"/>
+                    <line x1="120" y1="34" x2="120" y2="86"/>
+                    <line x1="160" y1="34" x2="160" y2="86"/>
+                    <line x1="100" y1="60" x2="100" y2="86"/>
+                    <line x1="180" y1="60" x2="180" y2="86"/>
+                    <line x1="80" y1="78" x2="80" y2="86"/>
+                    <line x1="200" y1="78" x2="200" y2="86"/>
+                  </g>
+                  <g font-size="9" fill="#444" text-anchor="middle">
+                    <text x="140" y="100">&#956;</text>
+                    <text x="120" y="100">&#8722;1&#963;</text>
+                    <text x="160" y="100">+1&#963;</text>
+                    <text x="100" y="100">&#8722;2&#963;</text>
+                    <text x="180" y="100">+2&#963;</text>
+                    <text x="80" y="100">&#8722;3&#963;</text>
+                    <text x="200" y="100">+3&#963;</text>
+                  </g>
+                </svg>
+                <div class="kai-body">How many standard deviations is each limit &mdash; and are they the same? One&rsquo;s a 2-standard-deviation edge, one&rsquo;s a 3-standard-deviation edge.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="stage-msg" id="msg-s2"></div>
+        <div class="radio-msg" id="radio-s2" style="display:none">
+          <img class="radio-portrait" src="assets/img/amara.png" alt="" onerror="this.style.display='none'"/>
+          <div class="radio-content">
+            <div class="radio-tag"><span class="radio-ico">&#128225;</span> INCOMING TRANSMISSION &middot; DR. OSEI</div>
+            <div class="radio-body">It&rsquo;s still rising &mdash; mid-archive now. Three locks at once; split up if you have to. Keep moving.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAGE 3 -->
+      <div id="stage-3" style="display:none;">
+        <div class="custodian">
+          <div class="who"><img class="cust-emblem" src="assets/img/custodian.png" alt="" onerror="this.style.display='none'"/> Vault Custodian</div>
+          <p>The vault&rsquo;s own air. Relative humidity is normally distributed over the monitoring period. A dehumidifier has three fan speeds &mdash; tell the Curator how often each must wake.</p>
+          <p class="params">&mu; = 45% &middot; &sigma; = 5% &middot; n = 10,000 hours</p>
+        </div>
+        <div class="locks">
+          <div class="lock" id="lock-d1">
+            <div class="lock-name">Dial 1 &middot; Low fan</div>
+            <div class="lock-q">Low runs when humidity is between &mu; &minus; &sigma; and &mu; + &sigma;. How many of the 10,000 hours did <b>Low</b> run?</div>
+            <div class="dial-row"><label for="d-h1">Hours</label>
+              <input class="dial" id="d-h1" type="text" inputmode="numeric" maxlength="6" placeholder="&mdash;&mdash;&mdash;&mdash;" /></div>
+            <button class="btn btn-teal check-btn" onclick="checkH(1)">Set dial</button>
+            <div class="feedback" id="fb-h1"></div>
+          </div>
+          <div class="lock" id="lock-d2">
+            <div class="lock-name">Dial 2 &middot; Medium fan</div>
+            <div class="lock-q">Medium runs when humidity is between &mu; + &sigma; and &mu; + 2&sigma;. How many hours did <b>Medium</b> run?</div>
+            <div class="dial-row"><label for="d-h2">Hours</label>
+              <input class="dial" id="d-h2" type="text" inputmode="numeric" maxlength="6" placeholder="&mdash;&mdash;&mdash;&mdash;" /></div>
+            <button class="btn btn-teal check-btn" onclick="checkH(2)">Set dial</button>
+            <div class="feedback" id="fb-h2"></div>
+          </div>
+          <div class="lock" id="lock-d3">
+            <div class="lock-name">Dial 3 &middot; High fan</div>
+            <div class="lock-q">High runs when humidity exceeds &mu; + 3&sigma;. How many hours did <b>High</b> run?</div>
+            <div class="dial-row"><label for="d-h3">Hours</label>
+              <input class="dial" id="d-h3" type="text" inputmode="numeric" maxlength="6" placeholder="&mdash;&mdash;" /></div>
+            <button class="btn btn-teal check-btn" onclick="checkH(3)">Set dial</button>
+            <div class="feedback" id="fb-h3"></div>
+          </div>
+        </div>
+        <button class="btn btn-vault check-btn" id="open-door-btn" onclick="openVaultDoor()" disabled>Open Vault Door One</button>
+        <div class="kai-wrap">
+          <button class="kai-toggle" onclick="toggleKai('kai-s3')">Ask Kai for a hint</button>
+          <div class="kai-card" id="kai-s3">
+            <div class="kai-who"><img class="kai-portrait" src="assets/img/kai.png" alt="" onerror="this.style.display='none'"/> A note from Kai</div>
+            <div class="kai-body">Each fan&rsquo;s band is measured in whole standard deviations. Name the band in standard deviations first, then the rule gives the share.</div>
+          </div>
+        </div>
+        <div class="stage-msg" id="msg-s3"></div>
+        <div class="radio-msg" id="radio-s3" style="display:none">
+          <img class="radio-portrait" src="assets/img/amara.png" alt="" onerror="this.style.display='none'"/>
+          <div class="radio-content">
+            <div class="radio-tag"><span class="radio-ico">&#128225;</span> INCOMING TRANSMISSION &middot; DR. OSEI</div>
+            <div class="radio-body">Last door. Water&rsquo;s near the records &mdash; whatever the dials need, set them now. You&rsquo;re almost out.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ RESULTS (dark — opens Vault Two) ============ -->
+  <section id="screen-results" class="screen">
+    <div class="dshell">
+      <div class="brand-dark">Mr. Frohlich Math <span>and</span> Physics</div>
+      <div class="dcard">
+        <h1>Vault Door One is open</h1>
+        <div class="curator">
+          <img class="cur-portrait" src="assets/img/curator.png" alt="" onerror="this.style.display='none'"/>
+          <div class="cur-text"><div class="who">The Curator</div><div class="line" id="results-curator-line"></div></div>
+        </div>
+        <p>Vault One&rsquo;s records are safe &mdash; but they&rsquo;re only the lowest level. The Curator sealed the archives on the floors above, and the water is still rising. Climb to Vault Two.</p>
+        <div class="meta">Team: <b id="r-team"></b><br/>Time in the vault: <b id="r-time"></b></div>
+        <button class="btn btn-vault" onclick="backToMap()">Back to the archive map</button>
+      </div>
+      <div class="footer-dark">&copy; 2026 frohlichmathandphysics.com</div>
+    </div>
+  </section>
+
+</div>
+
+<!-- terminal modal (Hook-only mount) -->
+<div class="terminal-modal" id="terminal-modal">
+  <div class="bezel">
+    <div class="bezel-head"><span>ARCHIVE REFERENCE TERMINAL</span>
+      <button class="vbtn" onclick="closeTerminal()">Close &times;</button></div>
+    <!-- #terminal-screen is the single drop-in mount point for the future vendored Mode-A applet (/applet/). -->
+    <div id="terminal-screen">
+      <div class="offline-glyph"></div>
+      <div class="offline-title">TERMINAL OFFLINE</div>
+      <div class="offline-sub">The Curator&rsquo;s reference console is powered down. Every door can be opened without it &mdash; trust the rule.</div>
+    </div>
+  </div>
+</div>
+
+<!-- door-opening overlay -->
+<div class="door-open" id="door-open">
+  <div class="door-half left"></div>
+  <div class="door-half right"></div>
+  <div class="door-light">opening&hellip;</div>
+</div>
+
+<div id="debug"></div>
+
+<script>
+/* ============================================================
+   THE CURATOR'S VAULT — engine (Phase 1 · Rev 3)
+   ============================================================ */
+var REPORT_MODE = 'local';          // 'live' | 'local' | 'off'
+var PIPELINE_URL = '<<ALEX: paste Apps Script web-app URL>>';
+
+/* answer key (exact-match integers) — UNCHANGED, verified */
+var ANS = { s1:260, alpha:10, beta:95, gamma:97, h1:6800, h2:1350, h3:15 };
+
+/* On-screen Curator captions are now VERBATIM copies of the spoken curator_*.mp3 lines. */
+var CUR = {
+  intro:  "Welcome. I am the Curator. Long ago I gathered the world's weather into this archive \u2014 every rainfall, every harvest, every quiet record of a changing climate. Three doors stand between you and those records. I sealed them myself. Open them, and what I preserved is yours to save.",
+  s1:     "The first door remembers the rain. Read the pattern as I taught it \u2014 the heart of the data, and how far it strays \u2014 and the dial will turn.",
+  s1done: "Just so. The monsoon keeps its rhythm, and so do you. Proceed.",
+  s2:     "Three stations, three measures \u2014 temperature, soil, and grain. Each waits for a true answer. Divide the work among you, or face them together. The door cares only that all three agree.",
+  s2done: "All three, in agreement. You begin to see the shape beneath the numbers.",
+  s3:     "One door remains. It guards not the world's climate, but this room's own air. Tell me how often each setting must wake, and the vault will yield.",
+  done:   "The first vault is open. The records breathe again. You have earned what lies within \u2014 but deeper doors remain, and they do not ask such gentle questions. Rest. Then return."
+};
+
+var session = { teacherEmail:'', classCode:'', teamName:'', startMs:0 };
+var solved  = { s1:false, alpha:false, beta:false, gamma:false, h1:false, h2:false, h3:false };
+
+/* ===================== AUDIO ===================== */
+var audioUnlocked = false, muted = false, ambientOn = false;
+var loops = { siren:null, water:null };
+var voiceChannel = null;            // single Curator voice channel
+
+function _src(b,n){ return 'assets/' + b + '/' + n + '.mp3'; }
+function playSound(name){
+  if (muted || !audioUnlocked) return;
+  try { var a=new Audio(_src('sfx',name)); a.volume=0.7; a.play().catch(function(){}); } catch(e){}
+}
+function playVoice(name, onEnd){     // only ONE Curator line audible; onEnd sequences the next
+  if (muted || !audioUnlocked){ if(onEnd) onEnd(); return; }
+  if (voiceChannel){ try{ voiceChannel.pause(); voiceChannel.currentTime=0; }catch(e){} voiceChannel=null; }
+  try {
+    var a=new Audio(_src('voice',name)); a.volume=1.0;
+    var done=false;
+    function fin(){ if(done) return; done=true; if(voiceChannel===a) voiceChannel=null; if(onEnd) onEnd(); }
+    a.addEventListener('ended', fin); a.addEventListener('error', fin);
+    a.play().catch(function(){ fin(); });
+    voiceChannel=a; setTimeout(fin, 20000);
+  } catch(e){ if(onEnd) onEnd(); }
+}
+function startLoop(key,name){
+  if (muted || !audioUnlocked) return;
+  stopLoop(key);
+  try { var a=new Audio(_src('sfx',name)); a.loop=true; a.volume=(key==='water'?0.25:0.30); a.play().catch(function(){}); loops[key]=a; } catch(e){}
+}
+function stopLoop(key){ if(loops[key]){ try{loops[key].pause();}catch(e){} loops[key]=null; } }
+function toggleMute(){
+  muted=!muted;
+  document.getElementById('mute').innerHTML = muted ? '&#128263;' : '&#128266;';
+  if (muted){ stopLoop('siren'); stopLoop('water'); if(voiceChannel){try{voiceChannel.pause();}catch(e){} voiceChannel=null;} }
+  else { if(ambientOn){ startLoop('water','water'); startLoop('siren','siren'); } }
+}
+
+/* ===================== PIPELINE ===================== */
+function fireEvent(event, stage){
+  var payload = { event:event, teacherEmail:session.teacherEmail, classCode:session.classCode,
+    teamName:session.teamName, level:1, stage:(stage===undefined?null:stage),
+    timeElapsedSec: session.startMs ? Math.round((Date.now()-session.startMs)/1000) : 0,
+    timestamp:new Date().toISOString() };
+  if (REPORT_MODE==='off') return;
+  if (REPORT_MODE==='local'){
+    try{ console.log('[pipeline]', JSON.stringify(payload)); }catch(e){}
+    debugLine(event + (stage!=null?(' (stage '+stage+')'):'') + '  t=' + payload.timeElapsedSec + 's'); return;
+  }
+  try { fetch(PIPELINE_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)}).catch(function(){}); } catch(e){}
+}
+function debugLine(txt){ if (REPORT_MODE!=='local') return; var d=document.getElementById('debug'); d.classList.add('show'); d.innerHTML += '&rsaquo; '+txt+'<br/>'; d.scrollTop=d.scrollHeight; }
+
+/* ===================== ROUTING ===================== */
+function hideSpeakers(){ var a=document.getElementById('cast-speaker'),b=document.getElementById('map-speaker'); if(a)a.classList.remove('show'); if(b)b.classList.remove('show'); }
+function show(id){
+  var s=document.querySelectorAll('.screen');
+  for(var i=0;i<s.length;i++) s[i].classList.remove('active');
+  document.getElementById(id).classList.add('active');
+  hideSpeakers();
+  window.scrollTo(0,0);
+}
+function submitId(){
+  var t=document.getElementById('f-teacher').value.trim();
+  var c=document.getElementById('f-class').value.trim();
+  var n=document.getElementById('f-team').value.trim();
+  var err=document.getElementById('idgate-err');
+  if(!t||!c||!n){ err.textContent='Fill in all three fields to begin.'; return; }
+  err.textContent='';
+  session.teacherEmail=t; session.classCode=c; session.teamName=n; session.startMs=Date.now();
+  audioUnlocked=true; ambientOn=true; startLoop('water','water'); startLoop('siren','siren');   // water + siren ambience (siren decoupled from the race timer)
+  fireEvent('id_submitted');
+  show('screen-intro1');
+  playVoice('curator_intro');
+  curatorSay(CUR.intro, 'intro-curator-line');
+}
+function gotoIntro2(){
+  show('screen-intro2');
+  var c=document.getElementById('cast-speaker'); c.classList.add('show');
+  playVoice('custodian_cast', function(){ c.classList.remove('show'); });   // Custodian voice-over; cast cards carry the text
+}
+function enterMap(){ clearWater(); show('screen-map'); playMapVoice(); }
+function playMapVoice(){
+  var c=document.getElementById('map-speaker'); c.classList.add('show');
+  playVoice('custodian_map', function(){ c.classList.remove('show'); });    // NEW map voice hook (same map screen, no new screen)
+}
+function enterLevel1(){ show('screen-vault'); goStage(1); }
+function backToMap(){
+  var d1=document.getElementById('door-1');
+  d1.classList.remove('available'); d1.classList.add('done');
+  document.getElementById('door-1-status').textContent='Opened';
+  document.getElementById('door-1-btn').textContent='Re-enter';
+  var d2=document.getElementById('door-2'); d2.classList.add('next');
+  document.getElementById('door-2-status').textContent='Next ascent';
+  clearWater(); show('screen-map'); playMapVoice();
+}
+
+/* ===================== CURATOR typewriter (verbatim caption) ===================== */
+var twTimer=null;
+function curatorSay(text, elId, onDone){
+  var el=document.getElementById(elId||'curator-line');
+  if(twTimer) clearInterval(twTimer);
+  el.textContent=''; var i=0;
+  twTimer=setInterval(function(){
+    if(i<text.length){ el.textContent=text.slice(0,i+1); i++; }
+    else { clearInterval(twTimer); el.innerHTML=text+' <span class="caret">&#9646;</span>'; if(onDone) onDone(); }
+  }, 24);
+}
+
+/* Rev 2.1: reveal a radio transmission and (re)fire its arrival jitter every time, via reflow. */
+function showRadio(id){
+  var el=document.getElementById(id);
+  if(!el) return;
+  el.style.display='flex';
+  el.classList.remove('radio-in');
+  void el.offsetWidth;          // force reflow so the animation restarts
+  el.classList.add('radio-in');
+  /* optional later: a CC0 static-crackle SFX could hook here, e.g. playSound('radio_static'); — none wired now */
+}
+
+/* ===================== RISING WATER (vault only) ===================== */
+function setWater(stage){
+  var w=document.getElementById('water'); w.style.display='block';
+  w.style.height = (stage===1?'12vh':(stage===2?'30vh':'52vh'));   // S3 ends waist/chest, not the top
+}
+function clearWater(){ var w=document.getElementById('water'); w.style.height='0'; setTimeout(function(){ if(w.style.height==='0px'||w.style.height==='0') w.style.display='none'; }, 700); }
+
+/* ===================== STAGES ===================== */
+var currentStage=1;
+function goStage(s){
+  currentStage=s;
+  document.getElementById('stage-1').style.display=(s===1)?'block':'none';
+  document.getElementById('stage-2').style.display=(s===2)?'block':'none';
+  document.getElementById('stage-3').style.display=(s===3)?'block':'none';
+  for(var i=1;i<=3;i++){ var pip=document.getElementById('pip-'+i); pip.className='stage-pip'+(i<s?' done':(i===s?' active':'')); }
+  for(var k=1;k<=3;k++){ var rm=document.getElementById('radio-s'+k); if(rm) rm.style.display='none'; }
+  setWater(s);
+  var revealAmara=function(){ showRadio('radio-s'+s); };
+  if(s===1){ playVoice('curator_stage1'); curatorSay(CUR.s1, 'curator-line', revealAmara); }
+  if(s===2){ playVoice('curator_stage2'); curatorSay(CUR.s2, 'curator-line', revealAmara); }
+  if(s===3){ playVoice('curator_stage3'); curatorSay(CUR.s3, 'curator-line', revealAmara); }
+  window.scrollTo(0,0);
+}
+
+function readInt(id){
+  var raw=document.getElementById(id).value.replace(/[,\s]/g,'').trim();
+  if(raw===''||!/^-?\d+$/.test(raw)) return null;
+  return parseInt(raw,10);
+}
+
+var lastCustWrongMs=0;
+function custodianWrong(){    // Vault Custodian judges wrong answers; voice debounced ~2s so it never machine-guns
+  var now=Date.now();
+  if(now-lastCustWrongMs>=2000){ lastCustWrongMs=now; playVoice('custodian_wrong'); }
+}
+
+/* Stage 1 */
+function checkS1(){
+  var v=readInt('d-s1'); var fb=document.getElementById('fb-s1');
+  if(v===ANS.s1){
+    solved.s1=true; markSolved('lock-s1','d-s1'); playSound('unlock');
+    fb.className='feedback good'; fb.textContent='Verified.';
+    curatorSay(CUR.s1done, 'curator-line');
+    fireEvent('stage_complete',1);
+    playVoice('curator_stage1_solved', function(){ setTimeout(function(){ goStage(2); }, 350); });
+  } else { fb.className='feedback bad'; fb.textContent='Incorrect. The lock holds.'; custodianWrong(); }
+}
+
+/* Stage 2 */
+function checkAlpha(){ var v=readInt('d-alpha'),fb=document.getElementById('fb-alpha');
+  if(v===ANS.alpha){ solved.alpha=true; markSolved('lock-alpha','d-alpha'); playSound('unlock'); fb.className='feedback good'; fb.textContent='Verified.'; afterStage2(); }
+  else { fb.className='feedback bad'; fb.textContent='Incorrect. The lock holds.'; custodianWrong(); } }
+function checkBeta(){ var v=readInt('d-beta'),fb=document.getElementById('fb-beta');
+  if(v===ANS.beta){ solved.beta=true; markSolved('lock-beta','d-beta'); playSound('unlock'); fb.className='feedback good'; fb.textContent='Verified.'; afterStage2(); }
+  else { fb.className='feedback bad'; fb.textContent='Incorrect. The lock holds.'; custodianWrong(); } }
+function checkGamma(){ var v=readInt('d-gamma'),fb=document.getElementById('fb-gamma');
+  if(v===ANS.gamma){ solved.gamma=true; markSolved('lock-gamma','d-gamma'); playSound('unlock'); fb.className='feedback good'; fb.textContent='Verified.'; afterStage2(); }
+  else if(v===98){ fb.className='feedback nudge'; fb.textContent="Incorrect. The exceptional years \u2014 beyond three standard deviations \u2014 are not 'neither'. Remove that tail as well."; custodianWrong(); }
+  else if(v===95){ fb.className='feedback nudge'; fb.textContent="Incorrect. The upper limit is three standard deviations above the mean, not two."; custodianWrong(); }
+  else { fb.className='feedback bad'; fb.textContent='Incorrect. The lock holds.'; custodianWrong(); } }
+function afterStage2(){
+  if(solved.alpha&&solved.beta&&solved.gamma){
+    document.getElementById('msg-s2').textContent='All three stations agree. The inner door unlocks.';
+    curatorSay(CUR.s2done, 'curator-line');
+    fireEvent('stage_complete',2);
+    playVoice('curator_stage2_solved', function(){ setTimeout(function(){ goStage(3); }, 350); });
+  } else {
+    var left=(solved.alpha?0:1)+(solved.beta?0:1)+(solved.gamma?0:1);
+    document.getElementById('msg-s2').textContent=left+' station'+(left>1?'s':'')+' still to agree.';
+  }
+}
+
+/* Stage 3 — per-dial Set; untouched dial stays NEUTRAL; Open enables only when all three set */
+function checkH(n){
+  var id='d-h'+n, fbId='fb-h'+n, ans=ANS['h'+n];
+  var v=readInt(id), fb=document.getElementById(fbId), dial=document.getElementById(id);
+  if(v===ans){ solved['h'+n]=true; fb.className='feedback good'; fb.textContent='Verified.'; dial.classList.add('solved'); dial.readOnly=true; playSound('unlock'); }
+  else { solved['h'+n]=false; fb.className='feedback bad'; fb.textContent='Incorrect. The lock holds.'; dial.classList.remove('solved'); custodianWrong(); }
+  updateOpenBtn();
+  if(solved.h1&&solved.h2&&solved.h3) document.getElementById('msg-s3').textContent='All three dials are set. The vault will yield.';
+}
+function updateOpenBtn(){ document.getElementById('open-door-btn').disabled = !(solved.h1&&solved.h2&&solved.h3); }
+
+function openVaultDoor(){
+  if(!(solved.h1&&solved.h2&&solved.h3)) return;
+  fireEvent('stage_complete',3);
+  playSound('stage_clear');
+  var ov=document.getElementById('door-open'); ov.classList.add('show');
+  setTimeout(function(){ ov.classList.add('opening'); }, 40);
+  setTimeout(function(){
+    ov.classList.remove('show'); ov.classList.remove('opening');
+    fireEvent('level_complete',3);
+    ambientOn=false; stopLoop('siren'); stopLoop('water'); clearWater();
+    timerOn=false; clearInterval(raceTick); updateTimerBtn();
+    var disp=document.getElementById('timer-display'); disp.style.display='none'; disp.style.color='';
+    document.getElementById('r-team').textContent=session.teamName;
+    var secs=session.startMs?Math.round((Date.now()-session.startMs)/1000):0;
+    document.getElementById('r-time').textContent=fmtTime(secs);
+    show('screen-results');
+    curatorSay(CUR.done, 'results-curator-line');
+    playVoice('curator_complete');
+  }, 2900);
+}
+function markSolved(lockId,dialId){
+  document.getElementById(lockId).classList.add('solved');
+  var d=document.getElementById(dialId); if(d){ d.classList.add('solved'); d.readOnly=true; }
+}
+
+/* ===================== KAI hints (per panel, no limit) ===================== */
+function toggleKai(id){ var el=document.getElementById(id); el.classList.toggle('show'); if(el.classList.contains('show')) playSound('click'); }
+
+/* ===================== TERMINAL (Hook-only) ===================== */
+function openTerminal(){ document.getElementById('terminal-modal').classList.add('show'); playSound('click'); }
+function closeTerminal(){ document.getElementById('terminal-modal').classList.remove('show'); }
+
+/* ===================== RACE TIMER (optional; no fail) ===================== */
+var timerOn=false, raceSecs=20*60, raceLeft=raceSecs, raceTick=null;
+function toggleTimer(){
+  timerOn=!timerOn;
+  if(timerOn){
+    raceLeft=raceSecs;
+    document.getElementById('timer-display').style.display='inline-block';
+    document.getElementById('timer-display').textContent=fmtTime(raceLeft);
+    raceTick=setInterval(function(){ raceLeft--; document.getElementById('timer-display').textContent=fmtTime(raceLeft); if(raceLeft<=0) raceExpire(); }, 1000);
+  } else { clearInterval(raceTick); document.getElementById('timer-display').style.display='none'; }
+  updateTimerBtn();
+}
+function updateTimerBtn(){ var b=document.getElementById('timer-btn'); b.textContent='Race timer: '+(timerOn?'on':'off'); b.className='vbtn'+(timerOn?' on':''); }
+function raceExpire(){
+  clearInterval(raceTick);
+  var disp=document.getElementById('timer-display'); disp.textContent="time's up"; disp.style.color='var(--v-alert)';
+  setTimeout(function(){ alert("Time's up \u2014 but there is no failure here. Continue anyway."); timerOn=false; updateTimerBtn(); disp.style.display='none'; disp.style.color=''; }, 50);
+}
+function fmtTime(s){ if(s<0)s=0; var m=Math.floor(s/60), ss=s%60; return m+':'+(ss<10?'0':'')+ss; }
+
+document.addEventListener('keydown', function(e){
+  if(e.key!=='Enter') return;
+  var id=document.activeElement&&document.activeElement.id;
+  var map={ 'd-s1':checkS1,'d-alpha':checkAlpha,'d-beta':checkBeta,'d-gamma':checkGamma,
+            'd-h1':function(){checkH(1);},'d-h2':function(){checkH(2);},'d-h3':function(){checkH(3);} };
+  if(map[id]) map[id]();
+});
+</script>
+</body>
+</html>
